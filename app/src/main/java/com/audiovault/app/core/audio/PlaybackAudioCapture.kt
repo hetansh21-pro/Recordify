@@ -48,6 +48,9 @@ class PlaybackAudioCapture(
     private val captureScope = CoroutineScope(Dispatchers.IO)
     private var isCapturing = false
 
+    private var isAdPaused = false
+    private var isFadingInNext = false
+
     @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     fun start() {
@@ -132,6 +135,8 @@ class PlaybackAudioCapture(
 
             selectedRecord.startRecording()
             isCapturing = true
+            isAdPaused = false
+            isFadingInNext = false
             Log.i(TAG, "AudioPlaybackCapture started smoothly ($actualSampleRate Hz, $actualChannelCount ch, ${activeConfig.bitrateKbps} kbps)")
 
             captureJob = captureScope.launch {
@@ -158,17 +163,26 @@ class PlaybackAudioCapture(
                     val isMusic = acousticProfile?.isMusic ?: true
 
                     val liveSong = currentSongProvider()
-                    val isAdActive = liveSong?.isAdvertisement == true || currentTrackMetadata?.isAdvertisement == true
+                    val isAccessibilityAd = com.audiovault.app.core.intelligence.YouTubeAdAccessibilityService.isAdPlaying.value
+                    val isAdActive = isAccessibilityAd || liveSong?.isAdvertisement == true || currentTrackMetadata?.isAdvertisement == true
 
                     if (isAdActive) {
-                        // If previous track was recording, finalize it immediately so no ad audio leaks into it
-                        if (currentEncoder != null && currentRecordingFile != null) {
-                            Log.i(TAG, "Ad active; finalizing previous recording and skipping advertisement audio.")
-                            handleRecordingStop(isEligibleDuration = true)
+                        if (!isAdPaused) {
+                            Log.i(TAG, "YouTube / Media Ad detected! Applying smooth 50ms fade-out and pausing audio encoder queue.")
+                            // Apply micro-fade out before pausing to eliminate audio clicks
+                            applyFadeOut(buffer, 0, bytesRead)
+                            currentEncoder?.encodePcm(buffer, 0, bytesRead)
+                            isAdPaused = true
+                            isFadingInNext = true
                         }
-                        // Skip recording PCM frames during advertisement
+                        // Skip feeding ad audio to the encoder during ad break
                         onStateChanged(false, 0L, detector.currentRmsDb, false)
                         continue
+                    } else {
+                        if (isAdPaused) {
+                            Log.i(TAG, "Ad break completed. Applying smooth 50ms fade-in and resuming clean song recording.")
+                            isAdPaused = false
+                        }
                     }
 
                     val (isRecording, durationMs) = detector.processPcmChunk(buffer, bytesRead)
@@ -178,6 +192,11 @@ class PlaybackAudioCapture(
                             if (liveSong != null && liveSong.isIdentified) {
                                 currentTrackMetadata = liveSong
                             }
+                        }
+
+                        if (isFadingInNext) {
+                            applyFadeIn(buffer, 0, bytesRead)
+                            isFadingInNext = false
                         }
 
                         // Fast, non-blocking asynchronous queue push
@@ -194,6 +213,40 @@ class PlaybackAudioCapture(
             Log.e(TAG, "Exception during capture loop", e)
         } finally {
             Log.d(TAG, "Exiting capture loop")
+        }
+    }
+
+    /**
+     * Applies a 50ms smooth linear micro fade-out to prevent audio pops / clicks at cut boundaries.
+     */
+    private fun applyFadeOut(pcmData: ByteArray, offset: Int, length: Int) {
+        val sampleCount = length / 2
+        for (i in 0 until sampleCount) {
+            val sampleIndex = offset + i * 2
+            val low = pcmData[sampleIndex].toInt() and 0xFF
+            val high = pcmData[sampleIndex + 1].toInt() shl 8
+            val shortVal = (low or high).toShort()
+            val factor = 1.0f - (i.toFloat() / sampleCount.toFloat())
+            val faded = (shortVal * factor).toInt().coerceIn(-32768, 32767)
+            pcmData[sampleIndex] = (faded and 0xFF).toByte()
+            pcmData[sampleIndex + 1] = ((faded shr 8) and 0xFF).toByte()
+        }
+    }
+
+    /**
+     * Applies a 50ms smooth linear micro fade-in to seamlessly re-engage audio without glitches.
+     */
+    private fun applyFadeIn(pcmData: ByteArray, offset: Int, length: Int) {
+        val sampleCount = length / 2
+        for (i in 0 until sampleCount) {
+            val sampleIndex = offset + i * 2
+            val low = pcmData[sampleIndex].toInt() and 0xFF
+            val high = pcmData[sampleIndex + 1].toInt() shl 8
+            val shortVal = (low or high).toShort()
+            val factor = (i.toFloat() / sampleCount.toFloat())
+            val faded = (shortVal * factor).toInt().coerceIn(-32768, 32767)
+            pcmData[sampleIndex] = (faded and 0xFF).toByte()
+            pcmData[sampleIndex + 1] = ((faded shr 8) and 0xFF).toByte()
         }
     }
 
