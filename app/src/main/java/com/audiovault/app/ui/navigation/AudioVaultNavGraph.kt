@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -102,7 +104,7 @@ fun AudioVaultNavGraph(
         ) { innerPadding ->
             HorizontalPager(
                 state = pagerState,
-                userScrollEnabled = !isArtistDetailOpen,
+                userScrollEnabled = !isArtistDetailOpen && !showFullScreenPlayer,
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize(),
@@ -142,7 +144,13 @@ fun AudioVaultNavGraph(
             visible = showFullScreenPlayer && playerState.currentRecording != null,
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it }),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { /* Consume clicks to prevent background pass-through */ }
+                )
         ) {
             val currentRec = playerState.currentRecording
             SpotifyFullScreenPlayer(

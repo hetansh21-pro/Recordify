@@ -3,6 +3,8 @@ package com.audiovault.app.ui.player
 import com.audiovault.app.ui.components.TrackCoverArt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
@@ -105,6 +107,11 @@ fun SpotifyFullScreenPlayer(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { /* Consume touch events so background screen is not touchable */ }
+            )
             .background(
                 Brush.verticalGradient(
                     listOf(
