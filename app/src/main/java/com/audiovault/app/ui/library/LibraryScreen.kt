@@ -264,7 +264,7 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(LibraryTab.values()) { tab ->
+                items(LibraryTab.values(), key = { it.name }) { tab ->
                     val isSelected = selectedTab == tab
                     val label = when (tab) {
                         LibraryTab.ALL -> "All"
@@ -434,7 +434,7 @@ fun LibraryScreen(
 
                     // Artist Group Rows (if in All or Artists)
                     if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.ARTISTS) {
-                        items(artistGroups) { (artistName, songs) ->
+                        items(artistGroups, key = { it.first }) { (artistName, songs) ->
                             val songTitle = songs.firstOrNull()?.title
                             ArtistLibraryRow(
                                 artistName = artistName,

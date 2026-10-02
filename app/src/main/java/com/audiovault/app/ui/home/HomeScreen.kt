@@ -11,9 +11,12 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import com.audiovault.app.ui.recordings.DeleteConfirmDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,6 +100,7 @@ fun HomeScreen(
 
     var permissionErrorMessage by remember { mutableStateOf<String?>(null) }
     var selectedHomeFilter by remember { mutableStateOf("All") }
+    var recordingToDelete by remember { mutableStateOf<RecordingEntity?>(null) }
 
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -282,6 +286,7 @@ fun HomeScreen(
                                         recording = recording,
                                         isPlaying = isTrackPlaying,
                                         onClick = { viewModel.playPauseRecording(recording) },
+                                        onDeleteClick = { recordingToDelete = recording },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -459,6 +464,9 @@ fun HomeScreen(
                     onRecordingClick = { recording ->
                         viewModel.playPauseRecording(recording)
                     },
+                    onDeleteClick = { recording ->
+                        recordingToDelete = recording
+                    },
                     onViewAllClick = onNavigateToRecordings
                 )
 
@@ -466,20 +474,36 @@ fun HomeScreen(
             }
         }
     }
+
+    recordingToDelete?.let { recording ->
+        DeleteConfirmDialog(
+            recording = recording,
+            onDismiss = { recordingToDelete = null },
+            onConfirmDelete = {
+                viewModel.deleteRecording(recording)
+                recordingToDelete = null
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SpotifyQuickGridTile(
     recording: RecordingEntity,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(6.dp))
-            .clickable { onClick() },
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onDeleteClick
+            ),
         shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(
             containerColor = SpotifyDarkSurface

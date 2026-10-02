@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -71,6 +72,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             playerEngine.togglePlayPause()
         } else {
             playerEngine.play(recording)
+        }
+    }
+
+    fun deleteRecording(recording: RecordingEntity) {
+        viewModelScope.launch {
+            if (playerState.value.currentRecording?.id == recording.id) {
+                playerEngine.stopAndClose()
+            }
+            recordingRepository.deleteRecording(recording)
         }
     }
 

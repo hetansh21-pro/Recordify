@@ -1,16 +1,13 @@
 package com.audiovault.app.ui.home
 
-import com.audiovault.app.ui.components.TrackCoverArt
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +27,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,12 +35,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.audiovault.app.data.local.entity.RecordingEntity
+import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.theme.SpotifyCardSurface
 import com.audiovault.app.ui.theme.SpotifyGreenBright
 import java.text.SimpleDateFormat
@@ -57,6 +55,7 @@ fun RecentRecordingsList(
     currentPlayingId: Long?,
     isPlaying: Boolean,
     onRecordingClick: (RecordingEntity) -> Unit,
+    onDeleteClick: (RecordingEntity) -> Unit,
     onViewAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -128,7 +127,8 @@ fun RecentRecordingsList(
                     RecentRecordingItem(
                         recording = recording,
                         isPlaying = isCurrentTrackPlaying,
-                        onClick = { onRecordingClick(recording) }
+                        onClick = { onRecordingClick(recording) },
+                        onDeleteClick = { onDeleteClick(recording) }
                     )
                 }
 
@@ -173,16 +173,22 @@ fun RecentRecordingsList(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecentRecordingItem(
     recording: RecordingEntity,
     isPlaying: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clip(RoundedCornerShape(14.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onDeleteClick
+            ),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -194,7 +200,7 @@ private fun RecentRecordingItem(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -206,7 +212,7 @@ private fun RecentRecordingItem(
                     shape = RoundedCornerShape(8.dp)
                 )
                 if (isPlaying) {
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(8.dp))
