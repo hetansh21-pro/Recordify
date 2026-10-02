@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Recordify</string>
+    <string name="monitoring_active">Monitoring Active</string>
+    <string name="monitoring_idle">Monitoring Idle</string>
+    <string name="waiting_for_audio">Waiting for Playback</string>
+    <string name="recording_active">Recording Audio</string>
+    <string name="start_monitoring">Start Monitoring</string>
+    <string name="stop_monitoring">Stop Monitoring</string>
+    <string name="recent_recordings">Recent Recordings</string>
+    <string name="no_recordings_yet">No recordings yet</string>
+    <string name="no_recordings_description">Start monitoring and Recordify will automatically save eligible playback sessions.</string>
+    <string name="permission_denied_message">Audio capture permission is required to monitor eligible device playback.</string>
+    <string name="notification_channel_name">Recordify Playback Capture</string>
+    <string name="notification_channel_desc">Shows ongoing audio capture status and controls</string>
+    <string name="about_audio_capture_title">About Audio Playback Capture</string>
+    <string name="about_audio_capture_desc">Recordify uses Android\'s official AudioPlaybackCapture API (Android 10+). It can only capture audio from apps that explicitly allow playback capture. DRM-protected content cannot and will not be captured according to Android platform security policies.</string>
+</resources>

@@ -1,0 +1,5 @@
+kotlin version: 2.0.21
+error message: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/home/hetansh-patel/jdk17/usr/lib/jvm/java-17-openjdk-amd64/lib/security/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+    2. Kotlin compile daemon is ready
+
