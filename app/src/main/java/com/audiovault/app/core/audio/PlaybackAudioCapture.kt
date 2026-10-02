@@ -384,6 +384,16 @@ class PlaybackAudioCapture(
         captureJob?.cancel()
         captureJob = null
 
+        val encoder = currentEncoder
+        val file = currentRecordingFile
+        val song = currentTrackMetadata ?: currentSongProvider()
+        val durationMs = if (currentSessionStartTimeMs > 0L) (System.currentTimeMillis() - currentSessionStartTimeMs) else 0L
+
+        currentEncoder = null
+        currentRecordingFile = null
+        currentTrackMetadata = null
+        currentSessionStartTimeMs = 0L
+
         try {
             detector?.forceStop()
         } catch (e: Exception) {
@@ -403,13 +413,34 @@ class PlaybackAudioCapture(
         }
         audioRecord = null
 
-        try {
-            currentEncoder?.finishAndRelease()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error finalizing encoder: ${e.message}")
+        // If recording was in progress and user stopped in middle:
+        // If duration is 50 seconds or up (>= 50_000ms), process and save the audio!
+        if (encoder != null && file != null) {
+            captureScope.launch(Dispatchers.IO) {
+                try {
+                    val isValid = encoder.finishAndRelease()
+                    val isAtLeast50s = durationMs >= 50_000L
+                    val isAd = song?.isAdvertisement == true
+
+                    if (isValid && isAtLeast50s && !isAd) {
+                        Log.i(TAG, "Stopped ongoing recording in middle (duration: ${durationMs}ms >= 50s). Processing & saving to library!")
+                        val processed = AudioPostProcessor.processAndCleanRecording(file, durationMs, song)
+                        if (processed.isValidSong) {
+                            onRecordingSaved(processed.file, processed.durationMs, song)
+                        } else if (processed.file.exists()) {
+                            processed.file.delete()
+                        }
+                    } else {
+                        Log.d(TAG, "Stopped recording in middle with duration < 50s (${durationMs}ms). Discarding short fragment.")
+                        if (file.exists()) {
+                            file.delete()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving mid-recording stop", e)
+                }
+            }
         }
-        currentEncoder = null
-        currentRecordingFile = null
 
         Log.i(TAG, "PlaybackAudioCapture stopped and resources released.")
     }

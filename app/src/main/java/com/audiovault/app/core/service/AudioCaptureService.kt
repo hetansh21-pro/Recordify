@@ -73,6 +73,7 @@ class AudioCaptureService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var notificationManager: ServiceNotificationManager
     private lateinit var fileManager: FileManager
     private lateinit var recordingRepository: RecordingRepository
@@ -209,7 +210,7 @@ class AudioCaptureService : Service() {
                         fileProvider = { song -> fileManager.createNewRecordingFile(song) },
                         currentSongProvider = { _currentDetectedSong.value },
                         onRecordingSaved = { file, durationMs, song ->
-                            serviceScope.launch(Dispatchers.IO) {
+                            persistenceScope.launch {
                                 val savedId = recordingRepository.saveRecording(
                                     file = file,
                                     durationMs = durationMs,
