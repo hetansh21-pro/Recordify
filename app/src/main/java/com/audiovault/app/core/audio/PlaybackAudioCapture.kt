@@ -293,13 +293,20 @@ class PlaybackAudioCapture(
         if (encoder != null && file != null) {
             captureScope.launch(Dispatchers.IO) {
                 val isValid = encoder.finishAndRelease()
-                val isAd = song?.isAdvertisement == true
-                val isAtLeast50s = durationMs >= 50_000L
-                if (isValid && isEligibleDuration && isAtLeast50s && !isAd) {
-                    Log.i(TAG, "Finalized recording: ${file.name}, duration: ${durationMs}ms for '${song?.displayTitle}'")
-                    onRecordingSaved(file, durationMs, song)
+                if (isValid && isEligibleDuration) {
+                    // Run 3-Layer Audio Post-Processor (Acoustic Ad Classifier + SponsorBlock + Lossless Media Slicer)
+                    val processed = AudioPostProcessor.processAndCleanRecording(file, durationMs, song)
+                    if (processed.isValidSong) {
+                        Log.i(TAG, "Post-processed clean recording: ${processed.file.name}, duration: ${processed.durationMs}ms for '${song?.displayTitle}'")
+                        onRecordingSaved(processed.file, processed.durationMs, song)
+                    } else {
+                        Log.d(TAG, "Discarded invalid/ad recording after 3-layer post-scan: ${file.name}")
+                        if (processed.file.exists()) {
+                            processed.file.delete()
+                        }
+                    }
                 } else {
-                    Log.d(TAG, "Discarded recording (eligible=$isEligibleDuration, atLeast50s=$isAtLeast50s, duration=${durationMs}ms, valid=$isValid, isAd=$isAd)")
+                    Log.d(TAG, "Discarded recording (eligible=$isEligibleDuration, duration=${durationMs}ms, valid=$isValid)")
                     if (file.exists()) {
                         file.delete()
                     }
@@ -339,13 +346,17 @@ class PlaybackAudioCapture(
                 Log.i(TAG, "Track changed from '$prevTitle' to '$newTitle'. Splitting recording.")
             }
 
-            // Finalize previous song in background
+            // Finalize previous song in background and clean with AudioPostProcessor
             if (oldEncoder != null && oldFile != null) {
                 captureScope.launch(Dispatchers.IO) {
                     val isValid = oldEncoder.finishAndRelease()
-                    val minDurationMs = activeConfig.minRecordingDurationSeconds * 1000L
-                    if (isValid && durationMs >= minDurationMs && (oldSong == null || !oldSong.isAdvertisement)) {
-                        onRecordingSaved(oldFile, durationMs, oldSong)
+                    if (isValid) {
+                        val processed = AudioPostProcessor.processAndCleanRecording(oldFile, durationMs, oldSong)
+                        if (processed.isValidSong) {
+                            onRecordingSaved(processed.file, processed.durationMs, oldSong)
+                        } else if (processed.file.exists()) {
+                            processed.file.delete()
+                        }
                     } else if (oldFile.exists()) {
                         oldFile.delete()
                     }
