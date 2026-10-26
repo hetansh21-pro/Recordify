@@ -211,20 +211,39 @@ class AudioCaptureService : Service() {
                         currentSongProvider = { _currentDetectedSong.value },
                         onRecordingSaved = { file, durationMs, song ->
                             persistenceScope.launch {
+                                // 1. Save immediately with isProcessing = true so track appears in UI instantly
                                 val savedId = recordingRepository.saveRecording(
                                     file = file,
                                     durationMs = durationMs,
                                     metadata = song,
-                                    bitrateKbps = captureConfig.bitrateKbps
+                                    bitrateKbps = captureConfig.bitrateKbps,
+                                    isProcessing = true
                                 )
-                                if (savedId > 0 && song != null) {
-                                    val art = CoverArtFetcher.fetchAndCacheCoverArt(this@AudioCaptureService, song.title, song.artist)
-                                    if (art != null) {
-                                        recordingRepository.updateAlbumArtPath(savedId, art)
+                                if (savedId > 0) {
+                                    if (song != null) {
+                                        val art = CoverArtFetcher.fetchAndCacheCoverArt(this@AudioCaptureService, song.title, song.artist)
+                                        if (art != null) {
+                                            recordingRepository.updateAlbumArtPath(savedId, art)
+                                        }
+                                        if (!song.artist.isNullOrBlank()) {
+                                            CoverArtFetcher.fetchAndCacheArtistArt(this@AudioCaptureService, song.artist, song.title)
+                                        }
+                                        // Post top notification alert when song is saved
+                                        AppNotificationManager.postSongSavedNotification(this@AudioCaptureService, song)
                                     }
-                                    if (!song.artist.isNullOrBlank()) {
-                                        CoverArtFetcher.fetchAndCacheArtistArt(this@AudioCaptureService, song.artist, song.title)
-                                    }
+
+                                    // 2. Perform smart boundary refinement in background (detects onset, trims bleed, updates exact duration)
+                                    val refined = com.audiovault.app.core.audio.AudioTransitionRefiner.refineAndTrimBoundary(
+                                        sourceFile = file,
+                                        initialDurationMs = durationMs,
+                                        metadata = song
+                                    )
+                                    recordingRepository.updateProcessingStatus(
+                                        id = savedId,
+                                        isProcessing = false,
+                                        durationMs = refined.durationMs,
+                                        fileSizeBytes = refined.fileSizeBytes
+                                    )
                                 }
                             }
                         },

@@ -58,7 +58,7 @@ fun AboutCaptureCard(modifier: Modifier = Modifier) {
 
             Text(
                 text = "• Capture Eligibility: Captures playback only from media and game apps that allow capture policy (ALLOW_ALL or unspecified on target API 29+).\n\n" +
-                        "• DRM Protection: Apps with DRM protection (e.g., Spotify, Netflix) or apps specifying ALLOW_NONE are protected by Android platform security and will not be captured.\n\n" +
+                        "• DRM Protection: Content protected by DRM or apps specifying ALLOW_NONE are protected by Android platform security and will not be captured.\n\n" +
                         "• 100% Offline & Private: No audio data or analytics are uploaded anywhere. All recordings remain exclusively on your device.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

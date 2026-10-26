@@ -31,6 +31,12 @@ class PlaylistRepository(private val context: Context) {
     private val _playlists = MutableStateFlow<List<UserPlaylist>>(emptyList())
     val playlists: StateFlow<List<UserPlaylist>> = _playlists.asStateFlow()
 
+    private val _savedArtists = MutableStateFlow<Set<String>>(emptySet())
+    val savedArtists: StateFlow<Set<String>> = _savedArtists.asStateFlow()
+
+    private val _manualArtists = MutableStateFlow<Set<String>>(emptySet())
+    val manualArtists: StateFlow<Set<String>> = _manualArtists.asStateFlow()
+
     init {
         loadData()
     }
@@ -51,6 +57,26 @@ class PlaylistRepository(private val context: Context) {
                         }
                     }
                     _likedSongIds.value = likedSet
+
+                    // Load saved artists
+                    val savedArtistsArr = root.optJSONArray("savedArtists")
+                    val artistSet = mutableSetOf<String>()
+                    if (savedArtistsArr != null) {
+                        for (i in 0 until savedArtistsArr.length()) {
+                            artistSet.add(savedArtistsArr.getString(i))
+                        }
+                    }
+                    _savedArtists.value = artistSet
+
+                    // Load manual artists
+                    val manualArtistsArr = root.optJSONArray("manualArtists")
+                    val manualArtistSet = mutableSetOf<String>()
+                    if (manualArtistsArr != null) {
+                        for (i in 0 until manualArtistsArr.length()) {
+                            manualArtistSet.add(manualArtistsArr.getString(i))
+                        }
+                    }
+                    _manualArtists.value = manualArtistSet
 
                     // Load custom playlists
                     val playlistArr = root.optJSONArray("playlists")
@@ -88,6 +114,14 @@ class PlaylistRepository(private val context: Context) {
                 _likedSongIds.value.forEach { likedArr.put(it) }
                 root.put("likedSongIds", likedArr)
 
+                val artistArr = JSONArray()
+                _savedArtists.value.forEach { artistArr.put(it) }
+                root.put("savedArtists", artistArr)
+
+                val manualArr = JSONArray()
+                _manualArtists.value.forEach { manualArr.put(it) }
+                root.put("manualArtists", manualArr)
+
                 val pArr = JSONArray()
                 _playlists.value.forEach { p ->
                     val pObj = JSONObject()
@@ -106,6 +140,81 @@ class PlaylistRepository(private val context: Context) {
                 Log.e("AudioVault/Playlist", "Error saving playlists data", e)
             }
         }
+    }
+
+    fun isArtistSaved(artistName: String): Boolean {
+        val cleanName = artistName.trim()
+        return _savedArtists.value.any { it.equals(cleanName, ignoreCase = true) }
+    }
+
+    fun addManualArtist(artistName: String) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return
+        val current = _manualArtists.value.toMutableSet()
+        val existing = current.firstOrNull { it.equals(cleanName, ignoreCase = true) }
+        if (existing == null) {
+            current.add(cleanName)
+            _manualArtists.value = current
+            persistData()
+        }
+    }
+
+    fun removeArtist(artistName: String) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return
+        val mCurrent = _manualArtists.value.toMutableSet()
+        val mRemoved = mCurrent.removeAll { it.equals(cleanName, ignoreCase = true) }
+        if (mRemoved) {
+            _manualArtists.value = mCurrent
+        }
+        val sCurrent = _savedArtists.value.toMutableSet()
+        val sRemoved = sCurrent.removeAll { it.equals(cleanName, ignoreCase = true) }
+        if (sRemoved) {
+            _savedArtists.value = sCurrent
+        }
+        if (mRemoved || sRemoved) {
+            persistData()
+        }
+    }
+
+    fun saveArtist(artistName: String) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return
+        val current = _savedArtists.value.toMutableSet()
+        val existing = current.firstOrNull { it.equals(cleanName, ignoreCase = true) }
+        if (existing == null) {
+            current.add(cleanName)
+            _savedArtists.value = current
+            persistData()
+        }
+    }
+
+    fun removeSavedArtist(artistName: String) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return
+        val current = _savedArtists.value.toMutableSet()
+        val removed = current.removeAll { it.equals(cleanName, ignoreCase = true) }
+        if (removed) {
+            _savedArtists.value = current
+            persistData()
+        }
+    }
+
+    fun toggleSavedArtist(artistName: String): Boolean {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return false
+        val current = _savedArtists.value.toMutableSet()
+        val existing = current.firstOrNull { it.equals(cleanName, ignoreCase = true) }
+        val isNowSaved = if (existing != null) {
+            current.remove(existing)
+            false
+        } else {
+            current.add(cleanName)
+            true
+        }
+        _savedArtists.value = current
+        persistData()
+        return isNowSaved
     }
 
     fun isSongLiked(songId: Long): Boolean {

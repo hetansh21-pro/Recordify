@@ -149,7 +149,7 @@ class MediaSessionTracker(
                 } catch (e: Exception) {
                     // Ignore security exception in poller
                 }
-                delay(2000L)
+                delay(500L)
             }
         }
     }

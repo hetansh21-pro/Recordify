@@ -17,22 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,8 +51,7 @@ fun RecentRecordingsList(
     onViewAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
-    val displayedRecordings = if (isExpanded) recentRecordings else recentRecordings.take(5)
+    val displayedRecordings = recentRecordings.take(4)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -74,14 +65,7 @@ fun RecentRecordingsList(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            if (recentRecordings.size > 5) {
-                Text(
-                    text = if (isExpanded) "Show Less" else "View All (${recentRecordings.size})",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = SpotifyGreenBright,
-                    modifier = Modifier.clickable { isExpanded = !isExpanded }
-                )
-            } else if (recentRecordings.isNotEmpty()) {
+            if (recentRecordings.isNotEmpty()) {
                 Text(
                     text = "View All",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -130,43 +114,6 @@ fun RecentRecordingsList(
                         onClick = { onRecordingClick(recording) },
                         onDeleteClick = { onDeleteClick(recording) }
                     )
-                }
-
-                if (recentRecordings.size > 5) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedButton(
-                        onClick = { isExpanded = !isExpanded },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp),
-                        shape = RoundedCornerShape(23.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = SpotifyCardSurface,
-                            contentColor = Color.White
-                        ),
-                        border = null
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = if (isExpanded) "Show Less" else "View All Recent Recordings (${recentRecordings.size})",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.3.sp
-                                ),
-                                color = Color.White
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = SpotifyGreenBright,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -260,10 +207,10 @@ private fun RecentRecordingItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = formatDuration(recording.durationMs),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+            com.audiovault.app.ui.components.ProcessingTimelineBadge(
+                isProcessing = recording.isProcessing,
+                durationMs = recording.durationMs,
+                textColor = MaterialTheme.colorScheme.primary
             )
         }
     }

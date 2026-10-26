@@ -15,5 +15,5 @@
     <string name="about_audio_capture_title">About Audio Playback Capture</string>
     <string name="about_audio_capture_desc">Recordify uses Android\'s official AudioPlaybackCapture API (Android 10+). It can only capture audio from apps that explicitly allow playback capture. DRM-protected content cannot and will not be captured according to Android platform security policies.</string>
     <string name="accessibility_service_label">Recordify YouTube Ad Cutter</string>
-    <string name="accessibility_service_description">Detects in-stream YouTube advertisements and automatically pauses audio capture so only clean songs and music are recorded.</string>
+    <string name="accessibility_service_description">Detects in-stream YouTube advertisements in real-time and pauses audio capture with smooth micro-crossfades so only clean songs and music are recorded.</string>
 </resources>

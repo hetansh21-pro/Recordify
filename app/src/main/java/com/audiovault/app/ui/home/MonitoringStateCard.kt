@@ -81,7 +81,7 @@ fun MonitoringStateCard(
     } else if (isRecording) {
         "Auto-Splitting & Tagging Active"
     } else if (isMonitoring) {
-        "Play any song on Spotify to start auto-recording"
+        "Play any song on Recordify or media players to start recording"
     } else {
         "Tap start below to monitor background music"
     }

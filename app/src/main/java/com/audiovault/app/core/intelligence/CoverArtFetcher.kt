@@ -192,14 +192,184 @@ object CoverArtFetcher {
             }
 
             val primaryArtist = extractPrimaryArtist(rawArtist)
-            val searchCandidates = mutableListOf<String>()
-            if (primaryArtist.isNotBlank() && !primaryArtist.equals(rawArtist, ignoreCase = true)) {
-                searchCandidates.add(primaryArtist)
-            }
-            searchCandidates.add(rawArtist)
+            val cleanedSong = songHint?.let { cleanSongTitle(it) }
 
-            // 1. Search Deezer Artist Database (Instant & 1000x1000 Crystal Clear HD)
-            for (candidate in searchCandidates) {
+            // Build combined queries prioritized by specificity
+            val queries = mutableListOf<String>()
+            if (!cleanedSong.isNullOrBlank()) {
+                queries.add("$primaryArtist $cleanedSong")
+                if (!primaryArtist.equals(rawArtist, ignoreCase = true)) {
+                    queries.add("$rawArtist $cleanedSong")
+                }
+            }
+            queries.add(primaryArtist)
+            if (!primaryArtist.equals(rawArtist, ignoreCase = true)) {
+                queries.add(rawArtist)
+            }
+
+            // 1. Primary Engine: iTunes & Apple Music Official HD Artist Profiles (Artist + Song Combined)
+            for (query in queries) {
+                try {
+                    val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                    val isSongSearch = !cleanedSong.isNullOrBlank() && query.contains(cleanedSong)
+                    val itunesUrl = if (isSongSearch) {
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=5"
+                    } else {
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=musicArtist&limit=3"
+                    }
+
+                    val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 4000
+                        readTimeout = 4000
+                        requestMethod = "GET"
+                        setRequestProperty("User-Agent", "Mozilla/5.0")
+                    }
+
+                    if (connection.responseCode == 200) {
+                        val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
+                        val root = JSONObject(jsonStr)
+                        val results = root.optJSONArray("results")
+                        if (results != null && results.length() > 0) {
+                            var bestArtistViewUrl: String? = null
+                            val artistSlug = primaryArtist.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
+                            for (i in 0 until results.length()) {
+                                val item = results.getJSONObject(i)
+                                val resArtist = item.optString("artistName")
+                                val artUrl = item.optString("artistViewUrl").ifBlank { item.optString("artistLinkUrl") }
+                                if (artUrl.isNotBlank()) {
+                                    if (resArtist.contains(primaryArtist, ignoreCase = true) ||
+                                        primaryArtist.contains(resArtist, ignoreCase = true) ||
+                                        (artistSlug.isNotBlank() && artUrl.lowercase().contains(artistSlug))
+                                    ) {
+                                        bestArtistViewUrl = artUrl
+                                        break
+                                    }
+                                }
+                            }
+
+                            if (bestArtistViewUrl == null) {
+                                val first = results.getJSONObject(0)
+                                bestArtistViewUrl = first.optString("artistViewUrl").ifBlank { first.optString("artistLinkUrl") }
+                            }
+
+                            if (!bestArtistViewUrl.isNullOrBlank()) {
+                                val artistWebConn = (URL(bestArtistViewUrl).openConnection() as HttpURLConnection).apply {
+                                    connectTimeout = 5000
+                                    readTimeout = 5000
+                                    requestMethod = "GET"
+                                    setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+                                }
+                                if (artistWebConn.responseCode == 200) {
+                                    val html = artistWebConn.inputStream.bufferedReader().use { it.readText() }
+                                    val ogImageRegex = Regex("""<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+                                    val twitterImageRegex = Regex("""<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+
+                                    val imageUrl = ogImageRegex.find(html)?.groupValues?.get(1)
+                                        ?: twitterImageRegex.find(html)?.groupValues?.get(1)
+
+                                    if (!imageUrl.isNullOrBlank() && isValidArtistImageUrl(imageUrl)) {
+                                        val imgConn = (URL(imageUrl).openConnection() as HttpURLConnection).apply {
+                                            connectTimeout = 6000
+                                            readTimeout = 6000
+                                            requestMethod = "GET"
+                                            setRequestProperty("User-Agent", "Mozilla/5.0")
+                                        }
+                                        if (imgConn.responseCode == 200) {
+                                            imgConn.inputStream.use { input ->
+                                                FileOutputStream(cachedFile).use { output ->
+                                                    input.copyTo(output)
+                                                }
+                                            }
+                                            if (cachedFile.exists() && cachedFile.length() > 1000) {
+                                                if (primaryArtist.isNotBlank()) {
+                                                    val pFile = File(artDir, "${primaryArtist.lowercase().hashCode()}_artist.jpg")
+                                                    if (!pFile.exists()) {
+                                                        try { cachedFile.copyTo(pFile, overwrite = true) } catch (_: Exception) {}
+                                                    }
+                                                }
+                                                Log.i(TAG, "Cached Apple Music artist portrait for '$rawArtist' via query '$query' -> ${cachedFile.absolutePath}")
+                                                return@withContext cachedFile.absolutePath
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Apple Music query '$query' failed: ${e.message}")
+                }
+            }
+
+            // 2. Secondary Engine: Wikipedia / Wikimedia Commons with Artist + Song context
+            val wikiQueries = mutableListOf<String>()
+            if (!cleanedSong.isNullOrBlank()) {
+                wikiQueries.add("$primaryArtist $cleanedSong")
+            }
+            wikiQueries.addAll(listOf(primaryArtist, "$primaryArtist singer", "$primaryArtist musician", "$primaryArtist artist"))
+
+            for (query in wikiQueries) {
+                try {
+                    val encodedQ = URLEncoder.encode(query, "UTF-8")
+                    val wikiUrl = "https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=$encodedQ&gsrlimit=3&prop=pageimages|description&pithumbsize=1000&format=json"
+                    val wikiConn = (URL(wikiUrl).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 4000
+                        readTimeout = 4000
+                        requestMethod = "GET"
+                        setRequestProperty("User-Agent", "RecordifyMusicApp/1.0 (contact@audiovault.app)")
+                    }
+                    if (wikiConn.responseCode == 200) {
+                        val jsonStr = wikiConn.inputStream.bufferedReader().use { it.readText() }
+                        val root = JSONObject(jsonStr)
+                        val pages = root.optJSONObject("query")?.optJSONObject("pages")
+                        if (pages != null) {
+                            val keys = pages.keys()
+                            while (keys.hasNext()) {
+                                val page = pages.getJSONObject(keys.next())
+                                val title = page.optString("title")
+                                val desc = page.optString("description").lowercase()
+                                val thumbObj = page.optJSONObject("thumbnail")
+                                val thumbUrl = thumbObj?.optString("source")
+                                if (!thumbUrl.isNullOrBlank()) {
+                                    val isArtistRelevant = title.contains(primaryArtist, ignoreCase = true) ||
+                                            desc.contains("singer") || desc.contains("musician") ||
+                                            desc.contains("band") || desc.contains("artist") || desc.contains("rapper")
+
+                                    if (isArtistRelevant) {
+                                        val imgConn = (URL(thumbUrl).openConnection() as HttpURLConnection).apply {
+                                            connectTimeout = 6000
+                                            readTimeout = 6000
+                                            requestMethod = "GET"
+                                            setRequestProperty("User-Agent", "RecordifyMusicApp/1.0 (contact@audiovault.app)")
+                                        }
+                                        if (imgConn.responseCode == 200) {
+                                            imgConn.inputStream.use { input ->
+                                                FileOutputStream(cachedFile).use { output ->
+                                                    input.copyTo(output)
+                                                }
+                                            }
+                                            if (cachedFile.exists() && cachedFile.length() > 1000) {
+                                                if (primaryArtist.isNotBlank()) {
+                                                    val pFile = File(artDir, "${primaryArtist.lowercase().hashCode()}_artist.jpg")
+                                                    if (!pFile.exists()) {
+                                                        try { cachedFile.copyTo(pFile, overwrite = true) } catch (_: Exception) {}
+                                                    }
+                                                }
+                                                Log.i(TAG, "Cached Wikipedia artist portrait for '$rawArtist' -> ${cachedFile.absolutePath}")
+                                                return@withContext cachedFile.absolutePath
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // 3. Fallback: Deezer Database Search
+            for (candidate in queries) {
                 try {
                     val encodedArtist = URLEncoder.encode(candidate, "UTF-8")
                     val deezerUrl = "https://api.deezer.com/search/artist?q=$encodedArtist&limit=1"
@@ -250,102 +420,19 @@ object CoverArtFetcher {
                     }
                 } catch (_: Exception) {}
             }
-
-            // 2. Search Deezer by Track + Artist Hint to extract official artist picture
-            if (!songHint.isNullOrBlank()) {
-                try {
-                    val trackQuery = URLEncoder.encode("$primaryArtist $songHint", "UTF-8")
-                    val trackUrl = "https://api.deezer.com/search?q=$trackQuery&limit=1"
-                    val trackConn = (URL(trackUrl).openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 4000
-                        readTimeout = 4000
-                        requestMethod = "GET"
-                        setRequestProperty("User-Agent", "Mozilla/5.0")
-                    }
-                    if (trackConn.responseCode == 200) {
-                        val jsonStr = trackConn.inputStream.bufferedReader().use { it.readText() }
-                        val root = JSONObject(jsonStr)
-                        val data = root.optJSONArray("data")
-                        if (data != null && data.length() > 0) {
-                            val first = data.getJSONObject(0)
-                            val artistObj = first.optJSONObject("artist")
-                            val picUrl = artistObj?.optString("picture_xl")?.ifBlank {
-                                artistObj.optString("picture_big")
-                            }
-                            if (!picUrl.isNullOrBlank() && isValidArtistImageUrl(picUrl)) {
-                                val imgConn = (URL(picUrl).openConnection() as HttpURLConnection).apply {
-                                    connectTimeout = 6000
-                                    readTimeout = 6000
-                                    requestMethod = "GET"
-                                    setRequestProperty("User-Agent", "Mozilla/5.0")
-                                }
-                                if (imgConn.responseCode == 200) {
-                                    imgConn.inputStream.use { input ->
-                                        FileOutputStream(cachedFile).use { output ->
-                                            input.copyTo(output)
-                                        }
-                                    }
-                                    if (cachedFile.exists() && cachedFile.length() > 500) {
-                                        Log.i(TAG, "Cached Deezer Track-Artist portrait for '$rawArtist' -> ${cachedFile.absolutePath}")
-                                        return@withContext cachedFile.absolutePath
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-
-            // 3. Search Wikipedia / Wikimedia Commons for real artist portrait photo
-            val wikiQueries = mutableListOf(primaryArtist, "$primaryArtist singer", "$primaryArtist musician")
-            for (query in wikiQueries) {
-                try {
-                    val encodedQ = URLEncoder.encode(query, "UTF-8")
-                    val wikiUrl = "https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=$encodedQ&gsrlimit=1&prop=pageimages&pithumbsize=600&format=json"
-                    val wikiConn = (URL(wikiUrl).openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 4000
-                        readTimeout = 4000
-                        requestMethod = "GET"
-                        setRequestProperty("User-Agent", "RecordifyMusicApp/1.0 (contact@audiovault.app)")
-                    }
-                    if (wikiConn.responseCode == 200) {
-                        val jsonStr = wikiConn.inputStream.bufferedReader().use { it.readText() }
-                        val root = JSONObject(jsonStr)
-                        val pages = root.optJSONObject("query")?.optJSONObject("pages")
-                        if (pages != null) {
-                            val keys = pages.keys()
-                            while (keys.hasNext()) {
-                                val page = pages.getJSONObject(keys.next())
-                                val thumbObj = page.optJSONObject("thumbnail")
-                                val thumbUrl = thumbObj?.optString("source")
-                                if (!thumbUrl.isNullOrBlank()) {
-                                    val imgConn = (URL(thumbUrl).openConnection() as HttpURLConnection).apply {
-                                        connectTimeout = 6000
-                                        readTimeout = 6000
-                                        requestMethod = "GET"
-                                        setRequestProperty("User-Agent", "RecordifyMusicApp/1.0 (contact@audiovault.app)")
-                                    }
-                                    if (imgConn.responseCode == 200) {
-                                        imgConn.inputStream.use { input ->
-                                            FileOutputStream(cachedFile).use { output ->
-                                                input.copyTo(output)
-                                            }
-                                        }
-                                        if (cachedFile.exists() && cachedFile.length() > 500) {
-                                            Log.i(TAG, "Cached Wikipedia artist portrait for '$rawArtist' -> ${cachedFile.absolutePath}")
-                                            return@withContext cachedFile.absolutePath
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
         } catch (e: Exception) {
             Log.d(TAG, "Artist portrait resolution skipped for '$artistName': ${e.message}")
         }
         null
+    }
+
+    private fun cleanSongTitle(title: String): String {
+        val withoutPipes = title.split('|').firstOrNull()?.trim() ?: title
+        var cleaned = withoutPipes
+            .replace(Regex("(?i)\\[.*?\\]|\\(.*?\\)"), "")
+            .replace(Regex("(?i)\\b(official|music video|video|lyric video|lyrics|audio|hd|4k|full song|visualizer|remix|ft\\.?|feat\\.?)\\b.*"), "")
+            .trim(' ', '-', '_', '/', ':', '"', '\'')
+        return if (cleaned.length >= 2) cleaned else title.trim()
     }
 
     private fun extractPrimaryArtist(raw: String): String {
@@ -359,6 +446,8 @@ object CoverArtFetcher {
         if (url.contains("images/artist//")) return false
         if (url.contains("250x250-000000")) return false
         if (url.contains("d41d8cd98f00b204e9800998ecf8427e")) return false
+        if (url.contains("apple-music-share.png", ignoreCase = true)) return false
+        if (url.contains("default_artist.png", ignoreCase = true)) return false
         return true
     }
 }

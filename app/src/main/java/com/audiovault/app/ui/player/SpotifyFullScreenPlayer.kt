@@ -25,7 +25,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -33,11 +36,14 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -64,6 +70,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.audiovault.app.core.player.PlayerState
+import com.audiovault.app.core.queue.PlaybackQueueState
+import com.audiovault.app.core.queue.PlaybackRepeatMode
 import com.audiovault.app.ui.theme.SpotifyGreenBright
 
 /**
@@ -74,8 +82,25 @@ fun SpotifyFullScreenPlayer(
     playerState: PlayerState,
     isShuffleActive: Boolean,
     isLiked: Boolean = false,
+    isDownloading: Boolean = false,
+    downloadProgress: Float = 0f,
+    isDownloaded: Boolean = false,
     playlists: List<com.audiovault.app.data.repository.UserPlaylist> = emptyList(),
+    isPendingPreview: Boolean = false,
+    previewCountdown: Int = 0,
+    queueState: PlaybackQueueState? = null,
+    repeatMode: PlaybackRepeatMode = PlaybackRepeatMode.OFF,
+    onToggleRepeat: () -> Unit = {},
+    onPlayQueueItem: (Int) -> Unit = {},
+    onRemoveQueueItem: (Int) -> Unit = {},
+    onClearQueue: () -> Unit = {},
+    onRefreshQueue: () -> Unit = {},
+    onToggleAutoQueue: () -> Unit = {},
+    onTogglePersonalization: () -> Unit = {},
     onToggleLiked: () -> Unit = {},
+    onDownload: () -> Unit = {},
+    onCancelDownload: () -> Unit = {},
+    onViewAlbum: ((albumName: String) -> Unit)? = null,
     onTogglePlaylist: (String) -> Unit = {},
     onCreatePlaylist: (String) -> Unit = {},
     onToggleShuffle: () -> Unit,
@@ -94,6 +119,8 @@ fun SpotifyFullScreenPlayer(
     var sliderDragPosition by remember { mutableFloatStateOf(0f) }
     var speedMenuExpanded by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
+    var showDetailsSheet by remember { mutableStateOf(false) }
+    var showQueueSheet by remember { mutableStateOf(false) }
 
     val isSavedAnywhere = isLiked || playlists.any { it.songIds.contains(recording.id) }
 
@@ -132,7 +159,7 @@ fun SpotifyFullScreenPlayer(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Top Header: Down Arrow, Header Title, 3-Dots Menu
+            // 1. Top Header: Down Arrow, App Title "Recordify", 3-Dots Menu (Song & Movie Details)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -149,29 +176,19 @@ fun SpotifyFullScreenPlayer(
                     )
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "PLAYING FROM RECORDINGS",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            color = Color(0xFFCCCCCC)
-                        )
+                Text(
+                    text = "Recordify",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
                     )
-                    Text(
-                        text = "Recent Captures",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    )
-                }
+                )
 
-                IconButton(onClick = { /* Menu options */ }) {
+                IconButton(onClick = { showDetailsSheet = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
+                        contentDescription = "Song & Album Details",
                         tint = Color.White
                     )
                 }
@@ -195,7 +212,7 @@ fun SpotifyFullScreenPlayer(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. Song Title, Artist & Plus Button Row
+            // 3. Song Title, Artist & Action Buttons Row (Download + Like)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,16 +240,72 @@ fun SpotifyFullScreenPlayer(
                     )
                 }
 
-                IconButton(
-                    onClick = { showPlaylistSheet = true },
-                    modifier = Modifier.size(44.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isSavedAnywhere) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
-                        contentDescription = "Save to playlist",
-                        tint = if (isSavedAnywhere) SpotifyGreenBright else Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    // Download / Cancel Download Button
+                    if (isDownloading) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .clickable { onCancelDownload() }
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { downloadProgress.coerceIn(0f, 1f) },
+                                modifier = Modifier.size(24.dp),
+                                color = SpotifyGreenBright,
+                                strokeWidth = 2.5.dp,
+                                trackColor = Color(0x33FFFFFF)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel Download",
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    } else if (isDownloaded) {
+                        IconButton(
+                            onClick = { /* Already downloaded locally */ },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Downloaded",
+                                tint = SpotifyGreenBright,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onDownload,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Download Song",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    // Like (+ / Checkmark) Button - opens the Save to Playlist & Liked Songs sheet
+                    IconButton(
+                        onClick = { showPlaylistSheet = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isSavedAnywhere) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                            contentDescription = if (isSavedAnywhere) "Saved in Library" else "Save to Playlist",
+                            tint = if (isSavedAnywhere) SpotifyGreenBright else Color.White,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
             }
 
@@ -297,11 +370,33 @@ fun SpotifyFullScreenPlayer(
                         )
                     )
                 }
+
+                if (isPendingPreview && previewCountdown > 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0x3300E676))
+                            .clickable { onTogglePlayPause() }
+                            .padding(vertical = 4.dp, horizontal = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🛡️ Skip Protection: Streams in ${previewCountdown}s • Tap to Play Now",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = SpotifyGreenBright,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 5. Main Playback Controls: Shuffle, Prev, Big Play/Pause, Next, Speed/Timer
+            // 5. Main Playback Controls: Shuffle, Prev, Big Play/Pause, Next, Repeat
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -336,8 +431,8 @@ fun SpotifyFullScreenPlayer(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                            imageVector = if (!isPendingPreview && playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (!isPendingPreview && playerState.isPlaying) "Pause" else "Play",
                             tint = Color.Black,
                             modifier = Modifier.size(34.dp)
                         )
@@ -354,31 +449,14 @@ fun SpotifyFullScreenPlayer(
                     )
                 }
 
-                // Speed / Timer Menu
-                Box {
-                    IconButton(onClick = { speedMenuExpanded = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = "Playback Speed",
-                            tint = if (playerState.playbackSpeed != 1.0f) SpotifyGreenBright else Color(0xFFB3B3B3),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = speedMenuExpanded,
-                        onDismissRequest = { speedMenuExpanded = false }
-                    ) {
-                        listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
-                            DropdownMenuItem(
-                                text = { Text("${speed}x Speed") },
-                                onClick = {
-                                    speedMenuExpanded = false
-                                    onSpeedSelected(speed)
-                                }
-                            )
-                        }
-                    }
+                // Repeat Mode (Toggles Repeat Off -> Repeat All -> Repeat One)
+                IconButton(onClick = onToggleRepeat) {
+                    Icon(
+                        imageVector = if (repeatMode == PlaybackRepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (repeatMode != PlaybackRepeatMode.OFF) SpotifyGreenBright else Color(0xFFB3B3B3),
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
 
@@ -410,6 +488,33 @@ fun SpotifyFullScreenPlayer(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Speed / Timer Menu
+                    Box {
+                        IconButton(onClick = { speedMenuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = "Playback Speed",
+                                tint = if (playerState.playbackSpeed != 1.0f) SpotifyGreenBright else Color(0xFFB3B3B3),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = speedMenuExpanded,
+                            onDismissRequest = { speedMenuExpanded = false }
+                        ) {
+                            listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                                DropdownMenuItem(
+                                    text = { Text("${speed}x Speed") },
+                                    onClick = {
+                                        speedMenuExpanded = false
+                                        onSpeedSelected(speed)
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     IconButton(onClick = onShare) {
                         Icon(
                             imageVector = Icons.Default.Share,
@@ -419,16 +524,43 @@ fun SpotifyFullScreenPlayer(
                         )
                     }
 
-                    IconButton(onClick = { /* Queue */ }) {
+                    // VibeFlow Queue Button
+                    IconButton(onClick = { showQueueSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.QueueMusic,
                             contentDescription = "Queue",
-                            tint = Color(0xFFB3B3B3),
+                            tint = if (queueState?.upcomingQueue?.isNotEmpty() == true) SpotifyGreenBright else Color(0xFFB3B3B3),
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
+        }
+
+        if (showQueueSheet && queueState != null) {
+            VibeFlowQueueBottomSheet(
+                queueState = queueState,
+                onPlayTrackAt = onPlayQueueItem,
+                onRemoveTrackAt = onRemoveQueueItem,
+                onClearUpcoming = onClearQueue,
+                onRefreshQueue = onRefreshQueue,
+                onToggleRepeat = onToggleRepeat,
+                onToggleShuffle = onToggleShuffle,
+                onToggleAutoQueue = onToggleAutoQueue,
+                onTogglePersonalization = onTogglePersonalization,
+                onDismiss = { showQueueSheet = false }
+            )
+        }
+
+        if (showDetailsSheet) {
+            com.audiovault.app.ui.components.SongDetailsBottomSheet(
+                recording = recording,
+                isLiked = isLiked,
+                onViewAlbum = onViewAlbum,
+                onAddToPlaylist = { showPlaylistSheet = true },
+                onShare = onShare,
+                onDismiss = { showDetailsSheet = false }
+            )
         }
 
         if (showPlaylistSheet) {

@@ -14,6 +14,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Automatically route to 10-foot TV experience on Android TV / Google TV
+        if (com.audiovault.app.ui.tv.isTvDevice(this)) {
+            startActivity(android.content.Intent(this, com.audiovault.app.ui.tv.TvMainActivity::class.java))
+            finish()
+            return
+        }
+
         enableEdgeToEdge()
 
         setContent {
@@ -22,6 +30,13 @@ class MainActivity : ComponentActivity() {
                     AudioVaultNavGraph()
                 }
             }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            com.audiovault.app.core.service.PlaybackNotificationManager.activeInstance?.cancelNotification()
         }
     }
 }

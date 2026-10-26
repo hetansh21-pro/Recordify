@@ -23,7 +23,8 @@ data class RecordingEntity(
     val bitrateKbps: Int = 256,
     val mimeType: String = "audio/mp4",
     val sourcePackage: String? = null,
-    val isIdentifiedSong: Boolean = false
+    val isIdentifiedSong: Boolean = false,
+    val isProcessing: Boolean = false
 ) {
     val displayArtistTitle: String
         get() = if (!artist.isNullOrBlank()) "$artist - $title" else title

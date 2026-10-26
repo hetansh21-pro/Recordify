@@ -39,6 +39,12 @@ interface RecordingDao {
     @Query("UPDATE recordings SET albumArtPath = :artPath WHERE id = :id")
     suspend fun updateAlbumArtPath(id: Long, artPath: String)
 
+    @Query("UPDATE recordings SET isProcessing = :isProcessing, durationMs = :durationMs, fileSizeBytes = :fileSizeBytes WHERE id = :id")
+    suspend fun updateProcessingStatus(id: Long, isProcessing: Boolean, durationMs: Long, fileSizeBytes: Long)
+
+    @Query("UPDATE recordings SET isProcessing = :isProcessing WHERE id = :id")
+    suspend fun setProcessingState(id: Long, isProcessing: Boolean)
+
     @Query("DELETE FROM recordings WHERE id = :id")
     suspend fun deleteRecordingById(id: Long)
 
@@ -55,4 +61,10 @@ interface RecordingDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM recordings WHERE LOWER(TRIM(title)) = LOWER(TRIM(:title)) AND (:artist IS NULL OR artist IS NULL OR LOWER(TRIM(artist)) = LOWER(TRIM(:artist))))")
     suspend fun isSongAlreadyRecorded(title: String, artist: String?): Boolean
+
+    @Query("SELECT * FROM recordings WHERE LOWER(TRIM(title)) = LOWER(TRIM(:title)) AND (:artist IS NULL OR LOWER(TRIM(artist)) = LOWER(TRIM(:artist))) LIMIT 1")
+    suspend fun findRecordingByTitleAndArtist(title: String, artist: String?): RecordingEntity?
+
+    @Query("SELECT * FROM recordings WHERE filePath = :filePath LIMIT 1")
+    suspend fun findRecordingByFilePath(filePath: String): RecordingEntity?
 }

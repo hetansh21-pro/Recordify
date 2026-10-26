@@ -51,6 +51,9 @@ class AudioActivityDetector(
     fun processPcmChunk(pcmData: ByteArray, bytesRead: Int): Pair<Boolean, Long> {
         if (bytesRead <= 0) return Pair(currentState != DetectionState.IDLE_WAITING, currentSessionDurationMs)
 
+        // Always feed the rolling pre-roll circular buffer so audio history is never lost
+        preRollBuffer.write(pcmData, 0, bytesRead)
+
         // Calculate chunk duration in milliseconds
         val chunkDurationMs = (bytesRead.toDouble() / config.bytesPerSecond * 1000.0).toLong()
 
@@ -64,9 +67,6 @@ class AudioActivityDetector(
 
         when (currentState) {
             DetectionState.IDLE_WAITING -> {
-                // Keep filling circular pre-roll buffer
-                preRollBuffer.write(pcmData, 0, bytesRead)
-
                 if (isAudioAboveStart) {
                     Log.d(TAG, "Audio activity detected ($rmsDb dBFS >= ${config.startThresholdDb} dBFS). Starting recording session.")
                     currentState = DetectionState.RECORDING_ACTIVE
@@ -74,7 +74,7 @@ class AudioActivityDetector(
                     currentSessionDurationMs = 0L
 
                     // Grab pre-roll data and notify start
-                    val preRollBytes = preRollBuffer.drain()
+                    val preRollBytes = preRollBuffer.snapshot()
                     onRecordingStart(preRollBytes)
                 }
             }
@@ -94,9 +94,25 @@ class AudioActivityDetector(
                 silenceElapsedMs += chunkDurationMs
 
                 if (isAudioAboveStart) {
-                    Log.d(TAG, "Audio resumed ($rmsDb dBFS). Returning to RECORDING_ACTIVE.")
-                    currentState = DetectionState.RECORDING_ACTIVE
-                    silenceElapsedMs = 0L
+                    val minDurationMs = config.minRecordingDurationSeconds * 1000L
+                    val isInterTrackBoundary = currentSessionDurationMs >= 30_000L && silenceElapsedMs >= 800L
+
+                    if (isInterTrackBoundary) {
+                        Log.i(TAG, "Inter-track silence gap detected (${silenceElapsedMs}ms after ${currentSessionDurationMs}ms). Finalizing previous song and starting new track with pre-roll.")
+                        val isEligible = (currentSessionDurationMs - silenceElapsedMs) >= minDurationMs
+                        onRecordingStop(isEligible)
+
+                        currentState = DetectionState.RECORDING_ACTIVE
+                        silenceElapsedMs = 0L
+                        currentSessionDurationMs = 0L
+
+                        val preRollBytes = preRollBuffer.snapshot()
+                        onRecordingStart(preRollBytes)
+                    } else {
+                        Log.d(TAG, "Audio resumed ($rmsDb dBFS). Returning to RECORDING_ACTIVE.")
+                        currentState = DetectionState.RECORDING_ACTIVE
+                        silenceElapsedMs = 0L
+                    }
                 } else {
                     val silenceTimeoutMs = config.silenceTimeoutSeconds * 1000L
                     if (silenceElapsedMs >= silenceTimeoutMs) {
@@ -106,8 +122,6 @@ class AudioActivityDetector(
 
                         currentState = DetectionState.IDLE_WAITING
                         silenceElapsedMs = 0L
-                        preRollBuffer.clear()
-
                         onRecordingStop(isEligible)
                         currentSessionDurationMs = 0L
                     }
@@ -116,6 +130,15 @@ class AudioActivityDetector(
         }
 
         return Pair(currentState != DetectionState.IDLE_WAITING, currentSessionDurationMs)
+    }
+
+    /**
+     * Gets a snapshot of the most recent PCM bytes from the continuous rolling buffer.
+     */
+    @Synchronized
+    fun getRecentHistoryBytes(durationMs: Long = config.preRollMs.toLong()): ByteArray {
+        val bytesNeeded = (config.bytesPerSecond * (durationMs / 1000.0)).toInt()
+        return preRollBuffer.snapshot(bytesNeeded)
     }
 
     /**
@@ -129,7 +152,6 @@ class AudioActivityDetector(
             currentState = DetectionState.IDLE_WAITING
             silenceElapsedMs = 0L
             currentSessionDurationMs = 0L
-            preRollBuffer.clear()
             onRecordingStop(isEligible)
         }
     }
@@ -167,7 +189,7 @@ class AudioActivityDetector(
     }
 
     /**
-     * Circular buffer for storing pre-roll PCM audio.
+     * Circular buffer for storing continuous rolling pre-roll PCM audio.
      */
     private class CircularPcmBuffer(private val capacityBytes: Int) {
         private val buffer = ByteArray(capacityBytes)
@@ -193,6 +215,23 @@ class AudioActivityDetector(
                 result[i] = buffer[(startPos + i) % capacityBytes]
             }
             clear()
+            return result
+        }
+
+        @Synchronized
+        fun snapshot(bytesNeeded: Int = size): ByteArray {
+            val count = bytesNeeded.coerceIn(0, size)
+            if (count == 0) return ByteArray(0)
+            val result = ByteArray(count)
+            val startPos = if (size < capacityBytes) {
+                (size - count).coerceAtLeast(0)
+            } else {
+                (writePos - count + capacityBytes) % capacityBytes
+            }
+
+            for (i in 0 until count) {
+                result[i] = buffer[(startPos + i) % capacityBytes]
+            }
             return result
         }
 

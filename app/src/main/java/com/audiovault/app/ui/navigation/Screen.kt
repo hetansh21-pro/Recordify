@@ -9,7 +9,12 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.ui.graphics.vector.ImageVector
+
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.Mic
 
 sealed class Screen(
     val route: String,
@@ -31,11 +36,25 @@ sealed class Screen(
         unselectedIcon = Icons.Outlined.Search
     )
 
+    data object Record : Screen(
+        route = "record",
+        title = "Record",
+        selectedIcon = Icons.Filled.Mic,
+        unselectedIcon = Icons.Outlined.Mic
+    )
+
     data object Library : Screen(
         route = "library",
         title = "Your Library",
         selectedIcon = Icons.Filled.LibraryMusic,
         unselectedIcon = Icons.Outlined.LibraryMusic
+    )
+
+    data object Videos : Screen(
+        route = "videos",
+        title = "Videos",
+        selectedIcon = Icons.Filled.VideoLibrary,
+        unselectedIcon = Icons.Outlined.VideoLibrary
     )
 
     data object Settings : Screen(
@@ -49,7 +68,8 @@ sealed class Screen(
         // Backwards compatibility alias
         val Recordings = Library
 
-        val items = listOf(Home, Search, Library, Settings)
+        val items = listOf(Home, Search, Library, Videos)
     }
 }
+
 

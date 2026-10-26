@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -47,8 +49,12 @@ import com.audiovault.app.ui.theme.SpotifyGreenBright
 @Composable
 fun SpotifyMiniPlayer(
     playerState: PlayerState,
+    isSaved: Boolean = false,
+    isPendingPreview: Boolean = false,
+    previewCountdown: Int = 0,
     onTogglePlayPause: () -> Unit,
     onClickMiniPlayer: () -> Unit,
+    onSaveClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val recording = playerState.currentRecording ?: return
@@ -120,14 +126,14 @@ fun SpotifyMiniPlayer(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.Headphones,
+                            imageVector = if (isPendingPreview) Icons.Default.Timer else Icons.Default.Headphones,
                             contentDescription = null,
                             tint = SpotifyGreenBright,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Recordify HD Playback",
+                            text = if (isPendingPreview && previewCountdown > 0) "Skip in ${previewCountdown}s (0 MB data)" else "Recordify HD Playback",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 11.sp,
                                 color = SpotifyGreenBright,
@@ -140,14 +146,14 @@ fun SpotifyMiniPlayer(
                 // Controls: Plus & Play/Pause
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
-                        onClick = { /* Add to favorites/playlist */ },
+                        onClick = onSaveClick,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AddCircleOutline,
-                            contentDescription = "Save",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = if (isSaved) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                            contentDescription = if (isSaved) "Saved to playlist" else "Save to playlist",
+                            tint = if (isSaved) SpotifyGreenBright else Color.White,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
@@ -156,8 +162,8 @@ fun SpotifyMiniPlayer(
                         modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector = if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                            imageVector = if (!isPendingPreview && playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (!isPendingPreview && playerState.isPlaying) "Pause" else "Play",
                             tint = Color.White,
                             modifier = Modifier.size(26.dp)
                         )

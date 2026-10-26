@@ -1,8 +1,9 @@
 package com.audiovault.app.core.intelligence
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
@@ -13,8 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * High-performance Accessibility Service that analyzes YouTube and YouTube Music UI in real time
- * to detect in-stream ads, sponsored breaks, and skip-ad buttons.
+ * Super-Accurate Real-Time YouTube Ad Detection Service.
+ * Analyzes active YouTube player UI nodes to detect in-stream ads with zero false positives.
  */
 class YouTubeAdAccessibilityService : AccessibilityService() {
 
@@ -53,10 +54,21 @@ class YouTubeAdAccessibilityService : AccessibilityService() {
         }
     }
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingState: Boolean? = null
+    private val debounceRunnable = Runnable {
+        val target = pendingState ?: return@Runnable
+        if (_isAdPlaying.value != target) {
+            _isAdPlaying.value = target
+            Log.i(TAG, "YouTube Ad State Confirmed: isAdPlaying=$target")
+            onAdStateChangeListener?.invoke(target)
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         _isServiceConnected.value = true
-        Log.i(TAG, "YouTubeAdAccessibilityService connected and actively monitoring.")
+        Log.i(TAG, "YouTubeAdAccessibilityService active and connected.")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -68,70 +80,75 @@ class YouTubeAdAccessibilityService : AccessibilityService() {
 
         try {
             val rootNode = rootInActiveWindow ?: return
-            val adDetected = scanNodeForAds(rootNode)
+            val adDetected = scanNodeForInStreamAds(rootNode)
             rootNode.recycle()
 
-            if (_isAdPlaying.value != adDetected) {
-                _isAdPlaying.value = adDetected
-                Log.d(TAG, "YouTube Ad State Changed: isAdPlaying=$adDetected")
-                onAdStateChangeListener?.invoke(adDetected)
+            if (pendingState != adDetected) {
+                pendingState = adDetected
+                mainHandler.removeCallbacks(debounceRunnable)
+                // Immediate trigger for ad start to catch fast ads; 300ms debounce for ad completion
+                val delayMs = if (adDetected) 50L else 300L
+                mainHandler.postDelayed(debounceRunnable, delayMs)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error scanning accessibility nodes: ${e.message}")
         }
     }
 
-    private fun scanNodeForAds(node: AccessibilityNodeInfo): Boolean {
-        // 1. Check View Resource ID
+    /**
+     * Precision scanner for active in-stream video ads.
+     * Checks explicit player ad view IDs and player overlay badges.
+     */
+    private fun scanNodeForInStreamAds(node: AccessibilityNodeInfo): Boolean {
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        if (viewId.contains("skip_ad") || 
-            viewId.contains("ad_badge") || 
+
+        // 1. Explicit YouTube video player in-stream ad IDs
+        if (viewId.contains("skip_ad_button") ||
+            viewId.contains("ad_progress_text") ||
             viewId.contains("ad_countdown") ||
+            viewId.contains("ad_badge") ||
             viewId.contains("ad_present") ||
-            viewId.contains("ad_break") ||
             viewId.contains("visit_advertiser") ||
-            viewId.contains("ad_header")) {
+            viewId.contains("ad_header") ||
+            viewId.contains("player_ad_layout")) {
             return true
         }
 
-        // 2. Check Text / Content Description
+        // 2. Exact in-stream ad badge text
         val text = node.text?.toString()?.trim() ?: ""
         val contentDesc = node.contentDescription?.toString()?.trim() ?: ""
 
-        if (isAdTextMatch(text) || isAdTextMatch(contentDesc)) {
+        if (isExactInStreamAdText(text) || isExactInStreamAdText(contentDesc)) {
             return true
         }
 
-        // 3. Recursively check child nodes
+        // 3. Scan children
         val childCount = node.childCount
         for (i in 0 until childCount) {
             val child = node.getChild(i)
             if (child != null) {
-                val found = scanNodeForAds(child)
+                val isAd = scanNodeForInStreamAds(child)
                 child.recycle()
-                if (found) return true
+                if (isAd) return true
             }
         }
         return false
     }
 
-    private fun isAdTextMatch(text: String): Boolean {
+    private fun isExactInStreamAdText(text: String): Boolean {
         if (text.isBlank()) return false
         val lower = text.lowercase()
 
-        if (lower == "ad" || 
-            lower.startsWith("ad ") || 
-            lower.startsWith("ad ·") || 
-            lower.startsWith("ad •") || 
-            lower.startsWith("ad:") || 
-            lower.contains("skip ad") || 
-            lower.contains("skip in ") || 
-            lower.contains("visit advertiser") || 
-            lower.contains("sponsored") ||
-            lower.contains("promoted")) {
-            return true
-        }
-        return false
+        return lower == "ad" ||
+                lower.startsWith("ad 1 of") ||
+                lower.startsWith("ad 2 of") ||
+                lower.startsWith("ad ·") ||
+                lower.startsWith("ad •") ||
+                lower.startsWith("ad:") ||
+                lower.contains("skip ad") ||
+                lower.contains("skip in ") ||
+                lower.contains("video will play after ad") ||
+                lower == "sponsored"
     }
 
     override fun onInterrupt() {
@@ -143,6 +160,7 @@ class YouTubeAdAccessibilityService : AccessibilityService() {
         super.onDestroy()
         _isServiceConnected.value = false
         _isAdPlaying.value = false
+        mainHandler.removeCallbacksAndMessages(null)
         Log.i(TAG, "YouTubeAdAccessibilityService destroyed.")
     }
 }

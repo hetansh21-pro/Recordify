@@ -21,6 +21,20 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        manifestPlaceholders["appName"] = "Recordify"
+    }
+
+    flavorDimensions += "device"
+    productFlavors {
+        create("mobile") {
+            dimension = "device"
+            manifestPlaceholders["appName"] = "Recordify"
+        }
+        create("tv") {
+            dimension = "device"
+            applicationIdSuffix = ".tv"
+            manifestPlaceholders["appName"] = "Recordify TV"
+        }
     }
 
     buildTypes {
@@ -39,9 +53,14 @@ android {
     }
 
     applicationVariants.all {
+        val variantName = name
         outputs.all {
             val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output?.outputFileName = "Recordify.apk"
+            if (variantName.contains("tv", ignoreCase = true)) {
+                output?.outputFileName = "Recordify TV.apk"
+            } else {
+                output?.outputFileName = "Recordify.apk"
+            }
         }
     }
 
@@ -89,8 +108,9 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
-    // DataStore
+    // DataStore & DocumentFile
     implementation(libs.androidx.datastore.preferences)
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -102,10 +122,12 @@ dependencies {
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Media3
+    // Media3 & Media
+    implementation(libs.androidx.media)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.ui)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

@@ -18,6 +18,8 @@ import com.audiovault.app.core.intelligence.CoverArtFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -129,12 +131,40 @@ fun rememberAsyncCoverArt(
         if (imageState.value != null) return@LaunchedEffect
 
         val bitmap = withContext(Dispatchers.IO) {
-            // 1. Direct explicit path check
+            // 1. Direct explicit path check or remote URL fetch
             var resolvedPath: String? = null
             if (!albumArtPath.isNullOrBlank()) {
-                val f = File(albumArtPath)
-                if (f.exists() && f.length() > 500) {
-                    resolvedPath = albumArtPath
+                if (albumArtPath.startsWith("http://", ignoreCase = true) || albumArtPath.startsWith("https://", ignoreCase = true)) {
+                    val safeHash = Math.abs(albumArtPath.hashCode()).toString()
+                    val cachedFile = File(context.cacheDir, "thumb_$safeHash.jpg")
+                    if (cachedFile.exists() && cachedFile.length() > 500) {
+                        resolvedPath = cachedFile.absolutePath
+                    } else {
+                        try {
+                            val url = URL(albumArtPath)
+                            val conn = (url.openConnection() as HttpURLConnection).apply {
+                                connectTimeout = 8000
+                                readTimeout = 10000
+                                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                            }
+                            if (conn.responseCode == 200) {
+                                conn.inputStream.use { input ->
+                                    cachedFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                if (cachedFile.exists() && cachedFile.length() > 500) {
+                                    resolvedPath = cachedFile.absolutePath
+                                }
+                            }
+                            conn.disconnect()
+                        } catch (_: Throwable) {}
+                    }
+                } else {
+                    val f = File(albumArtPath)
+                    if (f.exists() && f.length() > 500) {
+                        resolvedPath = albumArtPath
+                    }
                 }
             }
 

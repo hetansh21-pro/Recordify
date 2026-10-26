@@ -5,6 +5,9 @@ import com.audiovault.app.ui.components.ArtistAvatar
 import com.audiovault.app.ui.components.TrackCoverArt
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,14 +24,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
@@ -53,6 +65,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
@@ -87,19 +104,28 @@ import com.audiovault.app.ui.theme.SpotifyGreenBright
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.ui.text.style.TextAlign
 
 enum class LibraryTab {
     ALL,
+    DOWNLOADED,
+    PLAYLISTS,
     ARTISTS,
-    SONGS,
-    PLAYLISTS
+    SONGS
 }
 
 @Composable
 fun LibraryScreen(
     viewModel: RecordingsViewModel,
     onNavigateToSearch: () -> Unit,
+    userName: String = "",
     onArtistDetailStateChange: (Boolean) -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val recordings by viewModel.recordings.collectAsState()
@@ -107,26 +133,38 @@ fun LibraryScreen(
     val currentSort by viewModel.sortOption.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val savedArtists by viewModel.savedArtists.collectAsState()
+    val manualArtists by viewModel.manualArtists.collectAsState()
 
     var selectedTab by remember { mutableStateOf(LibraryTab.ALL) }
     var selectedArtistForDetail by remember { mutableStateOf<String?>(null) }
     var selectedPlaylistForDetail by remember { mutableStateOf<String?>(null) } // "LIKED" or playlistId
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var showAddArtistDialog by remember { mutableStateOf(false) }
     var playlistToRename by remember { mutableStateOf<com.audiovault.app.data.repository.UserPlaylist?>(null) }
     var playlistToDelete by remember { mutableStateOf<com.audiovault.app.data.repository.UserPlaylist?>(null) }
+    var artistToDelete by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var isLibrarySearchOpen by remember { mutableStateOf(false) }
+    var librarySearchQuery by remember { mutableStateOf("") }
+    var isGridView by rememberSaveable { mutableStateOf(false) }
+    val libraryGridState = rememberLazyGridState()
 
     LaunchedEffect(selectedArtistForDetail, selectedPlaylistForDetail) {
         onArtistDetailStateChange(selectedArtistForDetail != null || selectedPlaylistForDetail != null)
     }
 
-    // Step-by-step BackHandler for Artist Detail, Playlist Detail, and Filter Tabs
+    // Step-by-step BackHandler for Artist Detail, Playlist Detail, Search, and Filter Tabs
     BackHandler(enabled = selectedArtistForDetail != null) {
         selectedArtistForDetail = null
     }
     BackHandler(enabled = selectedPlaylistForDetail != null) {
         selectedPlaylistForDetail = null
     }
-    BackHandler(enabled = selectedArtistForDetail == null && selectedPlaylistForDetail == null && selectedTab != LibraryTab.ALL) {
+    BackHandler(enabled = isLibrarySearchOpen) {
+        isLibrarySearchOpen = false
+        librarySearchQuery = ""
+    }
+    BackHandler(enabled = selectedArtistForDetail == null && selectedPlaylistForDetail == null && !isLibrarySearchOpen && selectedTab != LibraryTab.ALL) {
         selectedTab = LibraryTab.ALL
     }
     var sortMenuExpanded by remember { mutableStateOf(false) }
@@ -136,28 +174,122 @@ fun LibraryScreen(
     var recordingToDelete by remember { mutableStateOf<RecordingEntity?>(null) }
     var recordingForLyrics by remember { mutableStateOf<RecordingEntity?>(null) }
 
-    // Automatic Multi-Artist Grouping: Splits collaborating artists (e.g. "Artist1, Artist2") so songs appear under all individual artists
-    val artistGroups = remember(recordings) {
-        val map = mutableMapOf<String, MutableList<RecordingEntity>>()
+    // All Multi-Artist Grouping: Splits collaborating artists & includes manually added & saved artists scanning existing songs
+    val allArtistGroups = remember(recordings, savedArtists, manualArtists) {
+        val map = LinkedHashMap<String, MutableList<RecordingEntity>>()
         recordings.forEach { song ->
             val individualArtists = splitArtists(song.artist)
             individualArtists.forEach { artistName ->
-                map.getOrPut(artistName) { mutableListOf() }.add(song)
+                val clean = artistName.trim()
+                if (clean.isNotBlank()) {
+                    val existingKey = map.keys.firstOrNull { it.equals(clean, ignoreCase = true) }
+                    if (existingKey != null) {
+                        map[existingKey]?.add(song)
+                    } else {
+                        map[clean] = mutableListOf(song)
+                    }
+                }
+            }
+        }
+        // Also ensure any manual or saved artist without songs yet or matched by substring is included
+        val extraArtists = (manualArtists + savedArtists)
+        extraArtists.forEach { extraArtist ->
+            val cleanExtra = extraArtist.trim()
+            if (cleanExtra.isNotBlank()) {
+                val existingKey = map.keys.firstOrNull { it.equals(cleanExtra, ignoreCase = true) }
+                if (existingKey == null) {
+                    val matching = recordings.filter { song ->
+                        val songArtist = song.artist ?: ""
+                        songArtist.contains(cleanExtra, ignoreCase = true) ||
+                        song.title.contains(cleanExtra, ignoreCase = true)
+                    }
+                    map[cleanExtra] = matching.toMutableList()
+                } else {
+                    val currentList = map[existingKey] ?: mutableListOf()
+                    val matching = recordings.filter { song ->
+                        !currentList.any { it.id == song.id } &&
+                        ((song.artist ?: "").contains(cleanExtra, ignoreCase = true) || song.title.contains(cleanExtra, ignoreCase = true))
+                    }
+                    currentList.addAll(matching)
+                }
             }
         }
         map.toList().sortedByDescending { it.second.size }
     }
 
+    // Saved Artist Groups: Only artists the user has saved/followed
+    val savedArtistGroups = remember(allArtistGroups, savedArtists) {
+        allArtistGroups.filter { (artistName, _) ->
+            savedArtists.any { it.equals(artistName, ignoreCase = true) }
+        }
+    }
+
+    // Real-time Search Filtering
+    val query = librarySearchQuery.trim()
+    val filteredSavedArtistGroups = remember(savedArtistGroups, query) {
+        if (query.isEmpty()) savedArtistGroups
+        else savedArtistGroups.filter { (artistName, songs) ->
+            artistName.contains(query, ignoreCase = true) ||
+            songs.any { it.title.contains(query, ignoreCase = true) }
+        }
+    }
+
+    val filteredAllArtistGroups = remember(allArtistGroups, query) {
+        if (query.isEmpty()) allArtistGroups
+        else allArtistGroups.filter { (artistName, songs) ->
+            artistName.contains(query, ignoreCase = true) ||
+            songs.any { it.title.contains(query, ignoreCase = true) }
+        }
+    }
+
+    val filteredPlaylists = remember(playlists, query) {
+        if (query.isEmpty()) playlists
+        else playlists.filter { it.name.contains(query, ignoreCase = true) }
+    }
+
+    val filteredRecordings = remember(recordings, query) {
+        if (query.isEmpty()) recordings
+        else recordings.filter {
+            it.title.contains(query, ignoreCase = true) ||
+            (it.artist ?: "").contains(query, ignoreCase = true)
+        }
+    }
+
+    val activeLikedCount = remember(recordings, likedSongIds) {
+        val idSet = likedSongIds.toSet()
+        recordings.count { idSet.contains(it.id) }
+    }
+
+    val totalDownloadedBytes = remember(recordings) {
+        recordings.sumOf { it.fileSizeBytes }
+    }
+
+    val formattedDownloadedSize = remember(totalDownloadedBytes) {
+        val mb = totalDownloadedBytes.toDouble() / (1024.0 * 1024.0)
+        if (mb >= 1000.0) {
+            String.format(Locale.getDefault(), "%.1f GB", mb / 1024.0)
+        } else {
+            String.format(Locale.getDefault(), "%.1f MB", mb)
+        }
+    }
+
+    val showLikedTile = (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.PLAYLISTS) &&
+        (query.isEmpty() || "liked songs".contains(query, ignoreCase = true) || "liked".contains(query, ignoreCase = true))
+
     if (selectedArtistForDetail != null) {
         val artistName = selectedArtistForDetail!!
-        val artistSongs = artistGroups.firstOrNull { it.first == artistName }?.second ?: emptyList()
+        val artistSongs = allArtistGroups.firstOrNull { it.first.equals(artistName, ignoreCase = true) }?.second ?: emptyList()
+        val isArtistSaved = savedArtists.any { it.equals(artistName, ignoreCase = true) }
         ArtistDetailView(
             artistName = artistName,
             songs = artistSongs,
             currentPlayingId = playerState.currentRecording?.id,
             isPlaying = playerState.isPlaying,
+            isSaved = isArtistSaved,
+            onToggleSave = { viewModel.toggleSavedArtist(artistName) },
             onBack = { selectedArtistForDetail = null },
             onSongClick = { viewModel.playPauseRecording(it) },
+            onDeleteArtist = { artistToDelete = Pair(artistName, artistSongs.size) },
             onRename = { recordingToRename = it },
             onDelete = { recordingToDelete = it },
             onLyrics = { recordingForLyrics = it }
@@ -209,50 +341,154 @@ fun LibraryScreen(
             ) {
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Spotify Top Header: User Avatar, "Your Library", Search & Add
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Circular App Logo in top-left
-                    Image(
-                        painter = painterResource(id = com.audiovault.app.R.drawable.ic_recordify_logo),
-                        contentDescription = "Recordify",
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
+            // Spotify Top Header: Normal Header vs In-Library Search Box
+            if (isLibrarySearchOpen) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(SpotifyCardSurface)
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = SpotifyGreenBright,
+                        modifier = Modifier.size(22.dp)
                     )
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                    Text(
-                        text = "Your Library",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
+                    BasicTextField(
+                        value = librarySearchQuery,
+                        onValueChange = { librarySearchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                        cursorBrush = SolidColor(SpotifyGreenBright),
+                        decorationBox = { innerTextField ->
+                            if (librarySearchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search artists, songs, playlists...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF888888)
+                                )
+                            }
+                            innerTextField()
+                        }
                     )
-                }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onNavigateToSearch) {
+                    if (librarySearchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { librarySearchQuery = "" },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color(0xFFB3B3B3),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = {
+                            isLibrarySearchOpen = false
+                            librarySearchQuery = ""
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Search",
                             tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onOpenDrawer() }
+                    ) {
+                        com.audiovault.app.ui.components.ProfileAvatarButton(
+                            userName = userName,
+                            onClick = onOpenDrawer,
+                            size = 36.dp
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Text(
+                            text = "Your Library",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
                         )
                     }
 
-                    IconButton(onClick = { showCreatePlaylistDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Create Playlist",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { isLibrarySearchOpen = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search Library",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        var plusMenuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = {
+                                when (selectedTab) {
+                                    LibraryTab.ARTISTS -> showAddArtistDialog = true
+                                    LibraryTab.PLAYLISTS -> showCreatePlaylistDialog = true
+                                    else -> plusMenuExpanded = true
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = plusMenuExpanded,
+                                onDismissRequest = { plusMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Create Playlist") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = SpotifyGreenBright)
+                                    },
+                                    onClick = {
+                                        plusMenuExpanded = false
+                                        showCreatePlaylistDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Add Artist") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = SpotifyGreenBright)
+                                    },
+                                    onClick = {
+                                        plusMenuExpanded = false
+                                        showAddArtistDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -268,6 +504,7 @@ fun LibraryScreen(
                     val isSelected = selectedTab == tab
                     val label = when (tab) {
                         LibraryTab.ALL -> "All"
+                        LibraryTab.DOWNLOADED -> "Downloaded"
                         LibraryTab.PLAYLISTS -> "Playlists"
                         LibraryTab.ARTISTS -> "Artists"
                         LibraryTab.SONGS -> "Songs"
@@ -360,11 +597,14 @@ fun LibraryScreen(
                     }
                 }
 
-                IconButton(onClick = { /* Toggle view */ }, modifier = Modifier.size(24.dp)) {
+                IconButton(
+                    onClick = { isGridView = !isGridView },
+                    modifier = Modifier.size(24.dp)
+                ) {
                     Icon(
-                        imageVector = Icons.Default.GridView,
-                        contentDescription = "View",
-                        tint = Color.White,
+                        imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+                        contentDescription = if (isGridView) "Switch to List View" else "Switch to Grid View",
+                        tint = if (isGridView) SpotifyGreenBright else Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -372,35 +612,194 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Main Content Area
-            if (recordings.isEmpty() && playlists.isEmpty() && likedSongIds.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 80.dp),
-                    contentAlignment = Alignment.Center
+            // Main Content Area with Smooth Fade Transition (Always showing category cards by default)
+            Crossfade(
+                targetState = Pair(selectedTab, isGridView),
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                label = "LibraryTabFade"
+            ) { (_, inGrid) ->
+                if (inGrid) {
+                    // Spotify-style 2-column Grid View
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        state = libraryGridState,
+                        modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = Color(0xFF666666),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No captured tracks yet",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                    // Top Colorful Compact Category Cards (if in ALL tab and not searching)
+                    if (selectedTab == LibraryTab.ALL && query.isEmpty()) {
+                        item {
+                            CategorySquareCard(
+                                title = "Downloaded",
+                                countText = if (recordings.isNotEmpty()) "${recordings.size} tracks • $formattedDownloadedSize" else "0 tracks",
+                                icon = Icons.Default.Download,
+                                gradientColors = listOf(Color(0xFF0072FF), Color(0xFF00C6FF)),
+                                onClick = { selectedTab = LibraryTab.DOWNLOADED }
                             )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Start monitoring to capture and automatically organize songs.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF999999)
-                        )
+                        }
+                        item {
+                            CategorySquareCard(
+                                title = "Liked Songs",
+                                countText = "$activeLikedCount liked",
+                                icon = Icons.Default.Favorite,
+                                gradientColors = listOf(Color(0xFFEA4C89), Color(0xFFFF6B6B)),
+                                onClick = { selectedPlaylistForDetail = "LIKED" }
+                            )
+                        }
+                        item {
+                            CategorySquareCard(
+                                title = "Playlists",
+                                countText = "${playlists.size} created",
+                                icon = Icons.Default.QueueMusic,
+                                gradientColors = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0)),
+                                onClick = { selectedTab = LibraryTab.PLAYLISTS }
+                            )
+                        }
+                        item {
+                            CategorySquareCard(
+                                title = "Artists",
+                                countText = "${allArtistGroups.size} artists",
+                                icon = Icons.Default.Person,
+                                gradientColors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)),
+                                onClick = { selectedTab = LibraryTab.ARTISTS }
+                            )
+                        }
+                    }
+
+                    // Downloaded Songs Cards (if in Downloaded tab)
+                    if (selectedTab == LibraryTab.DOWNLOADED) {
+                        if (filteredRecordings.isEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 40.dp, bottom = 40.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No downloaded tracks yet",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Download songs from Search or Player to listen offline anytime.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = onNavigateToSearch,
+                                        colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreenBright)
+                                    ) {
+                                        Text("Browse Music", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            items(filteredRecordings, key = { "dl_${it.id}" }) { recording ->
+                                val isCurrentTrackPlaying = playerState.isPlaying && playerState.currentRecording?.id == recording.id
+                                SongGridCard(
+                                    recording = recording,
+                                    isPlaying = isCurrentTrackPlaying,
+                                    onPlayClick = { viewModel.playPauseRecording(recording) },
+                                    onRename = { recordingToRename = recording },
+                                    onDelete = { recordingToDelete = recording },
+                                    onLyrics = { recordingForLyrics = recording }
+                                )
+                            }
+                        }
+                    }
+
+                    // Liked Songs Playlist Tile (if in Playlists tab)
+                    if (selectedTab == LibraryTab.PLAYLISTS && showLikedTile) {
+                        item {
+                            LikedSongsGridCard(
+                                trackCount = activeLikedCount,
+                                onClick = { selectedPlaylistForDetail = "LIKED" }
+                            )
+                        }
+                    }
+
+                    // User Custom Playlists
+                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.PLAYLISTS) {
+                        items(filteredPlaylists, key = { it.id }) { playlist ->
+                            val playlistSongEntities = recordings.filter { playlist.songIds.contains(it.id) }
+                            PlaylistGridCard(
+                                playlist = playlist,
+                                songs = playlistSongEntities,
+                                onClick = { selectedPlaylistForDetail = playlist.id },
+                                onRename = { playlistToRename = playlist },
+                                onDelete = { playlistToDelete = playlist }
+                            )
+                        }
+                    }
+
+                    // Saved Artist Cards (if in ALL tab - only saved/followed artists)
+                    if (selectedTab == LibraryTab.ALL) {
+                        items(filteredSavedArtistGroups, key = { it.first }) { (artistName, songs) ->
+                            val songTitle = songs.firstOrNull()?.title
+                            val isArtistSaved = savedArtists.any { it.equals(artistName, ignoreCase = true) }
+                            ArtistGridCard(
+                                artistName = artistName,
+                                songCount = songs.size,
+                                songHint = songTitle,
+                                isSaved = isArtistSaved,
+                                onToggleSave = { viewModel.toggleSavedArtist(artistName) },
+                                onClick = { selectedArtistForDetail = artistName },
+                                onDeleteArtist = { artistToDelete = Pair(artistName, songs.size) }
+                            )
+                        }
+                    }
+
+                    // All Artist Cards (in ARTISTS tab - all artists with toggleable save button)
+                    if (selectedTab == LibraryTab.ARTISTS) {
+                        if (query.isEmpty()) {
+                            item {
+                                AddArtistGridCard(onClick = { showAddArtistDialog = true })
+                            }
+                        }
+                        items(filteredAllArtistGroups, key = { it.first }) { (artistName, songs) ->
+                            val songTitle = songs.firstOrNull()?.title
+                            val isArtistSaved = savedArtists.any { it.equals(artistName, ignoreCase = true) }
+                            ArtistGridCard(
+                                artistName = artistName,
+                                songCount = songs.size,
+                                songHint = songTitle,
+                                isSaved = isArtistSaved,
+                                onToggleSave = { viewModel.toggleSavedArtist(artistName) },
+                                onClick = { selectedArtistForDetail = artistName },
+                                onDeleteArtist = { artistToDelete = Pair(artistName, songs.size) }
+                            )
+                        }
+                    }
+
+                    // Individual Song Cards (if in Songs tab)
+                    if (selectedTab == LibraryTab.SONGS) {
+                        items(filteredRecordings, key = { it.id }) { recording ->
+                            val isCurrentTrackPlaying = playerState.isPlaying && playerState.currentRecording?.id == recording.id
+                            SongGridCard(
+                                recording = recording,
+                                isPlaying = isCurrentTrackPlaying,
+                                onPlayClick = { viewModel.playPauseRecording(recording) },
+                                onRename = { recordingToRename = recording },
+                                onDelete = { recordingToDelete = recording },
+                                onLyrics = { recordingForLyrics = recording }
+                            )
+                        }
                     }
                 }
             } else {
@@ -410,17 +809,118 @@ fun LibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
-                    // Liked Songs Playlist Tile (if in All or Playlists)
-                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.PLAYLISTS) {
+                    // Colorful Compact Category Hub (if in ALL tab and not searching)
+                    if (selectedTab == LibraryTab.ALL && query.isEmpty()) {
+                        item {
+                            LibraryCategoryHub(
+                                downloadedCount = recordings.size,
+                                downloadedSizeText = formattedDownloadedSize,
+                                playlistCount = playlists.size,
+                                artistCount = allArtistGroups.size,
+                                songCount = recordings.size,
+                                likedCount = activeLikedCount,
+                                onDownloadedClick = { selectedTab = LibraryTab.DOWNLOADED },
+                                onPlaylistsClick = { selectedTab = LibraryTab.PLAYLISTS },
+                                onArtistsClick = { selectedTab = LibraryTab.ARTISTS },
+                                onSongsClick = { selectedTab = LibraryTab.SONGS },
+                                onLikedClick = { selectedPlaylistForDetail = "LIKED" }
+                            )
+                        }
+                    }
+
+                    // Downloaded Songs Section (if in Downloaded tab)
+                    if (selectedTab == LibraryTab.DOWNLOADED) {
+                        if (filteredRecordings.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 40.dp, bottom = 40.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No downloaded tracks yet",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Download songs from Search or Player to listen offline anytime.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = onNavigateToSearch,
+                                        colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreenBright)
+                                    ) {
+                                        Text("Browse Music", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = SpotifyGreenBright,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${filteredRecordings.size} tracks • $formattedDownloadedSize downloaded on device",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFFB3B3B3),
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    )
+                                }
+                            }
+
+                            items(filteredRecordings, key = { "dl_row_${it.id}" }) { recording ->
+                                val isCurrentTrackPlaying = playerState.isPlaying && playerState.currentRecording?.id == recording.id
+                                SongLibraryRow(
+                                    recording = recording,
+                                    isPlaying = isCurrentTrackPlaying,
+                                    onPlayClick = { viewModel.playPauseRecording(recording) },
+                                    onRename = { recordingToRename = recording },
+                                    onDelete = { recordingToDelete = recording },
+                                    onLyrics = { recordingForLyrics = recording }
+                                )
+                            }
+                        }
+                    }
+
+                    // Liked Songs Playlist Tile (if in Playlists tab)
+                    if (selectedTab == LibraryTab.PLAYLISTS && showLikedTile) {
                         item {
                             LikedSongsTile(
-                                trackCount = likedSongIds.size,
+                                trackCount = activeLikedCount,
                                 onClick = { selectedPlaylistForDetail = "LIKED" }
                             )
                         }
+                    }
 
-                        // User Custom Playlists
-                        items(playlists, key = { it.id }) { playlist ->
+                    // User Custom Playlists
+                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.PLAYLISTS) {
+                        items(filteredPlaylists, key = { it.id }) { playlist ->
                             val playlistSongEntities = recordings.filter { playlist.songIds.contains(it.id) }
                             PlaylistLibraryRow(
                                 playlist = playlist,
@@ -432,22 +932,48 @@ fun LibraryScreen(
                         }
                     }
 
-                    // Artist Group Rows (if in All or Artists)
-                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.ARTISTS) {
-                        items(artistGroups, key = { it.first }) { (artistName, songs) ->
+                    // Saved Artist Rows (if in ALL tab - only saved/followed artists)
+                    if (selectedTab == LibraryTab.ALL) {
+                        items(filteredSavedArtistGroups, key = { it.first }) { (artistName, songs) ->
                             val songTitle = songs.firstOrNull()?.title
+                            val isArtistSaved = savedArtists.any { it.equals(artistName, ignoreCase = true) }
                             ArtistLibraryRow(
                                 artistName = artistName,
                                 songCount = songs.size,
                                 songHint = songTitle,
-                                onClick = { selectedArtistForDetail = artistName }
+                                isSaved = isArtistSaved,
+                                onToggleSave = { viewModel.toggleSavedArtist(artistName) },
+                                onClick = { selectedArtistForDetail = artistName },
+                                onDeleteArtist = { artistToDelete = Pair(artistName, songs.size) }
+                            )
+                        }
+                    }
+
+                    // All Artist Rows (in ARTISTS tab - all artists with toggleable save button)
+                    if (selectedTab == LibraryTab.ARTISTS) {
+                        if (query.isEmpty()) {
+                            item {
+                                AddArtistLibraryRow(onClick = { showAddArtistDialog = true })
+                            }
+                        }
+                        items(filteredAllArtistGroups, key = { it.first }) { (artistName, songs) ->
+                            val songTitle = songs.firstOrNull()?.title
+                            val isArtistSaved = savedArtists.any { it.equals(artistName, ignoreCase = true) }
+                            ArtistLibraryRow(
+                                artistName = artistName,
+                                songCount = songs.size,
+                                songHint = songTitle,
+                                isSaved = isArtistSaved,
+                                onToggleSave = { viewModel.toggleSavedArtist(artistName) },
+                                onClick = { selectedArtistForDetail = artistName },
+                                onDeleteArtist = { artistToDelete = Pair(artistName, songs.size) }
                             )
                         }
                     }
 
                     // Individual Song Rows (if in Songs tab)
                     if (selectedTab == LibraryTab.SONGS) {
-                        items(recordings, key = { it.id }) { recording ->
+                        items(filteredRecordings, key = { it.id }) { recording ->
                             val isCurrentTrackPlaying = playerState.isPlaying && playerState.currentRecording?.id == recording.id
                             SongLibraryRow(
                                 recording = recording,
@@ -461,6 +987,7 @@ fun LibraryScreen(
                     }
                 }
             }
+            }
         }
         }
     }
@@ -472,6 +999,16 @@ fun LibraryScreen(
             onConfirm = { name ->
                 viewModel.createPlaylist(name)
                 showCreatePlaylistDialog = false
+            }
+        )
+    }
+
+    if (showAddArtistDialog) {
+        AddArtistDialog(
+            onDismiss = { showAddArtistDialog = false },
+            onConfirm = { name ->
+                viewModel.addManualArtist(name)
+                showAddArtistDialog = false
             }
         )
     }
@@ -497,6 +1034,21 @@ fun LibraryScreen(
                     selectedPlaylistForDetail = null
                 }
                 playlistToDelete = null
+            }
+        )
+    }
+
+    artistToDelete?.let { (artistName, count) ->
+        DeleteArtistConfirmDialog(
+            artistName = artistName,
+            songCount = count,
+            onDismiss = { artistToDelete = null },
+            onConfirmDelete = {
+                viewModel.deleteArtist(artistName)
+                if (selectedArtistForDetail == artistName) {
+                    selectedArtistForDetail = null
+                }
+                artistToDelete = null
             }
         )
     }
@@ -590,7 +1142,7 @@ fun LikedSongsTile(
                     )
                 )
                 Text(
-                    text = " • $trackCount songs",
+                    text = " • $trackCount ${if (trackCount == 1) "song" else "songs"}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFFB3B3B3)
                     )
@@ -601,20 +1153,78 @@ fun LikedSongsTile(
 }
 
 /**
- * Circular Artist row matching Spotify screenshot #2.
+ * Dedicated Add Artist Row for Artists Tab.
  */
 @Composable
-fun ArtistLibraryRow(
-    artistName: String,
-    songCount: Int,
-    songHint: String? = null,
-    onClick: () -> Unit
-) {
+fun AddArtistLibraryRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(SpotifyDarkSurface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Artist",
+                tint = SpotifyGreenBright,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Add Artist",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Scan & group songs by artist name",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFFB3B3B3)
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Circular Artist row matching Spotify screenshot #2.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ArtistLibraryRow(
+    artistName: String,
+    songCount: Int,
+    songHint: String? = null,
+    isSaved: Boolean = false,
+    onToggleSave: () -> Unit = {},
+    onClick: () -> Unit,
+    onDeleteArtist: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onDeleteArtist
+            )
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -644,6 +1254,54 @@ fun ArtistLibraryRow(
                     color = Color(0xFFB3B3B3)
                 )
             )
+        }
+
+        // Save / Follow Button
+        IconButton(
+            onClick = onToggleSave,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = if (isSaved) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                contentDescription = if (isSaved) "Saved Artist" else "Save Artist",
+                tint = if (isSaved) SpotifyGreenBright else Color(0xFF888888),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        // 3-dots Menu for Delete
+        Box {
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Artist Options",
+                    tint = Color(0xFFB3B3B3),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (isSaved) "Remove from Saved" else "Save Artist") },
+                    onClick = {
+                        menuExpanded = false
+                        onToggleSave()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete Artist", color = Color(0xFFFF4444)) },
+                    onClick = {
+                        menuExpanded = false
+                        onDeleteArtist()
+                    }
+                )
+            }
         }
     }
 }
@@ -723,11 +1381,10 @@ fun SongLibraryRow(
             )
         }
 
-        Text(
-            text = formatDuration(recording.durationMs),
-            style = MaterialTheme.typography.labelSmall.copy(
-                color = Color(0xFF888888)
-            ),
+        com.audiovault.app.ui.components.ProcessingTimelineBadge(
+            isProcessing = recording.isProcessing,
+            durationMs = recording.durationMs,
+            textColor = Color(0xFF888888),
             modifier = Modifier.padding(horizontal = 6.dp)
         )
 
@@ -783,12 +1440,17 @@ fun ArtistDetailView(
     songs: List<RecordingEntity>,
     currentPlayingId: Long?,
     isPlaying: Boolean,
+    isSaved: Boolean = false,
+    onToggleSave: () -> Unit = {},
     onBack: () -> Unit,
     onSongClick: (RecordingEntity) -> Unit,
+    onDeleteArtist: () -> Unit,
     onRename: (RecordingEntity) -> Unit,
     onDelete: (RecordingEntity) -> Unit,
     onLyrics: (RecordingEntity) -> Unit
 ) {
+    var artistMenuExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -797,26 +1459,69 @@ fun ArtistDetailView(
     ) {
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Back Arrow Header
+        // Back Arrow Header with Options & Save
         Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Artist",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Artist",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onToggleSave) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                        contentDescription = if (isSaved) "Saved Artist" else "Save Artist",
+                        tint = if (isSaved) SpotifyGreenBright else Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Box {
+                    IconButton(onClick = { artistMenuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Artist Options",
+                            tint = Color.White
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = artistMenuExpanded,
+                        onDismissRequest = { artistMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(if (isSaved) "Remove from Saved" else "Save Artist") },
+                            onClick = {
+                                artistMenuExpanded = false
+                                onToggleSave()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete Artist", color = Color(0xFFFF4444)) },
+                            onClick = {
+                                artistMenuExpanded = false
+                                onDeleteArtist()
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1019,6 +1724,432 @@ fun PlaylistLibraryRow(
                         onDelete()
                     }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Liked Songs Grid Card for Spotify-style Grid View.
+ */
+@Composable
+fun LikedSongsGridCard(
+    trackCount: Int,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF450AF5), Color(0xFF8E8EE5), Color(0xFFC4EFD9))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Favorite,
+                contentDescription = "Liked Songs",
+                tint = Color.White,
+                modifier = Modifier.size(44.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Liked Songs",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "📌 Playlist • $trackCount ${if (trackCount == 1) "song" else "songs"}",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFB3B3B3),
+                fontSize = 12.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Playlist Grid Card for Spotify-style Grid View.
+ */
+@Composable
+fun PlaylistGridCard(
+    playlist: com.audiovault.app.data.repository.UserPlaylist,
+    songs: List<RecordingEntity>,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val songCount = playlist.songIds.size
+    val firstArt = songs.firstOrNull { !it.albumArtPath.isNullOrBlank() }?.albumArtPath
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF282828)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (firstArt != null) {
+                TrackCoverArt(
+                    albumArtPath = firstArt,
+                    title = playlist.name,
+                    artist = null,
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = "Playlist",
+                    tint = SpotifyGreenBright,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = playlist.name,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Playlist • $songCount ${if (songCount == 1) "song" else "songs"}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFB3B3B3),
+                        fontSize = 12.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Box {
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = Color(0xFFB3B3B3),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rename Playlist") },
+                        onClick = {
+                            menuExpanded = false
+                            onRename()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete Playlist", color = Color(0xFFFF4444)) },
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dedicated Add Artist Card for Grid View.
+ */
+@Composable
+fun AddArtistGridCard(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(SpotifyDarkSurface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Artist",
+                tint = SpotifyGreenBright,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Add Artist",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "Scan library songs",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFB3B3B3),
+                fontSize = 12.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Artist Grid Card for Spotify-style Grid View.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ArtistGridCard(
+    artistName: String,
+    songCount: Int,
+    songHint: String? = null,
+    isSaved: Boolean = false,
+    onToggleSave: () -> Unit = {},
+    onClick: () -> Unit,
+    onDeleteArtist: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onDeleteArtist
+            )
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Large Circular Artist Avatar
+        ArtistAvatar(
+            artistName = artistName,
+            songHint = songHint,
+            size = 120.dp
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = artistName,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Artist • $songCount ${if (songCount == 1) "song" else "songs"}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFB3B3B3),
+                        fontSize = 12.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(
+                onClick = onToggleSave,
+                modifier = Modifier.size(30.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                    contentDescription = if (isSaved) "Saved Artist" else "Save Artist",
+                    tint = if (isSaved) SpotifyGreenBright else Color(0xFF888888),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Song Grid Card for Spotify-style Grid View.
+ */
+@Composable
+fun SongGridCard(
+    recording: RecordingEntity,
+    isPlaying: Boolean,
+    onPlayClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onLyrics: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onPlayClick() }
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            TrackCoverArt(
+                albumArtPath = recording.albumArtPath,
+                title = recording.title,
+                artist = recording.artist,
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(8.dp)
+            )
+
+            if (isPlaying) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Pause,
+                        contentDescription = "Playing",
+                        tint = SpotifyGreenBright,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = recording.title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPlaying) SpotifyGreenBright else Color.White
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = recording.artist ?: "Unknown Artist",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFB3B3B3),
+                        fontSize = 12.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Box {
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = Color(0xFFB3B3B3),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rename Song") },
+                        onClick = {
+                            menuExpanded = false
+                            onRename()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("View / Edit Lyrics") },
+                        onClick = {
+                            menuExpanded = false
+                            onLyrics()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete Song", color = Color(0xFFFF4444)) },
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }
@@ -1287,11 +2418,10 @@ fun PlaylistDetailView(
                             )
                         }
 
-                        Text(
-                            text = formatDuration(song.durationMs),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF888888)
-                            ),
+                        com.audiovault.app.ui.components.ProcessingTimelineBadge(
+                            isProcessing = song.isProcessing,
+                            durationMs = song.durationMs,
+                            textColor = Color(0xFF888888),
                             modifier = Modifier.padding(horizontal = 6.dp)
                         )
 
@@ -1347,6 +2477,126 @@ fun PlaylistDetailView(
             }
         }
     }
+}
+
+@Composable
+fun DeleteArtistConfirmDialog(
+    artistName: String,
+    songCount: Int,
+    onDismiss: () -> Unit,
+    onConfirmDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SpotifyCardSurface,
+        title = {
+            Text(
+                text = "Remove \"$artistName\"?",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+        },
+        text = {
+            Text(
+                text = "Remove \"$artistName\" from your Artists list? Your $songCount recorded track${if (songCount == 1) "" else "s"} will remain safely in your library.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFB3B3B3)
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmDelete,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SpotifyGreenBright,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text("Remove Artist", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFFB3B3B3))
+            }
+        }
+    )
+}
+
+@Composable
+fun AddArtistDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var artistName by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SpotifyCardSurface,
+        title = {
+            Text(
+                text = "Add Artist",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Type an artist name. Recordify will automatically scan your library, group all their songs, and fetch their HD portrait.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFB3B3B3)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = artistName,
+                    onValueChange = { artistName = it },
+                    placeholder = { Text("e.g. Arijit Singh, Taylor Swift...", color = Color(0xFF888888)) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = SpotifyGreenBright,
+                        unfocusedBorderColor = Color(0xFF444444),
+                        cursorColor = SpotifyGreenBright
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (artistName.isNotBlank()) {
+                                onConfirm(artistName.trim())
+                            }
+                        }
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (artistName.isNotBlank()) {
+                        onConfirm(artistName.trim())
+                    }
+                },
+                enabled = artistName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SpotifyGreenBright,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text("Add Artist", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFFB3B3B3))
+            }
+        }
+    )
 }
 
 @Composable
@@ -1541,4 +2791,155 @@ fun splitArtists(rawArtist: String?): List<String> {
         .distinct()
 
     return if (list.isNotEmpty()) list else listOf(rawArtist.trim())
+}
+
+/**
+ * Compact Category Card for Library hub navigation.
+ */
+@Composable
+fun CategorySquareCard(
+    title: String,
+    countText: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    gradientColors: List<Color>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = Color.Transparent,
+        modifier = modifier
+            .height(64.dp)
+            .shadow(3.dp, RoundedCornerShape(10.dp))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = gradientColors,
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+                    )
+                )
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Circular frosted icon badge
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = Color.White,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Title & count
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 13.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = countText,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Compact Category Hub displayed at the top of the ALL tab in List View.
+ */
+@Composable
+fun LibraryCategoryHub(
+    downloadedCount: Int,
+    downloadedSizeText: String,
+    playlistCount: Int,
+    artistCount: Int,
+    songCount: Int,
+    likedCount: Int,
+    onDownloadedClick: () -> Unit,
+    onPlaylistsClick: () -> Unit,
+    onArtistsClick: () -> Unit,
+    onSongsClick: () -> Unit,
+    onLikedClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CategorySquareCard(
+                title = "Downloaded",
+                countText = if (downloadedCount > 0) "$downloadedCount tracks • $downloadedSizeText" else "0 tracks",
+                icon = Icons.Default.Download,
+                gradientColors = listOf(Color(0xFF0072FF), Color(0xFF00C6FF)),
+                onClick = onDownloadedClick,
+                modifier = Modifier.weight(1f)
+            )
+            CategorySquareCard(
+                title = "Liked Songs",
+                countText = "$likedCount liked",
+                icon = Icons.Default.Favorite,
+                gradientColors = listOf(Color(0xFFEA4C89), Color(0xFFFF6B6B)),
+                onClick = onLikedClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CategorySquareCard(
+                title = "Playlists",
+                countText = "$playlistCount created",
+                icon = Icons.Default.QueueMusic,
+                gradientColors = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0)),
+                onClick = onPlaylistsClick,
+                modifier = Modifier.weight(1f)
+            )
+            CategorySquareCard(
+                title = "Artists",
+                countText = "$artistCount artists",
+                icon = Icons.Default.Person,
+                gradientColors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)),
+                onClick = onArtistsClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
 }

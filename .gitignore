@@ -10,3 +10,6 @@ app/build/
 .cxx
 local.properties
 .kotlin/
+*.tar.gz
+my_spotify_data.zip
+my_spotify_data/

@@ -11,6 +11,7 @@ import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.audiovault.app.core.intelligence.SongMetadata
+import com.audiovault.app.core.intelligence.YouTubeAdAccessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,8 +21,8 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Handles official Android AudioPlaybackCapture with intelligent track splitting,
- * real-time acoustic analysis, and ultra-smooth High-Fidelity AAC encoding.
+ * Handles official Android AudioPlaybackCapture with 3-layer precision ad cutting,
+ * real-time acoustic crossfading, and ultra-smooth High-Fidelity AAC encoding.
  */
 class PlaybackAudioCapture(
     private val mediaProjection: MediaProjection,
@@ -36,6 +37,7 @@ class PlaybackAudioCapture(
         private const val TAG = "AudioVault/Capture"
     }
 
+    private var activeConfig: AudioCaptureConfig = config
     private var audioRecord: AudioRecord? = null
     private var detector: AudioActivityDetector? = null
     private var analyzer: IntelligentAudioAnalyzer? = null
@@ -63,11 +65,12 @@ class PlaybackAudioCapture(
                 .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                 .build()
 
-            val sampleRates = listOf(config.sampleRate, AudioCaptureConfig.FALLBACK_SAMPLE_RATE)
+            // Prioritize standard 48kHz Android mixer sample rate, with 44.1kHz fallback
+            val sampleRates = listOf(AudioCaptureConfig.DEFAULT_SAMPLE_RATE, AudioCaptureConfig.FALLBACK_SAMPLE_RATE)
             val channelConfigs = listOf(AudioFormat.CHANNEL_IN_STEREO, AudioFormat.CHANNEL_IN_MONO)
 
             var selectedRecord: AudioRecord? = null
-            var actualSampleRate = config.sampleRate
+            var actualSampleRate = AudioCaptureConfig.DEFAULT_SAMPLE_RATE
             var actualChannelConfig = config.channelConfig
             var actualChannelCount = config.channelCount
 
@@ -86,7 +89,6 @@ class PlaybackAudioCapture(
                             .build()
 
                         try {
-                            // Use generous 8x buffer to prevent hardware overruns
                             val bufferSizeBytes = maxOf(minBuf * 8, 65536)
                             val record = AudioRecord.Builder()
                                 .setAudioFormat(audioFormat)
@@ -115,7 +117,7 @@ class PlaybackAudioCapture(
                 throw IOException("Unable to initialize AudioRecord with any supported configuration.")
             }
 
-            val activeConfig = config.copy(
+            this.activeConfig = config.copy(
                 sampleRate = actualSampleRate,
                 channelConfig = actualChannelConfig,
                 channelCount = actualChannelCount
@@ -126,7 +128,7 @@ class PlaybackAudioCapture(
             detector = AudioActivityDetector(
                 config = activeConfig,
                 onRecordingStart = { preRollBytes ->
-                    handleRecordingStart(activeConfig, preRollBytes)
+                    handleRecordingStart(preRollBytes)
                 },
                 onRecordingStop = { isEligibleDuration ->
                     handleRecordingStop(isEligibleDuration)
@@ -137,7 +139,7 @@ class PlaybackAudioCapture(
             isCapturing = true
             isAdPaused = false
             isFadingInNext = false
-            Log.i(TAG, "AudioPlaybackCapture started smoothly ($actualSampleRate Hz, $actualChannelCount ch, ${activeConfig.bitrateKbps} kbps)")
+            Log.i(TAG, "AudioPlaybackCapture started with pristine studio precision ($actualSampleRate Hz, $actualChannelCount ch, ${activeConfig.bitrateKbps} kbps)")
 
             captureJob = captureScope.launch {
                 runCaptureLoop(selectedRecord, activeConfig)
@@ -163,24 +165,23 @@ class PlaybackAudioCapture(
                     val isMusic = acousticProfile?.isMusic ?: true
 
                     val liveSong = currentSongProvider()
-                    val isAccessibilityAd = com.audiovault.app.core.intelligence.YouTubeAdAccessibilityService.isAdPlaying.value
+                    val isAccessibilityAd = YouTubeAdAccessibilityService.isAdPlaying.value
                     val isAdActive = isAccessibilityAd || liveSong?.isAdvertisement == true || currentTrackMetadata?.isAdvertisement == true
 
+                    // Layer 1 & 2: Real-time Precision Ad Pause with 50ms Micro-Crossfades
                     if (isAdActive) {
                         if (!isAdPaused) {
-                            Log.i(TAG, "YouTube / Media Ad detected! Applying smooth 50ms fade-out and pausing audio encoder queue.")
-                            // Apply micro-fade out before pausing to eliminate audio clicks
+                            Log.i(TAG, "YouTube Ad active: applying 50ms micro-fade out and pausing encoder queue.")
                             applyFadeOut(buffer, 0, bytesRead)
                             currentEncoder?.encodePcm(buffer, 0, bytesRead)
                             isAdPaused = true
                             isFadingInNext = true
                         }
-                        // Skip feeding ad audio to the encoder during ad break
                         onStateChanged(false, 0L, detector.currentRmsDb, false)
                         continue
                     } else {
                         if (isAdPaused) {
-                            Log.i(TAG, "Ad break completed. Applying smooth 50ms fade-in and resuming clean song recording.")
+                            Log.i(TAG, "Ad finished: applying 50ms micro-fade in and resuming clean recording.")
                             isAdPaused = false
                         }
                     }
@@ -216,9 +217,6 @@ class PlaybackAudioCapture(
         }
     }
 
-    /**
-     * Applies a 50ms smooth linear micro fade-out to prevent audio pops / clicks at cut boundaries.
-     */
     private fun applyFadeOut(pcmData: ByteArray, offset: Int, length: Int) {
         val sampleCount = length / 2
         for (i in 0 until sampleCount) {
@@ -233,9 +231,6 @@ class PlaybackAudioCapture(
         }
     }
 
-    /**
-     * Applies a 50ms smooth linear micro fade-in to seamlessly re-engage audio without glitches.
-     */
     private fun applyFadeIn(pcmData: ByteArray, offset: Int, length: Int) {
         val sampleCount = length / 2
         for (i in 0 until sampleCount) {
@@ -250,7 +245,7 @@ class PlaybackAudioCapture(
         }
     }
 
-    private fun handleRecordingStart(activeConfig: AudioCaptureConfig, preRollBytes: ByteArray) {
+    private fun handleRecordingStart(preRollBytes: ByteArray) {
         try {
             val song = currentSongProvider()
             if (song != null && song.isAdvertisement) {
@@ -272,7 +267,7 @@ class PlaybackAudioCapture(
             if (preRollBytes.isNotEmpty()) {
                 encoder.encodePcm(preRollBytes, 0, preRollBytes.size)
             }
-            Log.d(TAG, "Started recording session for '${song?.displayTitle ?: file.name}'")
+            Log.d(TAG, "Started recording session for '${song?.displayTitle ?: file.name}' at ${activeConfig.sampleRate}Hz")
         } catch (e: Exception) {
             Log.e(TAG, "Error starting recording session", e)
             currentEncoder = null
@@ -284,7 +279,6 @@ class PlaybackAudioCapture(
         val encoder = currentEncoder
         val file = currentRecordingFile
         val song = currentTrackMetadata ?: currentSongProvider()
-        val durationMs = (System.currentTimeMillis() - currentSessionStartTimeMs).coerceAtLeast(1000L)
 
         currentEncoder = null
         currentRecordingFile = null
@@ -293,20 +287,20 @@ class PlaybackAudioCapture(
         if (encoder != null && file != null) {
             captureScope.launch(Dispatchers.IO) {
                 val isValid = encoder.finishAndRelease()
+                val exactDurationMs = encoder.recordedDurationMs.takeIf { it > 0L }
+                    ?: (System.currentTimeMillis() - currentSessionStartTimeMs).coerceAtLeast(1000L)
+
                 if (isValid && isEligibleDuration) {
-                    // Run 3-Layer Audio Post-Processor (Acoustic Ad Classifier + SponsorBlock + Lossless Media Slicer)
-                    val processed = AudioPostProcessor.processAndCleanRecording(file, durationMs, song)
+                    // Layer 3: Super-Accurate Audio Post-Processor & Quality Validator
+                    val processed = AudioPostProcessor.processAndCleanRecording(file, exactDurationMs, song)
                     if (processed.isValidSong) {
-                        Log.i(TAG, "Post-processed clean recording: ${processed.file.name}, duration: ${processed.durationMs}ms for '${song?.displayTitle}'")
+                        Log.i(TAG, "Clean recording saved: ${processed.file.name}, exact sample duration: ${processed.durationMs}ms for '${song?.displayTitle}'")
                         onRecordingSaved(processed.file, processed.durationMs, song)
-                    } else {
-                        Log.d(TAG, "Discarded invalid/ad recording after 3-layer post-scan: ${file.name}")
-                        if (processed.file.exists()) {
-                            processed.file.delete()
-                        }
+                    } else if (processed.file.exists()) {
+                        processed.file.delete()
                     }
                 } else {
-                    Log.d(TAG, "Discarded recording (eligible=$isEligibleDuration, duration=${durationMs}ms, valid=$isValid)")
+                    Log.d(TAG, "Discarded recording (eligible=$isEligibleDuration, duration=${exactDurationMs}ms, valid=$isValid)")
                     if (file.exists()) {
                         file.delete()
                     }
@@ -316,14 +310,12 @@ class PlaybackAudioCapture(
     }
 
     /**
-     * Seamlessly splits recording when a new song is detected, and skips advertisements.
+     * Seamlessly splits recording when a new song is detected.
      */
     @Synchronized
     fun onSongTransition(newSong: SongMetadata) {
         if (!isCapturing) return
-        val activeConfig = config
 
-        // Check if track is genuinely different
         val prevTitle = currentTrackMetadata?.displayTitle ?: ""
         val newTitle = newSong.displayTitle
         if (prevTitle.isNotBlank() && prevTitle.equals(newTitle, ignoreCase = true)) {
@@ -331,7 +323,6 @@ class PlaybackAudioCapture(
         }
 
         if (currentEncoder != null && currentRecordingFile != null) {
-            val durationMs = System.currentTimeMillis() - currentSessionStartTimeMs
             val oldEncoder = currentEncoder
             val oldFile = currentRecordingFile
             val oldSong = currentTrackMetadata
@@ -341,21 +332,24 @@ class PlaybackAudioCapture(
             currentTrackMetadata = newSong
 
             if (newSong.isAdvertisement) {
-                Log.i(TAG, "Track changed to Advertisement ('$newTitle'). Finalizing previous track and pausing recording.")
+                Log.i(TAG, "Track changed to Advertisement ('$newTitle'). Finalizing previous track.")
             } else {
                 Log.i(TAG, "Track changed from '$prevTitle' to '$newTitle'. Splitting recording.")
             }
 
-            // Finalize previous song in background and clean with AudioPostProcessor
+            // Finalize previous song in background and process cleanly
             if (oldEncoder != null && oldFile != null) {
                 captureScope.launch(Dispatchers.IO) {
                     val isValid = oldEncoder.finishAndRelease()
+                    val exactDurationMs = oldEncoder.recordedDurationMs.takeIf { it > 0L }
+                        ?: (System.currentTimeMillis() - currentSessionStartTimeMs).coerceAtLeast(1000L)
+
                     if (isValid) {
-                        val processed = AudioPostProcessor.processAndCleanRecording(oldFile, durationMs, oldSong)
+                        val processed = AudioPostProcessor.processAndCleanRecording(oldFile, exactDurationMs, oldSong)
                         if (processed.isValidSong) {
                             onRecordingSaved(processed.file, processed.durationMs, oldSong)
-                        } else if (processed.file.exists()) {
-                            processed.file.delete()
+                        } else if (oldFile.exists()) {
+                            oldFile.delete()
                         }
                     } else if (oldFile.exists()) {
                         oldFile.delete()
@@ -363,15 +357,16 @@ class PlaybackAudioCapture(
                 }
             }
 
-            // If the new track is a real song (not an ad), start recording it immediately
+            // If the new track is a real song (not an ad), start recording it immediately with full pre-roll history
             if (!newSong.isAdvertisement) {
-                handleRecordingStart(activeConfig, ByteArray(0))
+                val preRollHistory = detector?.getRecentHistoryBytes(activeConfig.preRollMs.toLong()) ?: ByteArray(0)
+                handleRecordingStart(preRollHistory)
             }
         } else {
             currentTrackMetadata = newSong
-            // If was waiting/in ad break and a real song starts, start recording immediately
             if (!newSong.isAdvertisement) {
-                handleRecordingStart(activeConfig, ByteArray(0))
+                val preRollHistory = detector?.getRecentHistoryBytes(activeConfig.preRollMs.toLong()) ?: ByteArray(0)
+                handleRecordingStart(preRollHistory)
             }
         }
     }
@@ -387,7 +382,6 @@ class PlaybackAudioCapture(
         val encoder = currentEncoder
         val file = currentRecordingFile
         val song = currentTrackMetadata ?: currentSongProvider()
-        val durationMs = if (currentSessionStartTimeMs > 0L) (System.currentTimeMillis() - currentSessionStartTimeMs) else 0L
 
         currentEncoder = null
         currentRecordingFile = null
@@ -419,19 +413,20 @@ class PlaybackAudioCapture(
             captureScope.launch(Dispatchers.IO) {
                 try {
                     val isValid = encoder.finishAndRelease()
-                    val isAtLeast50s = durationMs >= 50_000L
+                    val exactDurationMs = encoder.recordedDurationMs.takeIf { it > 0L } ?: 0L
+                    val isAtLeast50s = exactDurationMs >= 50_000L
                     val isAd = song?.isAdvertisement == true
 
                     if (isValid && isAtLeast50s && !isAd) {
-                        Log.i(TAG, "Stopped ongoing recording in middle (duration: ${durationMs}ms >= 50s). Processing & saving to library!")
-                        val processed = AudioPostProcessor.processAndCleanRecording(file, durationMs, song)
+                        Log.i(TAG, "Stopped ongoing recording in middle (exact duration: ${exactDurationMs}ms >= 50s). Processing & saving to library!")
+                        val processed = AudioPostProcessor.processAndCleanRecording(file, exactDurationMs, song)
                         if (processed.isValidSong) {
                             onRecordingSaved(processed.file, processed.durationMs, song)
                         } else if (processed.file.exists()) {
                             processed.file.delete()
                         }
                     } else {
-                        Log.d(TAG, "Stopped recording in middle with duration < 50s (${durationMs}ms). Discarding short fragment.")
+                        Log.d(TAG, "Stopped recording in middle with duration < 50s (${exactDurationMs}ms). Discarding short fragment.")
                         if (file.exists()) {
                             file.delete()
                         }

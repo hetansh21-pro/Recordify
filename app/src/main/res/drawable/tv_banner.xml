@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 16:9 Dark TV Banner Background (320x180 dp) -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#0A1F11"
+                android:centerColor="#121212"
+                android:endColor="#080808"
+                android:type="linear" />
+            <size
+                android:width="320dp"
+                android:height="180dp" />
+        </shape>
+    </item>
+
+    <!-- Top Accent Bar (Spotify Green) -->
+    <item
+        android:height="3dp"
+        android:gravity="top">
+        <shape android:shape="rectangle">
+            <solid android:color="#1DB954" />
+        </shape>
+    </item>
+
+    <!-- Recordify Logo (Centered) -->
+    <item
+        android:width="96dp"
+        android:height="96dp"
+        android:gravity="center"
+        android:drawable="@drawable/ic_recordify_logo" />
+</layer-list>

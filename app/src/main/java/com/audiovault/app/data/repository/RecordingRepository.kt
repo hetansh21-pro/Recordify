@@ -67,7 +67,13 @@ class RecordingRepository(
         return false
     }
 
-    suspend fun saveRecording(file: File, durationMs: Long, metadata: SongMetadata? = null, bitrateKbps: Int = 256): Long {
+    suspend fun saveRecording(
+        file: File,
+        durationMs: Long,
+        metadata: SongMetadata? = null,
+        bitrateKbps: Int = 256,
+        isProcessing: Boolean = false
+    ): Long {
         // 1. Minimum duration enforcement: Reject any audio under 50 seconds (50,000ms)
         if (durationMs < 50_000L) {
             android.util.Log.i("AudioVault/Repo", "Recording too short (${durationMs}ms < 50000ms). Discarding.")
@@ -114,7 +120,79 @@ class RecordingRepository(
             bitrateKbps = bitrateKbps,
             mimeType = "audio/mp4",
             sourcePackage = metadata?.sourcePackage,
-            isIdentifiedSong = metadata?.isIdentified == true
+            isIdentifiedSong = metadata?.isIdentified == true,
+            isProcessing = isProcessing
+        )
+        return recordingDao.insertRecording(entity)
+    }
+
+    suspend fun updateProcessingStatus(id: Long, isProcessing: Boolean, durationMs: Long, fileSizeBytes: Long) {
+        recordingDao.updateProcessingStatus(id, isProcessing, durationMs, fileSizeBytes)
+    }
+
+    suspend fun getOrCreateOnlineRecording(recording: RecordingEntity): RecordingEntity {
+        if (recording.id > 0L) {
+            val existing = recordingDao.getRecordingById(recording.id)
+            if (existing != null) return existing
+        }
+
+        val match = recordingDao.findRecordingByTitleAndArtist(recording.title, recording.artist)
+            ?: recordingDao.findRecordingByFilePath(recording.filePath)
+        if (match != null) {
+            return match
+        }
+
+        val entity = recording.copy(
+            id = 0L,
+            createdAt = System.currentTimeMillis()
+        )
+        val newId = recordingDao.insertRecording(entity)
+        return entity.copy(id = newId)
+    }
+
+    suspend fun saveOnlineRecording(
+        file: File,
+        title: String,
+        artist: String?,
+        album: String?,
+        durationMs: Long,
+        albumArtPath: String?,
+        lyrics: String? = null,
+        bitrateKbps: Int = 320
+    ): Long {
+        val existing = recordingDao.findRecordingByTitleAndArtist(title, artist)
+            ?: recordingDao.findRecordingByFilePath(file.absolutePath)
+
+        if (existing != null) {
+            val updated = existing.copy(
+                fileName = file.name,
+                filePath = file.absolutePath,
+                fileSizeBytes = file.length(),
+                albumArtPath = albumArtPath ?: existing.albumArtPath,
+                album = album ?: existing.album,
+                lyrics = lyrics ?: existing.lyrics,
+                durationMs = if (durationMs > 0) durationMs else existing.durationMs
+            )
+            recordingDao.updateRecording(updated)
+            return existing.id
+        }
+
+        val entity = RecordingEntity(
+            fileName = file.name,
+            filePath = file.absolutePath,
+            title = title.trim(),
+            artist = artist?.trim(),
+            album = album?.trim(),
+            lyrics = lyrics?.trim(),
+            albumArtPath = albumArtPath,
+            createdAt = System.currentTimeMillis(),
+            durationMs = durationMs,
+            fileSizeBytes = file.length(),
+            bitrateKbps = bitrateKbps,
+            mimeType = "audio/mp4",
+            sourcePackage = "com.audiovault.online",
+            isIdentifiedSong = true,
+            isProcessing = false
         )
         return recordingDao.insertRecording(entity)
     }
@@ -135,6 +213,14 @@ class RecordingRepository(
         } catch (e: Exception) {
             android.util.Log.e("AudioVault/Repo", "Error cleaning up invalid recordings", e)
         }
+    }
+
+    suspend fun getAllRecordings(): List<RecordingEntity> {
+        return recordingDao.getAllRecordings()
+    }
+
+    suspend fun findRecordingByTitleAndArtist(title: String, artist: String?): RecordingEntity? {
+        return recordingDao.findRecordingByTitleAndArtist(title, artist)
     }
 
     suspend fun getRecordingById(id: Long): RecordingEntity? {
