@@ -705,6 +705,115 @@ object OnlineMusicSearchService {
         }
     }
 
+    /**
+     * Fetches an artist's comprehensive song catalog (35 - 50+ songs) for their profile playlist.
+     * Guaranteed ordering:
+     * 1. Top trending curated anthems first (Tum Hi Ho, Kesariya, Channa Mereya, etc.)
+     * 2. Official JioSaavn editorial artist playlist ("Let's Play <Artist>" / "Best of <Artist>")
+     * 3. Deep search tracks by this artist, deduplicated by normalized title
+     * 4. Excludes karaoke, ringtones, slowed+reverb, 8d audio noise.
+     */
+    suspend fun fetchArtistAllSongs(
+        artistName: String,
+        topCuratedQueries: List<String> = emptyList(),
+        limit: Int = 50
+    ): List<OnlineSongModel> = withContext(Dispatchers.IO) {
+        val cleanArtist = artistName.trim()
+        if (cleanArtist.isBlank()) return@withContext emptyList()
+
+        val results = mutableListOf<OnlineSongModel>()
+        val seenNormalizedTitles = mutableSetOf<String>()
+
+        fun normTitle(t: String): String =
+            t.lowercase()
+                .replace(Regex("""\s*[(\[][^)\]]*[)\]]"""), "")
+                .replace(Regex("""[^a-z0-9]"""), "")
+                .trim()
+
+        // 1. Resolve top curated hits first (guaranteed top trending hits first)
+        if (topCuratedQueries.isNotEmpty()) {
+            try {
+                val curatedSongs = resolveSongsFastParallel(topCuratedQueries)
+                for (song in curatedSongs) {
+                    val key = normTitle(song.title)
+                    if (key.isNotBlank() && seenNormalizedTitles.add(key)) {
+                        results.add(song)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 2. Fetch artist's official editorial playlist from JioSaavn ("Let's Play <Artist>", "Best of <Artist>", "<Artist> Hits")
+        try {
+            val queryVariants = listOf("Let's Play $cleanArtist", "Best of $cleanArtist", "$cleanArtist Hits")
+            var bestPlaylistId: String? = null
+
+            for (qv in queryVariants) {
+                val encodedQ = URLEncoder.encode(qv, "UTF-8")
+                val plSearchUrl = "https://www.jiosaavn.com/api.php?__call=search.getPlaylistResults&q=$encodedQ&_format=json&n=3&p=1&ctx=web6dot0"
+                val conn = (URL(plSearchUrl).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 3500
+                    readTimeout = 3500
+                    setRequestProperty("User-Agent", "Mozilla/5.0")
+                }
+                if (conn.responseCode == 200) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    val root = JSONObject(text)
+                    val resultsArr = root.optJSONArray("results")
+                    if (resultsArr != null && resultsArr.length() > 0) {
+                        val firstToken = cleanArtist.lowercase().split(" ").firstOrNull { it.length >= 3 } ?: ""
+                        for (i in 0 until resultsArr.length()) {
+                            val plObj = resultsArr.getJSONObject(i)
+                            val plName = plObj.optString("listname", plObj.optString("title", "")).lowercase()
+                            val plId = plObj.optString("listid", plObj.optString("id", ""))
+                            if (plId.isNotBlank() && (firstToken.isBlank() || plName.contains(firstToken))) {
+                                bestPlaylistId = plId
+                                break
+                            }
+                        }
+                        if (bestPlaylistId != null) break
+                    }
+                }
+            }
+
+            if (bestPlaylistId != null) {
+                val plAlbum = fetchPlaylistDetails(bestPlaylistId)
+                if (plAlbum != null && plAlbum.songs.isNotEmpty()) {
+                    for (song in plAlbum.songs) {
+                        val key = normTitle(song.title)
+                        if (key.isNotBlank() && seenNormalizedTitles.add(key)) {
+                            results.add(song)
+                        }
+                        if (results.size >= limit) break
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 3. If we still have room, fetch directly from JioSaavn search results for this artist
+        if (results.size < limit) {
+            try {
+                val moreSongs = searchJioSaavnFast(cleanArtist, limit = (limit - results.size).coerceAtLeast(15))
+                for (song in moreSongs) {
+                    val key = normTitle(song.title)
+                    if (key.isNotBlank() && seenNormalizedTitles.add(key)) {
+                        results.add(song)
+                    }
+                    if (results.size >= limit) break
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 4. Filter only actual noise (karaoke, ringtone, instrumental, slowed+reverb, 8d audio)
+        val junk = listOf("karaoke", "ringtone", "instrumental", "slowed", "reverb", "8d audio", "bass boosted")
+        val cleanList = results.filter { song ->
+            val sTitle = song.title.lowercase()
+            junk.none { sTitle.contains(it) }
+        }
+
+        cleanList.ifEmpty { results }
+    }
+
     suspend fun fetchHomeFeaturedContent(): SpotifyHomeContent = withContext(Dispatchers.IO) {
         coroutineScope {
             // Day-based rotation offset so home content changes dynamically every day
@@ -958,11 +1067,28 @@ object OnlineMusicSearchService {
                 val title = cleanText(rawTitle)
 
                 val moreInfo = item.optJSONObject("more_info")
-                val rawArtist = moreInfo?.optString("primary_artists")
-                    ?.takeIf { it.isNotBlank() && it != "null" }
-                    ?: moreInfo?.optString("music")
-                    ?.takeIf { it.isNotBlank() && it != "null" }
-                    ?: item.optString("subtitle", "Various Artists")
+                val artistMap = moreInfo?.optJSONObject("artistMap") ?: item.optJSONObject("artistMap")
+                val primaryArray = artistMap?.optJSONArray("primary_artists")
+                val artistNamesList = mutableListOf<String>()
+                if (primaryArray != null) {
+                    for (j in 0 until primaryArray.length()) {
+                        val aObj = primaryArray.optJSONObject(j)
+                        val aName = aObj?.optString("name", "") ?: ""
+                        if (aName.isNotBlank() && !artistNamesList.contains(aName)) {
+                            artistNamesList.add(aName)
+                        }
+                    }
+                }
+                val subtitleArtists = item.optString("subtitle", "").substringBefore(" - ").takeIf { it.isNotBlank() }
+                val rawArtist = when {
+                    artistNamesList.isNotEmpty() -> artistNamesList.joinToString(", ")
+                    !subtitleArtists.isNullOrBlank() -> subtitleArtists
+                    else -> moreInfo?.optString("primary_artists")
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                        ?: moreInfo?.optString("music")
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                        ?: item.optString("subtitle", "Various Artists")
+                }
                 val artist = cleanText(rawArtist)
 
                 val rawAlbum = moreInfo?.optString("album")

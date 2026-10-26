@@ -679,7 +679,24 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
             viewModelScope.launch {
                 _isAlbumLoading.value = true
                 try {
+                    val isArtist = album.type.equals("Artist", ignoreCase = true) ||
+                            album.year.equals("Artist", ignoreCase = true) ||
+                            album.id.startsWith("artist_")
+
                     val fullAlbum: com.audiovault.app.core.online.OnlineAlbumModel? = when {
+                        isArtist -> {
+                            val targetArtistName = (album.primaryArtists ?: album.title)
+                                .replace(Regex("(?i)\\b(artist|album|playlist|official)\\b"), "")
+                                .trim()
+                            val artistSongs = com.audiovault.app.core.online.OnlineMusicSearchService.fetchArtistAllSongs(
+                                artistName = targetArtistName,
+                                topCuratedQueries = album.trackQueries,
+                                limit = 50
+                            )
+                            if (artistSongs.isNotEmpty()) {
+                                album.copy(songs = artistSongs, songCount = artistSongs.size)
+                            } else null
+                        }
                         album.trackQueries.isNotEmpty() -> {
                             val resolvedSongs = com.audiovault.app.core.online.OnlineMusicSearchService.resolveSongsFastParallel(album.trackQueries)
                             if (resolvedSongs.isNotEmpty()) {
@@ -716,7 +733,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                             .replace(Regex("(?i)\\b(playlist|spotify|various artists)\\b"), "")
                             .trim()
                         val queryToSearch = album.searchQuery ?: "$cleanTitle $cleanArtist".trim()
-                        val foundSongs = com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs(queryToSearch.trim(), limit = 25)
+                        val foundSongs = com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs(queryToSearch.trim(), limit = 35)
                         if (foundSongs.isNotEmpty()) {
                             album.copy(songs = foundSongs, songCount = foundSongs.size)
                         } else null
@@ -724,35 +741,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
                     // Enforce Strict Filtering: only authentic matching songs, top trending first, no remix/edit/leakage
                     val finalAlbum = if (resolvedAlbum != null) {
-                        val isArtist = album.type.equals("Artist", ignoreCase = true) ||
-                                album.year.equals("Artist", ignoreCase = true) ||
-                                album.id.startsWith("artist_")
                         if (isArtist) {
-                            // If the album was curated with trackQueries, all songs were explicitly curated for this artist
-                            if (album.trackQueries.isNotEmpty()) {
-                                resolvedAlbum
-                            } else {
-                                val targetArtistName = (album.primaryArtists ?: album.title)
-                                    .replace(Regex("(?i)\\b(artist|album|playlist|official)\\b"), "")
-                                    .trim()
-                                val artistTokens = targetArtistName.lowercase().split(" ").filter { it.length >= 3 }
-
-                                // Filter out remixes, edits, lo-fi, slowed+reverb, mashups, karaoke
-                                val junkKeywords = listOf("remix", "re-mix", "mix", "edit", "lofi", "lo-fi", "slowed", "reverb", "mashup", "8d", "bass boosted", "karaoke", "ringtone")
-                                val strictlyArtistSongs = resolvedAlbum.songs.filter { song ->
-                                    val sArtist = song.artist.lowercase()
-                                    val sTitle = song.title.lowercase()
-                                    val isRealSong = junkKeywords.none { sTitle.contains(it) }
-                                    val matchesArtist = if (artistTokens.isEmpty()) true else {
-                                        artistTokens.any { token -> sArtist.contains(token) || sTitle.contains(token) }
-                                    }
-                                    isRealSong && matchesArtist
-                                }
-                                resolvedAlbum.copy(
-                                    songs = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs },
-                                    songCount = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs }.size
-                                )
-                            }
+                            resolvedAlbum
                         } else {
                             val isIndianPlaylist = album.type.equals("Playlist", ignoreCase = true) ||
                                     album.language.equals("hindi", ignoreCase = true) ||

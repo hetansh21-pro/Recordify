@@ -89,6 +89,7 @@ fun TvSearchView(
 ) {
     val recentSearches by viewModel.recentSearches.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
+    val searchContainer by viewModel.searchResultContainer.collectAsState()
     var isSearchFocused by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -370,11 +371,24 @@ fun TvSearchView(
                 }
             } else {
                 // A. Matching Artists Shelf
-                val matchingArtists = CuratedAlbumCatalog.curatedAlbums.filter { album ->
+                val curatedMatchingArtists = CuratedAlbumCatalog.curatedAlbums.filter { album ->
                     album.type.equals("Artist", ignoreCase = true) &&
                     (album.title.contains(searchQuery.trim(), ignoreCase = true) ||
                      (album.primaryArtists ?: "").contains(searchQuery.trim(), ignoreCase = true))
                 }
+                val dynamicArtists = searchContainer?.artists?.map { artistItem ->
+                    OnlineAlbumModel(
+                        id = "artist_${artistItem.name}",
+                        title = artistItem.name,
+                        year = "Artist",
+                        artist = "Artist • ${artistItem.name}",
+                        primaryArtists = artistItem.name,
+                        coverArtUrl = artistItem.imageUrl,
+                        type = "Artist",
+                        source = "search"
+                    )
+                } ?: emptyList()
+                val matchingArtists = (curatedMatchingArtists + dynamicArtists).distinctBy { it.title.lowercase() }
                 if (matchingArtists.isNotEmpty()) {
                     item {
                         Column {

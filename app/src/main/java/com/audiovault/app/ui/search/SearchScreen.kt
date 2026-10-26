@@ -352,7 +352,7 @@ fun SearchScreen(
             if (localSongs.isEmpty()) {
                 try {
                     val songs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs("$artistName hits", limit = 20)
+                        com.audiovault.app.core.online.OnlineMusicSearchService.fetchArtistAllSongs(artistName, limit = 40)
                     }
                     onlineArtistSongs = songs.map { com.audiovault.app.core.queue.QueueItem.fromOnlineSong(it).toRecordingEntity() }
                 } catch (_: Exception) {}
