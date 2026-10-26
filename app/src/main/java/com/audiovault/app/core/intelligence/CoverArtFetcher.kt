@@ -61,40 +61,56 @@ object CoverArtFetcher {
             val searchQuery = if (!artist.isNullOrBlank()) "${artist.trim()} $cleanTitle" else cleanTitle
             val encodedQuery = URLEncoder.encode(searchQuery, "UTF-8")
 
-            // 1. Primary: iTunes Search API (fast, official 600x600 HD artwork)
+            // 1. Primary: iTunes Search API with Indian Storefront & Strict Match Validation (600x600 HD artwork)
             try {
-                val itunesUrl = "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=1"
-                val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                    requestMethod = "GET"
-                    setRequestProperty("User-Agent", "Recordify/1.0")
-                }
+                // First try with country=IN for Indian / Bollywood / Regional soundtracks
+                val itunesUrls = listOf(
+                    "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=IN&limit=5",
+                    "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=5"
+                )
 
-                if (connection.responseCode == 200) {
-                    val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
-                    val root = JSONObject(jsonStr)
-                    val results = root.optJSONArray("results")
-                    if (results != null && results.length() > 0) {
-                        val firstItem = results.getJSONObject(0)
-                        val rawUrl = firstItem.optString("artworkUrl100")
-                        if (rawUrl.isNotBlank()) {
-                            val hdUrl = rawUrl.replace("100x100bb.jpg", "600x600bb.jpg")
-                            val imgConn = (URL(hdUrl).openConnection() as HttpURLConnection).apply {
-                                connectTimeout = 6000
-                                readTimeout = 6000
-                                requestMethod = "GET"
-                                setRequestProperty("User-Agent", "Recordify/1.0")
-                            }
-                            if (imgConn.responseCode == 200) {
-                                imgConn.inputStream.use { input ->
-                                    FileOutputStream(cachedFile).use { output ->
-                                        input.copyTo(output)
-                                    }
+                for (itunesUrl in itunesUrls) {
+                    val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 4000
+                        readTimeout = 4000
+                        requestMethod = "GET"
+                        setRequestProperty("User-Agent", "Recordify/1.0")
+                    }
+
+                    if (connection.responseCode == 200) {
+                        val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
+                        val root = JSONObject(jsonStr)
+                        val results = root.optJSONArray("results")
+                        if (results != null && results.length() > 0) {
+                            var matchedUrl: String? = null
+                            for (i in 0 until results.length()) {
+                                val item = results.getJSONObject(i)
+                                val itemTitle = item.optString("trackName", item.optString("collectionName", ""))
+                                val itemArtist = item.optString("artistName", "")
+                                if (TrackMatcher.isConfidentMatch(cleanTitle, artist, itemTitle, itemArtist)) {
+                                    matchedUrl = item.optString("artworkUrl100")
+                                    break
                                 }
-                                if (cachedFile.exists() && cachedFile.length() > 500) {
-                                    Log.i(TAG, "Successfully downloaded iTunes cover art for '$searchQuery' -> ${cachedFile.absolutePath}")
-                                    return@withContext cachedFile.absolutePath
+                            }
+
+                            if (!matchedUrl.isNullOrBlank()) {
+                                val hdUrl = matchedUrl.replace("100x100bb.jpg", "600x600bb.jpg")
+                                val imgConn = (URL(hdUrl).openConnection() as HttpURLConnection).apply {
+                                    connectTimeout = 5000
+                                    readTimeout = 5000
+                                    requestMethod = "GET"
+                                    setRequestProperty("User-Agent", "Recordify/1.0")
+                                }
+                                if (imgConn.responseCode == 200) {
+                                    imgConn.inputStream.use { input ->
+                                        FileOutputStream(cachedFile).use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                    if (cachedFile.exists() && cachedFile.length() > 500) {
+                                        Log.i(TAG, "Successfully downloaded verified iTunes cover art for '$searchQuery' -> ${cachedFile.absolutePath}")
+                                        return@withContext cachedFile.absolutePath
+                                    }
                                 }
                             }
                         }
@@ -104,12 +120,12 @@ object CoverArtFetcher {
                 Log.d(TAG, "iTunes cover art search failed for '$searchQuery': ${e.message}")
             }
 
-            // 2. Fallback: Deezer Track Search API for HD album cover
+            // 2. Fallback: Deezer Track Search API with Strict Match Validation
             try {
-                val deezerUrl = "https://api.deezer.com/search?q=$encodedQuery&limit=1"
+                val deezerUrl = "https://api.deezer.com/search?q=$encodedQuery&limit=5"
                 val deezerConn = (URL(deezerUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 5000
-                    readTimeout = 5000
+                    connectTimeout = 4000
+                    readTimeout = 4000
                     requestMethod = "GET"
                     setRequestProperty("User-Agent", "Mozilla/5.0")
                 }
@@ -118,27 +134,35 @@ object CoverArtFetcher {
                     val root = JSONObject(jsonStr)
                     val data = root.optJSONArray("data")
                     if (data != null && data.length() > 0) {
-                        val first = data.getJSONObject(0)
-                        val album = first.optJSONObject("album")
-                        val coverUrl = album?.optString("cover_xl")?.ifBlank {
-                            album.optString("cover_big")
-                        }
-                        if (!coverUrl.isNullOrBlank()) {
-                            val imgConn = (URL(coverUrl).openConnection() as HttpURLConnection).apply {
-                                connectTimeout = 6000
-                                readTimeout = 6000
-                                requestMethod = "GET"
-                                setRequestProperty("User-Agent", "Mozilla/5.0")
-                            }
-                            if (imgConn.responseCode == 200) {
-                                imgConn.inputStream.use { input ->
-                                    FileOutputStream(cachedFile).use { output ->
-                                        input.copyTo(output)
-                                    }
+                        for (i in 0 until data.length()) {
+                            val item = data.getJSONObject(i)
+                            val itemTitle = item.optString("title", "")
+                            val artistObj = item.optJSONObject("artist")
+                            val itemArtist = artistObj?.optString("name", "") ?: ""
+
+                            if (TrackMatcher.isConfidentMatch(cleanTitle, artist, itemTitle, itemArtist)) {
+                                val album = item.optJSONObject("album")
+                                val coverUrl = album?.optString("cover_xl")?.ifBlank {
+                                    album.optString("cover_big")
                                 }
-                                if (cachedFile.exists() && cachedFile.length() > 500) {
-                                    Log.i(TAG, "Successfully downloaded Deezer cover art for '$searchQuery' -> ${cachedFile.absolutePath}")
-                                    return@withContext cachedFile.absolutePath
+                                if (!coverUrl.isNullOrBlank()) {
+                                    val imgConn = (URL(coverUrl).openConnection() as HttpURLConnection).apply {
+                                        connectTimeout = 5000
+                                        readTimeout = 5000
+                                        requestMethod = "GET"
+                                        setRequestProperty("User-Agent", "Mozilla/5.0")
+                                    }
+                                    if (imgConn.responseCode == 200) {
+                                        imgConn.inputStream.use { input ->
+                                            FileOutputStream(cachedFile).use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                        if (cachedFile.exists() && cachedFile.length() > 500) {
+                                            Log.i(TAG, "Successfully downloaded verified Deezer cover art for '$searchQuery' -> ${cachedFile.absolutePath}")
+                                            return@withContext cachedFile.absolutePath
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -213,9 +237,9 @@ object CoverArtFetcher {
                     val encodedQuery = URLEncoder.encode(query, "UTF-8")
                     val isSongSearch = !cleanedSong.isNullOrBlank() && query.contains(cleanedSong)
                     val itunesUrl = if (isSongSearch) {
-                        "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=5"
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=IN&limit=5"
                     } else {
-                        "https://itunes.apple.com/search?term=$encodedQuery&entity=musicArtist&limit=3"
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=musicArtist&country=IN&limit=5"
                     }
 
                     val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {

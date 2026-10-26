@@ -6,6 +6,7 @@ import android.util.Log
 import com.audiovault.app.core.identity.CanonicalTrackIdentity
 import com.audiovault.app.core.identity.TrackQualityFilter
 import com.audiovault.app.core.identity.TrackVersionResolver
+import com.audiovault.app.core.intelligence.TrackMatcher
 import com.audiovault.app.core.search.SearchIntent
 import com.audiovault.app.core.search.SearchIntentParser
 import com.audiovault.app.core.search.SearchRelevanceRanker
@@ -307,10 +308,15 @@ object OnlineMusicSearchService {
                 onPartialResults(sortedFast)
             }
 
-            // Stage 2: Deep YouTube Music & iTunes search in parallel
+            // Stage 2: Deep YouTube Music & iTunes search in parallel (with Indian locale awareness)
+            val isIndian = isIndianIntentQuery(cleanQuery)
+
             val ytDeferred = async {
                 try {
-                    searchYouTubeAndInvidious(cleanQuery, limit)
+                    val rawYt = searchYouTubeAndInvidious(cleanQuery, limit)
+                    if (isIndian) {
+                        rawYt.filter { TrackMatcher.isConfidentMatch(cleanQuery, null, it.title, it.artist, threshold = 0.40) }
+                    } else rawYt
                 } catch (e: Exception) {
                     Log.e(TAG, "YouTube deep search error", e)
                     emptyList<OnlineSongModel>()
@@ -319,7 +325,12 @@ object OnlineMusicSearchService {
 
             val itunesDeferred = async {
                 try {
-                    searchITunes(cleanQuery, limit)
+                    // If we already have sufficient genuine tracks from JioSaavn, avoid overriding with 30s preview tracks
+                    if (isIndian && results.size >= 12) {
+                        emptyList<OnlineSongModel>()
+                    } else {
+                        searchITunes(cleanQuery, limit, country = if (isIndian) "IN" else "US")
+                    }
                 } catch (_: Exception) {
                     emptyList<OnlineSongModel>()
                 }
@@ -417,7 +428,18 @@ object OnlineMusicSearchService {
                 queries.map { q ->
                     async {
                         try {
-                            searchJioSaavnFast(q, limit = 1).firstOrNull()
+                            val candidates = searchJioSaavnFast(q, limit = 3)
+                            val matchedSaavn = candidates.firstOrNull { song ->
+                                TrackMatcher.isConfidentMatch(q, null, song.title, song.artist, threshold = 0.50)
+                            } ?: candidates.firstOrNull()
+
+                            if (matchedSaavn != null) {
+                                matchedSaavn
+                            } else {
+                                // Fallback to Indian iTunes or YouTube
+                                val itunesFallback = searchITunes(q, limit = 1, country = "IN").firstOrNull()
+                                itunesFallback ?: searchYouTubeAndInvidious(q, limit = 1).firstOrNull()
+                            }
                         } catch (_: Exception) {
                             null
                         }
@@ -865,9 +887,8 @@ object OnlineMusicSearchService {
     fun searchSpotifyWeb(query: String, limit: Int = 10): List<OnlineSongModel> {
         val list = mutableListOf<OnlineSongModel>()
         try {
-            val encodedQuery = URLEncoder.encode(query, "UTF-8")
-            val endpoint = "https://open.spotify.com/oembed?url=https://open.spotify.com/search/$encodedQuery"
-            val itunesMatches = searchITunes(query, limit)
+            val isIndian = isIndianIntentQuery(query)
+            val itunesMatches = searchITunes(query, limit, country = if (isIndian) "IN" else "US")
             for (item in itunesMatches) {
                 list.add(
                     item.copy(
@@ -1223,9 +1244,9 @@ object OnlineMusicSearchService {
         return emptyList()
     }
 
-    private fun searchITunes(query: String, limit: Int): List<OnlineSongModel> {
+    private fun searchITunes(query: String, limit: Int, country: String = "IN"): List<OnlineSongModel> {
         val encodedQuery = URLEncoder.encode(query, "UTF-8")
-        val endpoint = "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=$limit"
+        val endpoint = "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=$country&limit=$limit"
 
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -1250,7 +1271,8 @@ object OnlineMusicSearchService {
             val highResArt = rawArtwork.replace("100x100bb.jpg", "600x600bb.jpg")
             val trackTimeMillis = item.optLong("trackTimeMillis", 0L)
 
-            if (title.isNotBlank() && previewUrl.isNotBlank()) {
+            val isMatch = TrackMatcher.isConfidentMatch(query, null, title, artist, threshold = 0.40)
+            if (title.isNotBlank() && previewUrl.isNotBlank() && isMatch) {
                 list.add(
                     OnlineSongModel(
                         id = "itunes_$trackId",

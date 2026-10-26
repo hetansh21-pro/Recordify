@@ -282,16 +282,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "Romantic Hindi trending hits",
-            songCount = 8,
+            songCount = 12,
             trackQueries = listOf(
-                "Tum Hi Ho Arijit Singh",
-                "Channa Mereya Arijit Singh",
-                "Agar Tum Saath Ho Arijit Singh",
-                "Kesariya Arijit Singh",
-                "Apna Bana Le Arijit Singh",
-                "Raataan Lambiyan Jubin Nautiyal",
-                "Hawayein Arijit Singh",
-                "Saiyaara Tanishk Bagchi"
+                "Tum Hi Ho Arijit Singh Mithoon",
+                "Channa Mereya Arijit Singh Pritam",
+                "Agar Tum Saath Ho Arijit Singh Alka Yagnik",
+                "Kesariya Arijit Singh Pritam",
+                "Apna Bana Le Arijit Singh Sachin Jigar",
+                "Raataan Lambiyan Jubin Nautiyal Tanishk Bagchi",
+                "Hawayein Arijit Singh Pritam",
+                "Saiyaara Tanishk Bagchi Faheem Abdullah",
+                "Dil Diyan Gallan Atif Aslam",
+                "Ghungroo Arijit Singh Shilpa Rao Vishal Shekhar",
+                "Subhanallah Yeh Jawaani Hai Deewani Sreerama Chandra",
+                "Kabira Yeh Jawaani Hai Deewani Tochi Raina Rekha Bhardwaj"
             )
         ),
         // Sadi ke fall sa Playlist
@@ -307,12 +311,12 @@ object CuratedAlbumCatalog {
             searchQuery = "Saree Ke Fall Sa R Rajkumar songs",
             songCount = 6,
             trackQueries = listOf(
-                "Saree Ke Fall Sa Nakash Aziz Antara Mitra",
-                "Gandi Baat Mika Singh Kalpana Patowary",
-                "Dhokha Dhadi Arijit Singh Palak Muchhal",
-                "Mat Maari Kunal Ganjawala Sunidhi Chauhan",
-                "Kaddu Katega Antara Mitra",
-                "Saree Ke Fall Sa Remix"
+                "Saree Ke Fall Sa Nakash Aziz Antara Mitra Pritam",
+                "Gandi Baat Mika Singh Kalpana Patowary Pritam",
+                "Dhokha Dhadi Arijit Singh Palak Muchhal Pritam",
+                "Mat Maari Kunal Ganjawala Sunidhi Chauhan Pritam",
+                "Kaddu Katega Antara Mitra Pritam",
+                "Gandi Baat Film Version Mika Singh Pritam"
             )
         ),
         // Love song 🥰💖 Playlist
@@ -326,16 +330,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "Love songs romantic Hindi hits",
-            songCount = 8,
+            songCount = 12,
             trackQueries = listOf(
-                "Saiyaara Tanishk Bagchi",
-                "Agar Tum Saath Ho Arijit Singh",
-                "Apna Bana Le Arijit Singh",
-                "Raataan Lambiyan Jubin Nautiyal",
-                "Tum Mile Neeraj Shridhar",
-                "Pehli Nazar Mein Atif Aslam",
-                "Tere Hawaale Arijit Singh Shilpa Rao",
-                "Kesariya Arijit Singh"
+                "Saiyaara Tanishk Bagchi Faheem Abdullah",
+                "Agar Tum Saath Ho Arijit Singh Alka Yagnik",
+                "Apna Bana Le Arijit Singh Sachin Jigar",
+                "Raataan Lambiyan Jubin Nautiyal Asees Kaur",
+                "Tum Mile Neeraj Shridhar Pritam",
+                "Pehli Nazar Mein Atif Aslam Pritam",
+                "Tere Hawaale Arijit Singh Shilpa Rao Pritam",
+                "Kesariya Arijit Singh Pritam",
+                "Tum Hi Ho Arijit Singh Mithoon",
+                "Hawayein Arijit Singh Pritam",
+                "Raabta Agent Vinod Arijit Singh Pritam",
+                "Subhanallah Yeh Jawaani Hai Deewani Sreerama Chandra"
             )
         ),
         OnlineAlbumModel(
@@ -513,18 +521,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "90s bollywood",
-            songCount = 10,
+            songCount = 12,
             trackQueries = listOf(
-                "Tujhe Dekha To Kumar Sanu",
-                "Pardesi Pardesi Udit Narayan Alka Yagnik",
-                "Dheere Dheere Se Meri Zindagi Kumar Sanu",
-                "Kuch Kuch Hota Hai Udit Narayan",
-                "Tip Tip Barsa Paani Alka Yagnik",
-                "Chura Ke Dil Mera Kumar Sanu Alka Yagnik",
-                "Raja Ko Rani Se Pyar Ho Gaya Udit Narayan",
-                "Baazigar O Baazigar Kumar Sanu",
+                "Tujhe Dekha To Kumar Sanu DDLJ",
+                "Pardesi Pardesi Udit Narayan Alka Yagnik Raja Hindustani",
+                "Dheere Dheere Se Meri Zindagi Kumar Sanu Aashiqui",
+                "Kuch Kuch Hota Hai Udit Narayan Alka Yagnik",
+                "Tip Tip Barsa Paani Alka Yagnik Udit Narayan Mohra",
+                "Chura Ke Dil Mera Kumar Sanu Alka Yagnik Main Khiladi Tu Anari",
+                "Raja Ko Rani Se Pyar Ho Gaya Udit Narayan Alka Yagnik",
+                "Baazigar O Baazigar Kumar Sanu Alka Yagnik",
                 "Aaye Ho Meri Zindagi Mein Udit Narayan",
-                "Mera Dil Bhi Kitna Pagal Hai Kumar Sanu"
+                "Mera Dil Bhi Kitna Pagal Hai Kumar Sanu Alka Yagnik Saajan",
+                "Pehla Nasha Udit Narayan Sadhana Sargam Jo Jeeta Wohi Sikandar",
+                "Bahon Ke Darmiyan Hariharan Alka Yagnik Khamoshi"
             )
         ),
         OnlineAlbumModel(
@@ -537,18 +547,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "Old is Gold Hindi hits",
-            songCount = 10,
+            songCount = 12,
             trackQueries = listOf(
-                "Likhe Jo Khat Tujhe Mohammed Rafi",
-                "Pal Pal Dil Ke Paas Kishore Kumar",
-                "Dekha Ek Khwab Lata Mangeshkar Kishore Kumar",
-                "Chura Liya Hai Tumne Jo Dil Ko Asha Bhosle",
-                "Yeh Sham Mastani Kishore Kumar",
-                "Lag Ja Gale Se Phir Lata Mangeshkar",
-                "Mere Samne Wali Khidki Mein Kishore Kumar",
-                "Gulabi Aankhen Mohammed Rafi",
-                "Yeh Dosti Hum Nahi Todenge Kishore Kumar",
-                "Badan Pe Sitare Lapete Huye Mohammed Rafi"
+                "Likhe Jo Khat Tujhe Mohammed Rafi Kanyadaan",
+                "Pal Pal Dil Ke Paas Kishore Kumar Blackmail",
+                "Dekha Ek Khwab Lata Mangeshkar Kishore Kumar Silsila",
+                "Chura Liya Hai Tumne Jo Dil Ko Asha Bhosle Mohammed Rafi Yaadon Ki Baaraat",
+                "Yeh Sham Mastani Kishore Kumar Kati Patang",
+                "Lag Ja Gale Se Phir Lata Mangeshkar Woh Kaun Thi",
+                "Mere Samne Wali Khidki Mein Kishore Kumar Padosan",
+                "Gulabi Aankhen Mohammed Rafi The Train",
+                "Yeh Dosti Hum Nahi Todenge Kishore Kumar Manna Dey Sholay",
+                "Badan Pe Sitare Lapete Huye Mohammed Rafi Prince",
+                "Tere Bina Zindagi Se Lata Mangeshkar Kishore Kumar Aandhi",
+                "O Mere Dil Ke Chain Kishore Kumar Mere Jeevan Saathi"
             )
         ),
         OnlineAlbumModel(
@@ -561,18 +573,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "Arijit Singh sad songs",
-            songCount = 10,
+            songCount = 12,
             trackQueries = listOf(
-                "Channa Mereya Arijit Singh",
-                "Tum Hi Ho Arijit Singh",
-                "Ae Dil Hai Mushkil Arijit Singh",
-                "Hamari Adhuri Kahani Arijit Singh",
-                "Roke Na Ruke Naina Arijit Singh",
-                "Khairiyat Arijit Singh",
-                "Tujhe Kitna Chahne Lage Arijit Singh",
-                "Pachtaoge Arijit Singh",
-                "Agar Tum Saath Ho Arijit Singh Alka Yagnik",
-                "Muskurane Arijit Singh"
+                "Channa Mereya Arijit Singh Ae Dil Hai Mushkil",
+                "Tum Hi Ho Arijit Singh Aashiqui 2",
+                "Ae Dil Hai Mushkil Arijit Singh Pritam",
+                "Hamari Adhuri Kahani Arijit Singh Jeet Gannguli",
+                "Roke Na Ruke Naina Arijit Singh Badrinath Ki Dulhania",
+                "Khairiyat Arijit Singh Chhichhore Pritam",
+                "Tujhe Kitna Chahne Lage Arijit Singh Kabir Singh Mithoon",
+                "Pachtaoge Arijit Singh Jaani B Praak",
+                "Agar Tum Saath Ho Arijit Singh Alka Yagnik Tamasha",
+                "Muskurane Arijit Singh Citylights Jeet Gannguli",
+                "Tera Yaar Hoon Main Arijit Singh Sonu Ke Titu Ki Sweety",
+                "Judaai Arijit Singh Rekha Bhardwaj Badlapur"
             )
         ),
         OnlineAlbumModel(
@@ -585,18 +599,20 @@ object CuratedAlbumCatalog {
             type = "Playlist",
             source = "curated",
             searchQuery = "Sad Hindi songs heartbreak",
-            songCount = 10,
+            songCount = 12,
             trackQueries = listOf(
-                "Thodi Der Farhan Saeed Shreya Ghoshal",
-                "Tum Hi Aana Jubin Nautiyal",
+                "Thodi Der Farhan Saeed Shreya Ghoshal Half Girlfriend",
+                "Tum Hi Aana Jubin Nautiyal Marjaavaan Payal Dev",
                 "Jo Tum Mere Ho Anuv Jain",
-                "Zaroorat Mustafa Zahid",
-                "Bewajah Sanam Teri Kasam",
-                "Kaise Hua Vishal Mishra",
-                "Bekhayali Sachet Tandon",
-                "Tera Ban Jaunga Akhil Sachdeva Tulsi Kumar",
-                "Hasi Shreya Ghoshal Ami Mishra",
-                "Main Dhoondne Ko Zamaane Mein Arijit Singh"
+                "Zaroorat Mustafa Zahid Ek Villain Mithoon",
+                "Bewajah Sanam Teri Kasam Himesh Reshammiya",
+                "Kaise Hua Vishal Mishra Kabir Singh",
+                "Bekhayali Sachet Tandon Kabir Singh",
+                "Tera Ban Jaunga Akhil Sachdeva Tulsi Kumar Kabir Singh",
+                "Hasi Shreya Ghoshal Ami Mishra Hamari Adhuri Kahani",
+                "Main Dhoondne Ko Zamaane Mein Arijit Singh Heartless",
+                "Sunn Raha Hai Ankit Tiwari Aashiqui 2",
+                "Channa Mereya Arijit Singh Ae Dil Hai Mushkil"
             )
         )
     )

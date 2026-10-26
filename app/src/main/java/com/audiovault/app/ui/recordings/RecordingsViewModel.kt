@@ -722,7 +722,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                         } else null
                     }
 
-                    // Enforce Artist Album Strict Filtering: only that artist's genuine songs, top trending first
+                    // Enforce Strict Filtering: only authentic matching songs, top trending first, no remix/edit/leakage
                     val finalAlbum = if (resolvedAlbum != null) {
                         val isArtist = album.type.equals("Artist", ignoreCase = true) ||
                                 album.year.equals("Artist", ignoreCase = true) ||
@@ -754,7 +754,29 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                                 )
                             }
                         } else {
-                            resolvedAlbum
+                            val isIndianPlaylist = album.type.equals("Playlist", ignoreCase = true) ||
+                                    album.language.equals("hindi", ignoreCase = true) ||
+                                    com.audiovault.app.core.online.OnlineMusicSearchService.isIndianIntentQuery(album.title + " " + (album.primaryArtists ?: ""))
+
+                            if (isIndianPlaylist) {
+                                val junkKeywords = listOf("remix", "re-mix", "lofi", "lo-fi", "slowed", "reverb", "mashup", "karaoke", "ringtone")
+                                val filteredIndian = resolvedAlbum.songs.filter { song ->
+                                    val sLang = song.language?.lowercase()
+                                    val sArtist = song.artist.lowercase()
+                                    val sTitle = song.title.lowercase()
+                                    val isExplicitEnglish = sLang == "english" || sLang == "western"
+                                    val isWesternArtist = sArtist.contains("taylor swift") || sArtist.contains("ed sheeran") ||
+                                            sArtist.contains("drake") || sArtist.contains("billie eilish") || sArtist.contains("the weeknd")
+                                    val isNotJunk = junkKeywords.none { sTitle.contains(it) }
+                                    !isExplicitEnglish && !isWesternArtist && isNotJunk
+                                }
+                                resolvedAlbum.copy(
+                                    songs = filteredIndian.ifEmpty { resolvedAlbum.songs },
+                                    songCount = filteredIndian.ifEmpty { resolvedAlbum.songs }.size
+                                )
+                            } else {
+                                resolvedAlbum
+                            }
                         }
                     } else null
 

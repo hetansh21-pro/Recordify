@@ -131,17 +131,22 @@ fun rememberAsyncCoverArt(
         if (imageState.value != null) return@LaunchedEffect
 
         val bitmap = withContext(Dispatchers.IO) {
-            // 1. Direct explicit path check or remote URL fetch
+            // 1. Direct explicit path check or remote URL fetch (prioritize high-res 500x500 / 600x600)
+            val cleanArtUrl = albumArtPath
+                ?.replace("-150x150.jpg", "-500x500.jpg")
+                ?.replace("-50x50.jpg", "-500x500.jpg")
+                ?.replace("100x100bb.jpg", "600x600bb.jpg")
+
             var resolvedPath: String? = null
-            if (!albumArtPath.isNullOrBlank()) {
-                if (albumArtPath.startsWith("http://", ignoreCase = true) || albumArtPath.startsWith("https://", ignoreCase = true)) {
-                    val safeHash = Math.abs(albumArtPath.hashCode()).toString()
+            if (!cleanArtUrl.isNullOrBlank()) {
+                if (cleanArtUrl.startsWith("http://", ignoreCase = true) || cleanArtUrl.startsWith("https://", ignoreCase = true)) {
+                    val safeHash = Math.abs(cleanArtUrl.hashCode()).toString()
                     val cachedFile = File(context.cacheDir, "thumb_$safeHash.jpg")
                     if (cachedFile.exists() && cachedFile.length() > 500) {
                         resolvedPath = cachedFile.absolutePath
                     } else {
                         try {
-                            val url = URL(albumArtPath)
+                            val url = URL(cleanArtUrl)
                             val conn = (url.openConnection() as HttpURLConnection).apply {
                                 connectTimeout = 8000
                                 readTimeout = 10000
@@ -161,9 +166,9 @@ fun rememberAsyncCoverArt(
                         } catch (_: Throwable) {}
                     }
                 } else {
-                    val f = File(albumArtPath)
+                    val f = File(cleanArtUrl)
                     if (f.exists() && f.length() > 500) {
-                        resolvedPath = albumArtPath
+                        resolvedPath = cleanArtUrl
                     }
                 }
             }
