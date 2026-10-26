@@ -30,6 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,84 +85,177 @@ fun TvHomeView(
     val recentSearches by viewModel.recentSearches.collectAsState()
     val curatedAlbums = CuratedAlbumCatalog.curatedAlbums
 
-    val greeting = rememberGreeting()
+    var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 32.dp),
-        contentPadding = PaddingValues(top = 28.dp, bottom = 44.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // -----------------------------------------------------------------
-        // 1. TOP HEADER: GREETING & MOOD FILTER ROW
+        // 1. HERO FEATURED HEADER BANNER (Spotify TV Match: Bollywood Mush)
         // -----------------------------------------------------------------
-        item {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+        val featuredAlbum = curatedAlbums.find { it.id == "curated_bollywood_mush" }
+            ?: curatedAlbums.firstOrNull()
+
+        if (featuredAlbum != null) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF141414),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .tvRemoteFocusable(
+                            onClick = { onPlayAlbum(featuredAlbum) },
+                            shape = RoundedCornerShape(16.dp),
+                            focusScale = 1.02f
+                        )
                 ) {
-                    Column {
-                        Text(
-                            text = "$greeting${if (userName.isNotBlank()) ", $userName" else ""}",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 28.sp
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Music for every moment",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF9E9E9E),
-                                fontSize = 14.sp
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Interactive Mood Selector Chips Row
-                val moodList = listOf(
-                    "Relaxed" to VibeCategory.CHILL,
-                    "Romantic" to VibeCategory.ROMANTIC,
-                    "Energetic" to VibeCategory.ENERGETIC,
-                    "Focus" to VibeCategory.FOCUS,
-                    "Party" to VibeCategory.PARTY,
-                    "Sad & Soulful" to VibeCategory.SAD,
-                    "Bollywood Hits" to VibeCategory.BOLLYWOOD
-                )
-
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(moodList) { (label, vibeCat) ->
-                        val isSelected = currentVibe.category == vibeCat
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) SpotifyGreenBright.copy(alpha = 0.25f) else Color(0xFF1C1C1C),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isSelected) SpotifyGreenBright else Color(0xFF2E2E2E)
-                            ),
-                            modifier = Modifier.tvRemoteFocusable(
-                                onClick = {
-                                    viewModel.changeVibe(vibeCat)
-                                    onSearchMood(label)
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                focusScale = 1.08f
-                            )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Left Column: Big Bold Title, Recordify Subtitle & Description
+                        Column(
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .padding(end = 24.dp)
                         ) {
                             Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) SpotifyGreenBright else Color.White,
-                                    fontSize = 12.sp
+                                text = featuredAlbum.title,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White,
+                                    fontSize = 34.sp
                                 ),
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = SpotifyGreenBright,
+                                    modifier = Modifier.size(14.dp)
+                                ) {}
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Playlist • Recordify",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Let these songs be the background score to your love story. Cover - Saiyaara",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFFB3B3B3),
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                ),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Right Column: Stylized Artwork Card with Waveform Graphic
+                        Box(
+                            modifier = Modifier
+                                .weight(0.7f),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Subtle equalizer / waveform lines
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val barHeights = listOf(14.dp, 28.dp, 44.dp, 22.dp, 36.dp, 18.dp)
+                                    barHeights.forEach { h ->
+                                        Box(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .height(h)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(Color(0xFF333333))
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = Color(0xFF1E1E1E),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
+                                    modifier = Modifier.size(160.dp)
+                                ) {
+                                    TrackCoverArt(
+                                        albumArtPath = featuredAlbum.coverArtUrl,
+                                        title = featuredAlbum.title,
+                                        artist = featuredAlbum.primaryArtists ?: "Recordify",
+                                        size = 160.dp,
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows])
+        // -----------------------------------------------------------------
+        item {
+            val filterOptions = listOf("All", "Music", "Podcasts & Shows")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                filterOptions.forEach { filterLabel ->
+                    val isSelected = selectedFilterPill == filterLabel
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = if (isSelected) Color.White else Color(0xFF202020),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) Color.White else Color(0xFF333333)
+                        ),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .tvRemoteFocusable(
+                                onClick = { selectedFilterPill = filterLabel },
+                                shape = RoundedCornerShape(50),
+                                focusScale = 1.08f
+                            )
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = filterLabel,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.Black else Color.White,
+                                    fontSize = 12.sp
+                                )
                             )
                         }
                     }
@@ -168,84 +264,71 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 2. FEATURED HERO CONTENT CARD
+        // 3. SIGNATURE 8 QUICK-ACCESS RECTANGULAR TILES (2 Rows x 4 Columns)
+        // Authentically matches Spotify TV Home (IMG20261026111711.jpg):
+        // Bollywood Mush, My songs, Aditya Gadhvi, Kumar Sanu All Time Hits,
+        // Padmaavat, Love song, Michael Jackson, Golden 90s Hits.
         // -----------------------------------------------------------------
-        if (curatedAlbums.isNotEmpty()) {
-            val featured = curatedAlbums.first()
-            item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF161616),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2C2C)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .tvRemoteFocusable(
-                            onClick = { onPlayAlbum(featured) },
-                            shape = RoundedCornerShape(16.dp),
-                            focusScale = 1.02f
-                        )
+        item {
+            val quickTiles = listOf(
+                curatedAlbums.find { it.id == "curated_bollywood_mush" } ?: curatedAlbums.getOrNull(0),
+                curatedAlbums.find { it.id == "curated_my_songs" } ?: curatedAlbums.getOrNull(1),
+                curatedAlbums.find { it.id == "curated_aditya_gadhvi" } ?: curatedAlbums.getOrNull(2),
+                curatedAlbums.find { it.id == "curated_kumar_sanu_all_time_hits" } ?: curatedAlbums.getOrNull(3),
+                curatedAlbums.find { it.id == "curated_padmaavat" } ?: curatedAlbums.getOrNull(4),
+                curatedAlbums.find { it.id == "curated_love_songs_emoji" } ?: curatedAlbums.getOrNull(5),
+                curatedAlbums.find { it.id == "curated_90s_pop_rock" } ?: curatedAlbums.getOrNull(6),
+                curatedAlbums.find { it.id == "curated_90s_bollywood" } ?: curatedAlbums.getOrNull(7)
+            ).filterNotNull()
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // First Row (4 items)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF161616))
-                            .padding(24.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TrackCoverArt(
-                                albumArtPath = featured.coverArtUrl,
-                                title = featured.title,
-                                artist = featured.primaryArtists ?: "Recordify",
-                                size = 140.dp,
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                    quickTiles.take(4).forEach { item ->
+                        TvQuickAccessTile(
+                            title = item.title,
+                            artUrl = item.coverArtUrl,
+                            onClick = { onPlayAlbum(item) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
 
-                            Spacer(modifier = Modifier.width(24.dp))
+                // Second Row (4 items)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    quickTiles.drop(4).take(4).forEach { item ->
+                        TvQuickAccessTile(
+                            title = item.title,
+                            artUrl = item.coverArtUrl,
+                            onClick = { onPlayAlbum(item) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "FEATURED PLAYLIST • RECORDIFY VAULT",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = SpotifyGreenBright,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.2.sp
-                                    )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = featured.title,
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.White,
-                                        fontSize = 26.sp
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Hand-picked studio recordings curated for television listening • Lossless Master",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color(0xFFB3B3B3),
-                                        fontSize = 13.sp
-                                    ),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Button(
-                                        onClick = { onPlayAlbum(featured) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreenBright),
-                                        shape = RoundedCornerShape(20.dp)
-                                    ) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Play Album", color = Color.Black, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
+        // -----------------------------------------------------------------
+        // 4. ALBUMS FEATURING SONGS YOU LIKE (Matching Spotify TV Shelf)
+        // -----------------------------------------------------------------
+        item {
+            Column {
+                TvShelfHeader(
+                    title = "Albums featuring songs you like",
+                    subtitle = "Complete studio records, curated playlists & legendary soundtracks"
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(curatedAlbums) { album ->
+                        TvAlbumCard(
+                            album = album,
+                            onClick = { onPlayAlbum(album) }
+                        )
                     }
                 }
             }
@@ -938,5 +1021,62 @@ private fun rememberGreeting(): String {
         in 12..16 -> "Good afternoon"
         in 17..21 -> "Good evening"
         else -> "Good night"
+    }
+}
+
+/**
+ * Rectangular Quick-Access Tile (Spotify TV Home design: IMG20261026111711.jpg).
+ */
+@Composable
+fun TvQuickAccessTile(
+    title: String,
+    artUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = Color(0xFF222222),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
+        modifier = modifier
+            .height(58.dp)
+            .tvRemoteFocusable(
+                onClick = onClick,
+                shape = RoundedCornerShape(6.dp),
+                focusScale = 1.04f
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(58.dp)
+                    .clip(RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp))
+            ) {
+                TrackCoverArt(
+                    albumArtPath = artUrl,
+                    title = title,
+                    artist = "Recordify",
+                    size = 58.dp,
+                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 13.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
+            )
+        }
     }
 }

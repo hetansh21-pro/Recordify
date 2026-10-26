@@ -9,12 +9,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,11 +31,12 @@ import com.audiovault.app.ui.recordings.RecordingsViewModel
 
 /**
  * 10-Foot UI Experience for Recordify TV.
- * Built according to the Spotify TV Architecture Specification:
- * - Persistent Stationary Left Sidebar Navigation Rail.
- * - Central Independently-Scrollable Content Container.
- * - Persistent Fixed Bottom Mini-Player Bar (never stops playback during navigation).
- * - Full-Screen Cinema Stage & Queue Side Panel Overlays.
+ * Built according to the real Spotify TV Design Reference Photos:
+ * - Shared Horizontal Top Navigation Bar (Now Playing Pill Widget on Left, Tabs in Center, Settings + "H" on Right).
+ * - Full-Width Independently Scrollable Main Content Container.
+ * - Split 2-Column Album & Playlist Details Stage.
+ * - Cinematic Full-Screen Now Playing Stage Overlay with Backdrops & Scrubber.
+ * - Side Queue Panel Overlay.
  * - Step-by-Step Back Navigation Hierarchy.
  */
 @Composable
@@ -51,7 +50,6 @@ fun RecordifyTvScreen(
     var selectedTab by remember { mutableStateOf(TvNavTab.HOME) }
     var isNowPlayingFullScreen by remember { mutableStateOf(false) }
     var isQueueOpen by remember { mutableStateOf(false) }
-    var isSidebarExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var librarySubView by remember { mutableStateOf<String?>(null) }
 
@@ -103,77 +101,62 @@ fun RecordifyTvScreen(
         viewModel.closeAlbumDetails()
     }
 
-    // Level 2.5: Left Sidebar Drawer Expanded -> Collapse sidebar rail back to circular icon buttons
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && isSidebarExpanded) {
-        isSidebarExpanded = false
-    }
-
-    // Level 2 (Library): Inside Library Subview -> Return to 4 category cards
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && !isSidebarExpanded && librarySubView != null) {
+    // Level 2 (Library): Inside Library Subview -> Return to main library shelf
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView != null) {
         librarySubView = null
     }
 
     // Level 2 (Search): Search query active -> Clear search query
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && !isSidebarExpanded && librarySubView == null && selectedTab == TvNavTab.SEARCH && searchQuery.isNotBlank()) {
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && selectedTab == TvNavTab.SEARCH && searchQuery.isNotBlank()) {
         searchQuery = ""
         viewModel.onSearchQueryChange("")
     }
 
     // Level 1: In any secondary tab -> Return to Home tab
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && !isSidebarExpanded && librarySubView == null && (selectedTab != TvNavTab.SEARCH || searchQuery.isBlank()) && selectedTab != TvNavTab.HOME) {
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && (selectedTab != TvNavTab.SEARCH || searchQuery.isBlank()) && selectedTab != TvNavTab.HOME) {
         selectedTab = TvNavTab.HOME
     }
 
     // Level 0: On Home tab -> Finish activity / exit app cleanly
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && !isSidebarExpanded && librarySubView == null && selectedTab == TvNavTab.HOME) {
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && selectedTab == TvNavTab.HOME) {
         activity?.finish()
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0D0D0D))
+            .background(Color(0xFF0C0C0C))
     ) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // -------------------------------------------------------------
-            // 1. LEFT SIDEBAR NAVIGATION RAIL (TV Remote Navigable)
+            // 1. GLOBAL TOP NAVIGATION BAR (Matching Spotify TV Photos)
+            // Left: Now Playing Mini Widget Pill with Equalizer Bars
+            // Center: Nav Tabs (Home, Search, Your Library)
+            // Right: Settings Green Pill + "H" Profile Circle
             // -------------------------------------------------------------
-            TvSidebar(
+            TvTopNavBar(
                 selectedTab = selectedTab,
                 onTabSelected = { tab ->
-                    isSidebarExpanded = false
-                    if (tab == TvNavTab.NOW_PLAYING) {
-                        isNowPlayingFullScreen = true
-                    } else {
-                        selectedTab = tab
-                        if (selectedAlbum != null) {
-                            viewModel.closeAlbumDetails()
-                        }
+                    selectedTab = tab
+                    if (selectedAlbum != null) {
+                        viewModel.closeAlbumDetails()
                     }
                 },
-                userCountryCode = userSettings.userCountryCode,
-                primaryLanguage = userSettings.primaryLanguage,
-                isExpanded = isSidebarExpanded,
-                onToggleExpand = { isSidebarExpanded = !isSidebarExpanded },
-                modifier = Modifier.fillMaxHeight()
-            )
-
-            // Vertical divider line
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .fillMaxHeight()
-                    .background(Color(0xFF222222))
+                activeTrackTitle = currentRecording?.title,
+                activeTrackArtist = currentRecording?.artist,
+                activeTrackArtUrl = currentRecording?.albumArtPath,
+                isPlaying = playerState.isPlaying,
+                onOpenNowPlaying = { isNowPlayingFullScreen = true },
+                onOpenSettings = { selectedTab = TvNavTab.SETTINGS }
             )
 
             // -------------------------------------------------------------
-            // 2. MAIN CONTENT AREA (Scrollable with Bottom Padding for Mini-Player)
+            // 2. MAIN CONTENT CONTAINER (Full Width, Scrollable)
             // -------------------------------------------------------------
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-                    .padding(bottom = 96.dp)
+                    .fillMaxWidth()
             ) {
                 if (selectedAlbum != null) {
                     TvAlbumDetailView(
@@ -276,48 +259,7 @@ fun RecordifyTvScreen(
         }
 
         // -------------------------------------------------------------
-        // 3. PERSISTENT FIXED BOTTOM MINI-PLAYER
-        // Remains visible across ALL screens when a song is active.
-        // -------------------------------------------------------------
-        if (hasActiveTrack && !isNowPlayingFullScreen) {
-            val isLiked = currentRecording?.id?.let { likedSongIds.contains(it) } ?: false
-            TvMiniPlayerBar(
-                title = currentRecording?.title ?: "Playing Music",
-                artist = currentRecording?.artist ?: "Recordify TV",
-                artUrl = currentRecording?.albumArtPath,
-                positionMs = playerState.currentPositionMs,
-                durationMs = playerState.durationMs,
-                isPlaying = playerState.isPlaying,
-                isShuffle = isShuffleActive,
-                repeatMode = repeatMode,
-                isLiked = isLiked,
-                onTogglePlay = { viewModel.togglePlayback() },
-                onNext = { viewModel.playNextTrack() },
-                onPrevious = { viewModel.playPreviousTrack() },
-                onToggleShuffle = { viewModel.toggleShuffle() },
-                onCycleRepeat = { viewModel.cycleRepeatMode() },
-                onToggleLike = {
-                    currentRecording?.let { rec ->
-                        viewModel.toggleLikedSong(rec.id, rec)
-                    }
-                },
-                onSeekForward = { viewModel.seekForward(10000L) },
-                onSeekBackward = { viewModel.seekBackward(10000L) },
-                onOpenQueue = { isQueueOpen = true },
-                onExpand = { isNowPlayingFullScreen = true },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(
-                        start = if (isSidebarExpanded) 240.dp else 74.dp,
-                        end = 0.dp,
-                        bottom = 0.dp
-                    )
-            )
-        }
-
-        // -------------------------------------------------------------
-        // 4. PLAYBACK QUEUE SIDE PANEL OVERLAY
+        // 3. PLAYBACK QUEUE SIDE PANEL OVERLAY
         // -------------------------------------------------------------
         AnimatedVisibility(
             visible = isQueueOpen,
@@ -339,7 +281,7 @@ fun RecordifyTvScreen(
         }
 
         // -------------------------------------------------------------
-        // 5. FULL-SCREEN NOW PLAYING CINEMA STAGE OVERLAY
+        // 4. FULL-SCREEN NOW PLAYING CINEMA STAGE OVERLAY
         // -------------------------------------------------------------
         AnimatedVisibility(
             visible = isNowPlayingFullScreen,

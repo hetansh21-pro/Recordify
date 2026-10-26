@@ -81,38 +81,40 @@ fun TvSearchView(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // -------------------------------------------------------------
-        // 1. CLEAN TOP SEARCH BAR DISPLAY
+        // 1. CAPSULE SEARCH BAR (Matching Spotify TV: IMG20261026111721.jpg)
         // -------------------------------------------------------------
         item {
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF161616),
+                shape = RoundedCornerShape(50),
+                color = Color(0xFF141414),
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
-                    if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF2C2C2C)
+                    if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF444444)
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF888888),
-                        modifier = Modifier.size(24.dp)
+                        tint = if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFFB3B3B3),
+                        modifier = Modifier.size(22.dp)
                     )
 
                     Spacer(modifier = Modifier.width(14.dp))
 
                     Text(
-                        text = if (searchQuery.isBlank()) "Search any song, artist, album, or era (e.g. Arijit Singh, 90s Bollywood)..." else searchQuery,
-                        color = if (searchQuery.isBlank()) Color(0xFF666666) else Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = if (searchQuery.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
+                        text = if (searchQuery.isBlank()) "What do you want to play?" else searchQuery,
+                        color = if (searchQuery.isBlank()) Color(0xFF757575) else Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = if (searchQuery.isBlank()) FontWeight.Medium else FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -143,59 +145,95 @@ fun TvSearchView(
         }
 
         // -------------------------------------------------------------
-        // 2. ONE-CLICK TRENDING CATEGORY PILLS (Effortless TV Discovery)
+        // 2. RECENT SEARCHES SHELF (Spotify TV match: IMG20261026111721.jpg)
         // -------------------------------------------------------------
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Quick Discovery",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color(0xFF888888),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.sp
+        if (searchQuery.isBlank()) {
+            item {
+                Column {
+                    Text(
+                        text = "Recent searches",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 22.sp
+                        ),
+                        modifier = Modifier.padding(bottom = 14.dp)
                     )
-                )
 
-                val quickCategories = listOf(
-                    "🔥 Trending Hits" to "Latest trending Bollywood chartbusters",
-                    "📻 90s Bollywood" to "90s Bollywood evergreen hits",
-                    "💖 Romantic Melodies" to "Romantic Bollywood love songs",
-                    "👑 Arijit Singh" to "Arijit Singh",
-                    "⚡ Punjabi Top 50" to "Punjabi top hits songs",
-                    "🎙 Sidhu Moose Wala" to "Sidhu Moose Wala",
-                    "🌟 Diljit Dosanjh" to "Diljit Dosanjh",
-                    "🎤 Kishore Kumar" to "Kishore Kumar golden hits",
-                    "☕ Chill Lo-Fi" to "Acoustic lofi chill songs",
-                    "🎉 Party Anthems" to "Party dance hits songs"
-                )
+                    val recentSearchItems = listOf<Triple<String, String, String>>(
+                        Triple("Midnight relaxing...", "Playlist • Sakshi Pannu", "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Ram Chahe Leela", "Song • Goliyon Ki Raasleela", "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Padmaavat", "EP • Sanjay Leela Bhansali", "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Sawaal - Acoustic", "Song • Sawaal (Acoustic)", "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Boyfriend", "Song • P-POP CULTURE", "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Aditya Gadhvi", "Artist", "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"),
+                        Triple("Navlaakhaal Loba...", "Song • Ochhav • Aditya", "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80")
+                    )
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(quickCategories) { (displayLabel, queryKey) ->
-                        val isSelected = searchQuery.equals(queryKey, ignoreCase = true) || searchQuery.equals(displayLabel, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) SpotifyGreenBright.copy(alpha = 0.25f) else Color(0xFF1C1C1C),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isSelected) SpotifyGreenBright else Color(0xFF2C2C2C)
-                            ),
-                            modifier = Modifier.tvRemoteFocusable(
-                                onClick = { onSearchQueryChange(queryKey) },
-                                shape = RoundedCornerShape(20.dp),
-                                focusScale = 1.08f
-                            )
-                        ) {
-                            Text(
-                                text = displayLabel,
-                                color = if (isSelected) SpotifyGreenBright else Color(0xFFE0E0E0),
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                            )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(recentSearchItems) { (title, subtitle, artUrl) ->
+                            if (subtitle == "Artist") {
+                                TvCircularArtistCard(
+                                    name = title,
+                                    imageUrl = artUrl,
+                                    onClick = {
+                                        onSearchQueryChange(title)
+                                    }
+                                )
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF161616),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
+                                    modifier = Modifier
+                                        .width(160.dp)
+                                        .tvRemoteFocusable(
+                                            onClick = { onSearchQueryChange(title) },
+                                            shape = RoundedCornerShape(12.dp),
+                                            focusScale = 1.08f
+                                        )
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(140.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                        ) {
+                                            TrackCoverArt(
+                                                albumArtPath = artUrl,
+                                                title = title,
+                                                artist = subtitle,
+                                                size = 140.dp,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = subtitle,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color(0xFF888888),
+                                                fontSize = 11.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

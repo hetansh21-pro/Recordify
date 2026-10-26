@@ -426,6 +426,70 @@ fun TvAlbumCard(
 }
 
 /**
+ * Circular Artist Card (Spotify TV design: IMG20261026111721.jpg & IMG20261026111737.jpg).
+ */
+@Composable
+fun TvCircularArtistCard(
+    name: String,
+    imageUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent,
+        modifier = modifier
+            .width(160.dp)
+            .tvRemoteFocusable(
+                onClick = onClick,
+                shape = RoundedCornerShape(12.dp),
+                focusScale = 1.08f
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(136.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, Color(0xFF282828), CircleShape)
+            ) {
+                TrackCoverArt(
+                    albumArtPath = imageUrl,
+                    title = name,
+                    artist = "Artist",
+                    size = 136.dp,
+                    shape = CircleShape
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 14.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Artist",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF888888),
+                    fontSize = 11.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
  * Colored Mood or Genre Card for Discovery.
  */
 @Composable

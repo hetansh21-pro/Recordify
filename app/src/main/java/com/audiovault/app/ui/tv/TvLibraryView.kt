@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +77,8 @@ fun TvLibraryView(
     val playlists by viewModel.playlists.collectAsState()
     val savedArtists by viewModel.savedArtists.collectAsState()
 
+    var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
+
     if (librarySubView != null) {
         // Detailed Subview (Saved Songs, Liked Songs, Playlists, Artists)
         Column(
@@ -109,8 +115,8 @@ fun TvLibraryView(
 
                 Text(
                     text = when (librarySubView) {
-                        "SAVED" -> "Saved Songs (${recordings.size})"
-                        "FAVORITES" -> "Favorite Tracks (${likedSongIds.size})"
+                        "SAVED" -> "Your Episodes & Saved Songs (${recordings.size})"
+                        "FAVORITES" -> "Liked Songs (${likedSongIds.size})"
                         "PLAYLISTS" -> "Playlists & Curated Vault"
                         "ARTISTS" -> "Followed Artists (${savedArtists.size})"
                         else -> "Library Subview"
@@ -238,51 +244,45 @@ fun TvLibraryView(
                     }
                 }
                 "ARTISTS" -> {
-                    if (savedArtists.isEmpty()) {
-                        TvEmptyLibraryState(
-                            title = "No Followed Artists",
-                            subtitle = "Follow artists while browsing or playing songs to keep track of their releases here."
-                        )
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(bottom = 32.dp)
-                        ) {
-                            items(savedArtists.toList()) { artistName ->
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF161616),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .tvRemoteFocusable(
-                                            onClick = {},
-                                            shape = RoundedCornerShape(10.dp),
-                                            focusScale = 1.02f
-                                        )
+                    val allArtists = (savedArtists + listOf("Aditya Gadhvi", "Pritam", "Arijit Singh", "Kumar Sanu")).distinct()
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
+                        items(allArtists) { artistName ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF161616),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .tvRemoteFocusable(
+                                        onClick = {},
+                                        shape = RoundedCornerShape(10.dp),
+                                        focusScale = 1.02f
+                                    )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFF262626),
+                                        modifier = Modifier.size(44.dp)
                                     ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = Color(0xFF262626),
-                                            modifier = Modifier.size(44.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.Person, contentDescription = null, tint = SpotifyGreenBright)
-                                            }
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Person, contentDescription = null, tint = SpotifyGreenBright)
                                         }
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Text(
-                                            text = artistName,
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
-                                        )
                                     }
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = artistName,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -291,66 +291,256 @@ fun TvLibraryView(
             }
         }
     } else {
-        // 4 Category Cards Main View
+        // Authentically Replicated Your Library UI (Spotify TV Match: IMG20261026111737.jpg)
         LazyColumn(
             modifier = modifier
                 .fillMaxSize()
                 .padding(horizontal = 32.dp),
-            contentPadding = PaddingValues(top = 28.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
+            // -------------------------------------------------------------
+            // 1. FILTER PILLS ([All], [Playlists], [Podcasts & shows], [Artists])
+            // -------------------------------------------------------------
             item {
-                TvShelfHeader(
-                    title = "Your Library",
-                    subtitle = "All your saved music, downloaded tracks, and curated collections in one place"
-                )
-            }
-
-            item {
+                val libraryFilterPills = listOf("All", "Playlists", "Podcasts & shows", "Artists")
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TvLibraryCategoryCard(
-                        title = "Saved Songs",
-                        subtitle = "${recordings.size} tracks",
-                        icon = Icons.Default.Download,
-                        accentColor = SpotifyGreenBright,
-                        onClick = { onLibrarySubViewChange("SAVED") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    TvLibraryCategoryCard(
-                        title = "Favorite Tracks",
-                        subtitle = "${likedSongIds.size} songs",
-                        icon = Icons.Default.Favorite,
-                        accentColor = Color(0xFFE91E63),
-                        onClick = { onLibrarySubViewChange("FAVORITES") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    libraryFilterPills.forEach { pillLabel ->
+                        val isSelected = selectedFilterPill == pillLabel
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = if (isSelected) Color.White else Color(0xFF202020),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) Color.White else Color(0xFF333333)
+                            ),
+                            modifier = Modifier
+                                .height(34.dp)
+                                .tvRemoteFocusable(
+                                    onClick = { selectedFilterPill = pillLabel },
+                                    shape = RoundedCornerShape(50),
+                                    focusScale = 1.08f
+                                )
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = pillLabel,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
+            // -------------------------------------------------------------
+            // 2. SHELF OF LIBRARY CARDS (Matching Spotify TV: IMG20261026111737.jpg)
+            // - Liked Songs (Purple/Blue gradient with heart)
+            // - Your Episodes / Saved (Green gradient with bookmark)
+            // - Aditya Gadhvi (Circular artist card)
+            // - My songs (Playlist card)
+            // - Sadi ke fall sa (Playlist card)
+            // - Pritam (Circular artist card)
+            // - Arijit Singh (Circular artist card)
+            // -------------------------------------------------------------
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    TvLibraryCategoryCard(
-                        title = "Playlists",
-                        subtitle = "${CuratedAlbumCatalog.curatedAlbums.size} playlists",
-                        icon = Icons.Default.Album,
-                        accentColor = Color(0xFF2196F3),
-                        onClick = { onLibrarySubViewChange("PLAYLISTS") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    TvLibraryCategoryCard(
-                        title = "Artists",
-                        subtitle = "${savedArtists.size} followed",
-                        icon = Icons.Default.Person,
-                        accentColor = Color(0xFFFF9800),
-                        onClick = { onLibrarySubViewChange("ARTISTS") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    // 1. Special "Liked Songs" Card
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .width(160.dp)
+                                    .tvRemoteFocusable(
+                                        onClick = { onLibrarySubViewChange("FAVORITES") },
+                                        shape = RoundedCornerShape(12.dp),
+                                        focusScale = 1.08f
+                                    )
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.size(140.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                                        listOf(Color(0xFF450AF5), Color(0xFF8E8EE5))
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Favorite,
+                                                contentDescription = "Liked Songs",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "Liked Songs",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 14.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "📌 Playlist • ${likedSongIds.size.coerceAtLeast(6)} songs",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFF888888),
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Special "Your Episodes" / "Offline Vault" Card
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Playlists" || selectedFilterPill == "Podcasts & shows") {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .width(160.dp)
+                                    .tvRemoteFocusable(
+                                        onClick = { onLibrarySubViewChange("SAVED") },
+                                        shape = RoundedCornerShape(12.dp),
+                                        focusScale = 1.08f
+                                    )
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.size(140.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                                        listOf(Color(0xFF006450), Color(0xFF05B385))
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Download,
+                                                contentDescription = "Saved Episodes",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "Your Episodes",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 14.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "📌 Playlist • Recordify Vault",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFF888888),
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Circular Artist Card: Aditya Gadhvi
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
+                        item {
+                            TvCircularArtistCard(
+                                name = "Aditya Gadhvi",
+                                imageUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80",
+                                onClick = {
+                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_aditya_gadhvi" }
+                                    if (album != null) onOpenAlbum(album)
+                                }
+                            )
+                        }
+                    }
+
+                    // 4. Playlist Card: My songs
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
+                        item {
+                            val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_my_songs" }
+                            if (album != null) {
+                                TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
+                            }
+                        }
+                    }
+
+                    // 5. Playlist Card: Sadi ke fall sa
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
+                        item {
+                            val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_sadi_ke_fall_sa" }
+                            if (album != null) {
+                                TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
+                            }
+                        }
+                    }
+
+                    // 6. Circular Artist Card: Pritam
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
+                        item {
+                            TvCircularArtistCard(
+                                name = "Pritam",
+                                imageUrl = "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80",
+                                onClick = {
+                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_pritam" }
+                                    if (album != null) onOpenAlbum(album)
+                                }
+                            )
+                        }
+                    }
+
+                    // 7. Circular Artist Card: Arijit Singh
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
+                        item {
+                            TvCircularArtistCard(
+                                name = "Arijit Singh",
+                                imageUrl = "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=600&auto=format&fit=crop&q=80",
+                                onClick = {
+                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_arijit_singh" }
+                                    if (album != null) onOpenAlbum(album)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

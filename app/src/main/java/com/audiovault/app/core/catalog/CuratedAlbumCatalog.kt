@@ -10,6 +10,213 @@ import com.audiovault.app.core.online.OnlineAlbumModel
 object CuratedAlbumCatalog {
 
     val curatedAlbums: List<OnlineAlbumModel> = listOf(
+        // Signature Spotify TV Playlist: Bollywood Mush (as seen on Spotify TV)
+        OnlineAlbumModel(
+            id = "curated_bollywood_mush",
+            title = "Bollywood Mush",
+            year = "Playlist",
+            artist = "Playlist • Recordify",
+            primaryArtists = "Arijit Singh, Mithoon, Tanishk Bagchi",
+            coverArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80",
+            type = "Playlist",
+            source = "curated",
+            searchQuery = "Bollywood Mush love songs",
+            songCount = 12,
+            trackQueries = listOf(
+                "Darkhaast Mithoon Arijit Singh Sunidhi Chauhan",
+                "Saiyaara (From \"Saiyaara\") Tanishk Bagchi Faheem Abdullah",
+                "Baarish Shashaa Tirupati Ash King",
+                "Agar Tum Saath Ho Alka Yagnik Arijit Singh",
+                "Vaaroon Forever Shreya Ghoshal Anand Bhaskar",
+                "Apna Bana Le Arijit Singh Sachin Jigar",
+                "Kesariya Arijit Singh Pritam",
+                "Raataan Lambiyan Jubin Nautiyal Asees Kaur",
+                "Hawayein Arijit Singh Pritam",
+                "Tum Hi Ho Arijit Singh Mithoon",
+                "Dil Diyan Gallan Atif Aslam",
+                "Zaalima Arijit Singh Harshdeep Kaur"
+            )
+        ),
+        // Kumar Sanu All Time Hits
+        OnlineAlbumModel(
+            id = "curated_kumar_sanu_all_time_hits",
+            title = "Kumar Sanu All Time Hits - Hindi Songs",
+            year = "Album",
+            artist = "Album • Kumar Sanu",
+            primaryArtists = "Kumar Sanu",
+            coverArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80",
+            type = "Album",
+            source = "curated",
+            searchQuery = "Kumar Sanu all time hits Hindi songs",
+            songCount = 10,
+            trackQueries = listOf(
+                "Tujhe Dekha To Kumar Sanu",
+                "Dheere Dheere Se Meri Zindagi Kumar Sanu",
+                "Chura Ke Dil Mera Kumar Sanu Alka Yagnik",
+                "Mera Dil Bhi Kitna Pagal Hai Kumar Sanu",
+                "Dil Hai Ki Manta Nahin Kumar Sanu",
+                "Ek Ladki Ko Dekha Kumar Sanu",
+                "Do Dil Mil Rahe Hain Kumar Sanu",
+                "Baazigar O Baazigar Kumar Sanu",
+                "Sambhala Hai Maine Kumar Sanu",
+                "Yeh Kaali Kaali Aankhen Kumar Sanu"
+            )
+        ),
+        // Padmaavat EP
+        OnlineAlbumModel(
+            id = "curated_padmaavat",
+            title = "Padmaavat",
+            year = "EP",
+            artist = "EP • Sanjay Leela Bhansali",
+            primaryArtists = "Sanjay Leela Bhansali",
+            coverArtUrl = "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80",
+            type = "EP",
+            source = "curated",
+            searchQuery = "Padmaavat Sanjay Leela Bhansali songs",
+            songCount = 6,
+            trackQueries = listOf(
+                "Ghoomar Shreya Ghoshal Swaroop Khan",
+                "Khalibali Shivam Pathak",
+                "Binte Dil Arijit Singh",
+                "Ek Dil Ek Jaan Shivam Pathak",
+                "Nainowale Ne Neeti Mohan",
+                "Holi Padmaavat Richa Sharma"
+            )
+        ),
+        // Aditya Gadhvi Curated
+        OnlineAlbumModel(
+            id = "curated_aditya_gadhvi",
+            title = "Aditya Gadhvi",
+            year = "Artist",
+            artist = "Artist • Aditya Gadhvi",
+            primaryArtists = "Aditya Gadhvi",
+            coverArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Aditya Gadhvi Gujarati songs",
+            songCount = 6,
+            trackQueries = listOf(
+                "Khalasi Coke Studio Aditya Gadhvi Achint",
+                "Navlaakhaal Loba Aditya Gadhvi",
+                "Mahahetwali Aditya Gadhvi",
+                "Vhalam Aavo Ne Aditya Gadhvi",
+                "Dakla Aditya Gadhvi",
+                "Mor Bani Thanghat Kare Aditya Gadhvi"
+            )
+        ),
+        // My songs Curated Playlist
+        OnlineAlbumModel(
+            id = "curated_my_songs",
+            title = "My songs",
+            year = "Playlist",
+            artist = "Playlist • Jay",
+            primaryArtists = "Jay",
+            coverArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80",
+            type = "Playlist",
+            source = "curated",
+            searchQuery = "Romantic Hindi trending hits",
+            songCount = 8,
+            trackQueries = listOf(
+                "Tum Hi Ho Arijit Singh",
+                "Channa Mereya Arijit Singh",
+                "Agar Tum Saath Ho Arijit Singh",
+                "Kesariya Arijit Singh",
+                "Apna Bana Le Arijit Singh",
+                "Raataan Lambiyan Jubin Nautiyal",
+                "Hawayein Arijit Singh",
+                "Saiyaara Tanishk Bagchi"
+            )
+        ),
+        // Sadi ke fall sa Playlist
+        OnlineAlbumModel(
+            id = "curated_sadi_ke_fall_sa",
+            title = "Sadi ke fall sa",
+            year = "Playlist",
+            artist = "Playlist • Recordify",
+            primaryArtists = "Pritam, Nakash Aziz",
+            coverArtUrl = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&auto=format&fit=crop&q=80",
+            type = "Playlist",
+            source = "curated",
+            searchQuery = "Saree Ke Fall Sa R Rajkumar songs",
+            songCount = 6,
+            trackQueries = listOf(
+                "Saree Ke Fall Sa Nakash Aziz Antara Mitra",
+                "Gandi Baat Mika Singh Kalpana Patowary",
+                "Dhokha Dhadi Arijit Singh Palak Muchhal",
+                "Mat Maari Kunal Ganjawala Sunidhi Chauhan",
+                "Kaddu Katega Antara Mitra",
+                "Saree Ke Fall Sa Remix"
+            )
+        ),
+        // Pritam
+        OnlineAlbumModel(
+            id = "curated_pritam",
+            title = "Pritam",
+            year = "Artist",
+            artist = "Artist • Pritam",
+            primaryArtists = "Pritam",
+            coverArtUrl = "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Pritam hits songs",
+            songCount = 8,
+            trackQueries = listOf(
+                "Kesariya Pritam Arijit Singh",
+                "Channa Mereya Pritam Arijit Singh",
+                "Subhanallah Pritam Sreerama Chandra",
+                "Shayad Pritam Arijit Singh",
+                "Tum Se Hi Pritam Mohit Chauhan",
+                "Kabira Pritam Tochi Raina Rekha Bhardwaj",
+                "Badtameez Dil Pritam Benny Dayal",
+                "Illahi Pritam Arijit Singh"
+            )
+        ),
+        // Arijit Singh
+        OnlineAlbumModel(
+            id = "curated_arijit_singh",
+            title = "Arijit Singh",
+            year = "Artist",
+            artist = "Artist • Arijit Singh",
+            primaryArtists = "Arijit Singh",
+            coverArtUrl = "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=600&auto=format&fit=crop&q=80",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Arijit Singh hits",
+            songCount = 8,
+            trackQueries = listOf(
+                "Tum Hi Ho Arijit Singh",
+                "Channa Mereya Arijit Singh",
+                "Agar Tum Saath Ho Arijit Singh",
+                "Kesariya Arijit Singh",
+                "Apna Bana Le Arijit Singh",
+                "Hawayein Arijit Singh",
+                "Ae Dil Hai Mushkil Arijit Singh",
+                "Gerua Arijit Singh Antara Mitra"
+            )
+        ),
+        // Love song 🥰💖 Playlist
+        OnlineAlbumModel(
+            id = "curated_love_songs_emoji",
+            title = "Love song 🥰💖",
+            year = "Playlist",
+            artist = "Playlist • Recordify",
+            primaryArtists = "Bollywood Romantic",
+            coverArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80",
+            type = "Playlist",
+            source = "curated",
+            searchQuery = "Love songs romantic Hindi hits",
+            songCount = 8,
+            trackQueries = listOf(
+                "Saiyaara Tanishk Bagchi",
+                "Agar Tum Saath Ho Arijit Singh",
+                "Apna Bana Le Arijit Singh",
+                "Raataan Lambiyan Jubin Nautiyal",
+                "Tum Mile Neeraj Shridhar",
+                "Pehli Nazar Mein Atif Aslam",
+                "Tere Hawaale Arijit Singh Shilpa Rao",
+                "Kesariya Arijit Singh"
+            )
+        ),
         OnlineAlbumModel(
             id = "curated_90s_bollywood",
             title = "Golden 90s Bollywood Hits",
