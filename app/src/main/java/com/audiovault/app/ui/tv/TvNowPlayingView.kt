@@ -1,6 +1,9 @@
 package com.audiovault.app.ui.tv
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +62,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -222,28 +227,28 @@ fun TvNowPlayingView(
                     }
                 )
             }
-            // Ambient remote wakeup: Active focus receiver when controls are hidden
-            .then(
-                if (!areControlsVisible) {
-                    Modifier
-                        .focusRequester(ambientFocusRequester)
-                        .focusable()
-                        .onKeyEvent { keyEvent ->
-                            if (keyEvent.type == KeyEventType.KeyDown) {
-                                if (keyEvent.key == Key.Back) {
-                                    // Let BackHandler handle exiting to Home
-                                    false
-                                } else {
-                                    // Any remote D-pad / Enter key wakes up controls instantly
-                                    lastInteractionTime = System.currentTimeMillis()
-                                    onControlsVisibilityChange(true)
-                                    true
-                                }
-                            } else false
-                        }
-                } else Modifier
-            )
     ) {
+        // Ambient remote wakeup: Permanent focus anchor when controls are down
+        Box(
+            modifier = Modifier
+                .size(1.dp)
+                .focusRequester(ambientFocusRequester)
+                .focusProperties {
+                    canFocus = !areControlsVisible
+                }
+                .focusable()
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        if (keyEvent.key == Key.Back) {
+                            false
+                        } else {
+                            lastInteractionTime = System.currentTimeMillis()
+                            onControlsVisibilityChange(true)
+                            true
+                        }
+                    } else false
+                }
+        )
         // -----------------------------------------------------------------
         // 1. FULL-SCREEN ARTIST PHOTO BACKDROP (Hidden if Dark Screen Active)
         // -----------------------------------------------------------------
@@ -357,19 +362,31 @@ fun TvNowPlayingView(
 
         // -----------------------------------------------------------------
         // 3. MAIN CONTROLS DECK (Top Bar + Scrubber + Control Buttons)
+        // Slides down off-screen when idle after 5s; slides smoothly back up on any remote key
         // -----------------------------------------------------------------
-        AnimatedVisibility(
-            visible = areControlsVisible,
-            enter = fadeIn(tween(300)),
-            exit = fadeOut(tween(300))
+        val controlsOffsetY by animateDpAsState(
+            targetValue = if (areControlsVisible) 0.dp else 260.dp,
+            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+            label = "tv_controls_offset"
+        )
+        val controlsAlpha by animateFloatAsState(
+            targetValue = if (areControlsVisible) 1.0f else 0.0f,
+            animationSpec = tween(durationMillis = 350),
+            label = "tv_controls_alpha"
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = controlsOffsetY)
+                .graphicsLayer { alpha = controlsAlpha }
+                .focusProperties {
+                    canFocus = areControlsVisible && !showAboutDialog && !showLyricsDialog
+                }
+                .padding(horizontal = 64.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 64.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Top Bar: "Playing from" Pill on Left, Profile on Right
+            // Top Bar: "Playing from" Pill on Left, Profile on Right
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -996,7 +1013,6 @@ fun TvNowPlayingView(
                     }
                 }
             }
-        }
 
         // -----------------------------------------------------------------
         // 4. TOP-RIGHT FLOATING TOAST (For Dark mode and feedback)

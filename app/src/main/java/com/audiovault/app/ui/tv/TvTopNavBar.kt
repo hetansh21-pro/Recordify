@@ -193,17 +193,15 @@ fun TvTopNavBar(
 
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = if (isSelected) Color(0xFF282828) else Color.Transparent,
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = if (isSelected) 1.5.dp else 0.dp,
-                        color = if (isSelected) Color.White.copy(alpha = 0.85f) else Color.Transparent
-                    ),
+                    color = if (isSelected) Color(0xFF242424) else Color.Transparent,
                     modifier = Modifier
                         .height(42.dp)
                         .tvRemoteFocusable(
                             onClick = { onTabSelected(tab) },
                             shape = RoundedCornerShape(50),
-                            focusScale = 1.08f
+                            focusScale = 1.08f,
+                            focusBorderWidth = 2.dp,
+                            focusBorderColor = Color.White
                         )
                 ) {
                     Row(

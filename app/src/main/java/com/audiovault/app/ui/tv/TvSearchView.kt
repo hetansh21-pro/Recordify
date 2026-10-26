@@ -139,6 +139,7 @@ fun TvSearchView(
                             keyboardController?.show()
                         },
                         shape = RoundedCornerShape(50),
+                        focusBorderWidth = 2.dp,
                         focusBorderColor = Color.White
                     )
             ) {
@@ -169,6 +170,8 @@ fun TvSearchView(
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = onSearchQueryChange,
+                            enabled = isEditingText,
+                            readOnly = !isEditingText,
                             singleLine = true,
                             cursorBrush = SolidColor(Color.White),
                             textStyle = TextStyle(

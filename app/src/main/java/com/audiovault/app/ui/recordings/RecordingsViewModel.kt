@@ -914,6 +914,21 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         val upcomingQueueItems = upcomingSongs?.filter { it.id != song.id }?.map { QueueItem.fromOnlineSong(it) }
         val virtualRecording = queueItem.toRecordingEntity()
 
+        // Persist every manually played song into Recent Searches / Recently Played
+        viewModelScope.launch {
+            userPreferencesRepository.addRecentSearchItem(
+                com.audiovault.app.data.repository.RecentlyPlayedSearchItem(
+                    id = song.id,
+                    title = song.title,
+                    artist = song.artist,
+                    albumArtPath = song.highResArtUrl,
+                    isOnline = true,
+                    streamUrl = song.streamUrl,
+                    youtubeVideoId = song.youtubeVideoId
+                )
+            )
+        }
+
         // 0. OFFLINE-FIRST: Check if already downloaded locally on device (0 MB data consumed, instant play!)
         val localMatch = findMatchingLocalRecording(song)
         if (localMatch != null) {

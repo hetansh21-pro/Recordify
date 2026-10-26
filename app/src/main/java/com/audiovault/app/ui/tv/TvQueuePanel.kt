@@ -26,13 +26,17 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +84,7 @@ fun TvQueuePanel(
 ) {
     val firstItemFocusRequester = remember { FocusRequester() }
     val closeFocusRequester = remember { FocusRequester() }
+    var activeEditIndex by remember { mutableStateOf<Int?>(null) }
 
     // Auto-focus on entry for TV remote
     LaunchedEffect(Unit) {
@@ -299,7 +304,7 @@ fun TvQueuePanel(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(queueState.upcomingQueue) { index, song ->
-                        // Un-nested side-by-side D-Pad layout: Track on Left, Remove on Right
+                        val isEditing = activeEditIndex == index
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -308,15 +313,17 @@ fun TvQueuePanel(
                             // Track Item Surface (Clicking plays the track index)
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF1A1A1A),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
+                                color = if (isEditing) Color(0xFF242424) else Color(0xFF1A1A1A),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isEditing) Color(0xFF444444) else Color(0xFF282828)),
                                 modifier = Modifier
                                     .weight(1f)
                                     .then(if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier)
                                     .tvRemoteFocusable(
                                         onClick = { onPlayQueueIndex(index) },
                                         shape = RoundedCornerShape(10.dp),
-                                        focusScale = 1.02f
+                                        focusScale = 1.02f,
+                                        focusBorderWidth = 2.dp,
+                                        focusBorderColor = Color.White
                                     )
                             ) {
                                 Row(
@@ -366,8 +373,9 @@ fun TvQueuePanel(
                                 }
                             }
 
-                            // Move Up Button (enabled if index > 0)
-                            if (index > 0) {
+                            if (isEditing) {
+                                // Three Action Buttons on edit mode: Up, Down, Close
+                                // 1. Move Up Button (enabled if index > 0)
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
@@ -375,21 +383,21 @@ fun TvQueuePanel(
                                         .tvRemoteFocusable(
                                             onClick = { onMoveQueueItemUp?.invoke(index) },
                                             shape = CircleShape,
-                                            focusScale = 1.15f
+                                            focusScale = 1.15f,
+                                            focusBorderWidth = 2.dp,
+                                            focusBorderColor = Color.White
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowUp,
                                         contentDescription = "Move Up in Queue",
-                                        tint = Color(0xFFCCCCCC),
+                                        tint = if (index > 0) Color.White else Color(0xFF555555),
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
-                            }
 
-                            // Move Down Button (enabled if index < queueState.upcomingQueue.size - 1)
-                            if (index < queueState.upcomingQueue.size - 1) {
+                                // 2. Move Down Button (enabled if index < queueState.upcomingQueue.size - 1)
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
@@ -397,37 +405,66 @@ fun TvQueuePanel(
                                         .tvRemoteFocusable(
                                             onClick = { onMoveQueueItemDown?.invoke(index) },
                                             shape = CircleShape,
-                                            focusScale = 1.15f
+                                            focusScale = 1.15f,
+                                            focusBorderWidth = 2.dp,
+                                            focusBorderColor = Color.White
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowDown,
                                         contentDescription = "Move Down in Queue",
-                                        tint = Color(0xFFCCCCCC),
+                                        tint = if (index < queueState.upcomingQueue.size - 1) Color.White else Color(0xFF555555),
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
-                            }
 
-                            // Remove Button (deletes track index)
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .tvRemoteFocusable(
-                                        onClick = { onRemoveQueueIndex(index) },
-                                        shape = CircleShape,
-                                        focusScale = 1.15f
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Remove from Queue",
-                                    tint = Color(0xFF888888),
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                // 3. Remove Button (deletes track index)
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .tvRemoteFocusable(
+                                            onClick = {
+                                                onRemoveQueueIndex(index)
+                                                activeEditIndex = null
+                                            },
+                                            shape = CircleShape,
+                                            focusScale = 1.15f,
+                                            focusBorderWidth = 2.dp,
+                                            focusBorderColor = Color.White
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove from Queue",
+                                        tint = Color(0xFFE91E63),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else {
+                                // Edit Action Trigger Button
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .tvRemoteFocusable(
+                                            onClick = { activeEditIndex = index },
+                                            shape = CircleShape,
+                                            focusScale = 1.15f,
+                                            focusBorderWidth = 2.dp,
+                                            focusBorderColor = Color.White
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Edit Track in Queue",
+                                        tint = Color(0xFF888888),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }

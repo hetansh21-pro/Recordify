@@ -1,8 +1,10 @@
 package com.audiovault.app.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
@@ -42,6 +47,10 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +73,8 @@ fun VibeFlowQueueBottomSheet(
     queueState: PlaybackQueueState,
     onPlayTrackAt: (Int) -> Unit,
     onRemoveTrackAt: (Int) -> Unit,
+    onMoveQueueItemUp: ((Int) -> Unit)? = null,
+    onMoveQueueItemDown: ((Int) -> Unit)? = null,
     onClearUpcoming: () -> Unit,
     onRefreshQueue: () -> Unit,
     onToggleRepeat: () -> Unit,
@@ -73,6 +84,7 @@ fun VibeFlowQueueBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var activeEditIndex by remember { mutableStateOf<Int?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -405,9 +417,20 @@ fun VibeFlowQueueBottomSheet(
                     itemsIndexed(queueState.upcomingQueue, key = { index, item -> "queue_${item.id}_$index" }) { index, item ->
                         QueueTrackRow(
                             item = item,
+                            index = index,
+                            totalCount = queueState.upcomingQueue.size,
                             isNowPlaying = false,
+                            isEditing = activeEditIndex == index,
+                            onToggleEdit = {
+                                activeEditIndex = if (activeEditIndex == index) null else index
+                            },
                             onPlay = { onPlayTrackAt(index) },
-                            onRemove = { onRemoveTrackAt(index) }
+                            onMoveUp = { onMoveQueueItemUp?.invoke(index) },
+                            onMoveDown = { onMoveQueueItemDown?.invoke(index) },
+                            onRemove = {
+                                onRemoveTrackAt(index)
+                                if (activeEditIndex == index) activeEditIndex = null
+                            }
                         )
                     }
                 }
@@ -416,19 +439,34 @@ fun VibeFlowQueueBottomSheet(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QueueTrackRow(
     item: QueueItem,
+    index: Int = 0,
+    totalCount: Int = 1,
     isNowPlaying: Boolean,
+    isEditing: Boolean = false,
+    onToggleEdit: () -> Unit = {},
     onPlay: () -> Unit,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
     onRemove: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isNowPlaying) Color(0xFF1E2F20) else SpotifyCardSurface)
-            .clickable(enabled = !isNowPlaying) { onPlay() }
+            .background(
+                if (isNowPlaying) Color(0xFF1E2F20)
+                else if (isEditing) Color(0xFF282828)
+                else SpotifyCardSurface
+            )
+            .combinedClickable(
+                enabled = !isNowPlaying,
+                onClick = onPlay,
+                onLongClick = onToggleEdit
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -494,6 +532,53 @@ private fun QueueTrackRow(
                 tint = SpotifyGreenBright,
                 modifier = Modifier.size(20.dp)
             )
+        } else if (isEditing) {
+            // Three action items on long press: Up, Down, Close
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // 1. Up Icon
+                IconButton(
+                    onClick = onMoveUp,
+                    enabled = index > 0,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Move Up",
+                        tint = if (index > 0) Color.White else Color(0xFF555555),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // 2. Down Icon
+                IconButton(
+                    onClick = onMoveDown,
+                    enabled = index < totalCount - 1,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Move Down",
+                        tint = if (index < totalCount - 1) Color.White else Color(0xFF555555),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // 3. Close Icon
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove from Queue",
+                        tint = Color(0xFFE91E63),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPlay, modifier = Modifier.size(32.dp)) {
@@ -505,10 +590,10 @@ private fun QueueTrackRow(
                     )
                 }
 
-                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                IconButton(onClick = onToggleEdit, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove",
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Edit queue item",
                         tint = Color(0xFF888888),
                         modifier = Modifier.size(18.dp)
                     )
