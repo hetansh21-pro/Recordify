@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -75,6 +79,16 @@ fun TvAlbumDetailView(
 ) {
     val playerState by viewModel.playerState.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
+
+    val masterPlayFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus on Master Play Button when entering Album Details
+    LaunchedEffect(album.id) {
+        delay(120L)
+        try {
+            masterPlayFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
 
     // Pre-seed track queries to OnlineSongModel list if songs list is empty
     val trackList: List<OnlineSongModel> = if (album.songs.isNotEmpty()) {
@@ -120,7 +134,7 @@ fun TvAlbumDetailView(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 36.dp, vertical = 12.dp)
+                .padding(horizontal = 48.dp, vertical = 12.dp)
         ) {
             // -------------------------------------------------------------
             // 1. LEFT STATIONARY COLUMN (Cover Art, Title, Info, Action Buttons)
@@ -264,6 +278,7 @@ fun TvAlbumDetailView(
                         color = SpotifyGreenBright,
                         modifier = Modifier
                             .size(54.dp)
+                            .focusRequester(masterPlayFocusRequester)
                             .tvRemoteFocusable(
                                 onClick = {
                                     if (trackList.isNotEmpty()) {

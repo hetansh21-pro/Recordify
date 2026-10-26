@@ -426,6 +426,19 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         playbackQueueManager.removeAt(index)
     }
 
+    fun moveQueueItemUp(index: Int) {
+        if (index > 0) {
+            playbackQueueManager.moveQueueItem(index, index - 1)
+        }
+    }
+
+    fun moveQueueItemDown(index: Int) {
+        val queueSize = queueState.value.upcomingQueue.size
+        if (index < queueSize - 1) {
+            playbackQueueManager.moveQueueItem(index, index + 1)
+        }
+    }
+
     fun playFromQueue(index: Int) {
         playbackQueueManager.playImmediatelyFromQueue(index, isDataSaver = userSettings.value.isDataSaverEnabled)
     }
@@ -709,28 +722,37 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                         } else null
                     }
 
-                    // Enforce Artist Album Strict Filtering: only that artist's songs, top trending first
+                    // Enforce Artist Album Strict Filtering: only that artist's genuine songs, top trending first
                     val finalAlbum = if (resolvedAlbum != null) {
                         val isArtist = album.type.equals("Artist", ignoreCase = true) ||
                                 album.year.equals("Artist", ignoreCase = true) ||
                                 album.id.startsWith("artist_")
                         if (isArtist) {
-                            val targetArtistName = (album.primaryArtists ?: album.title)
-                                .replace(Regex("(?i)\\b(artist|album|playlist|official)\\b"), "")
-                                .trim()
-                            val artistTokens = targetArtistName.lowercase().split(" ").filter { it.length >= 3 }
+                            // If the album was curated with trackQueries, all songs were explicitly curated for this artist
+                            if (album.trackQueries.isNotEmpty()) {
+                                resolvedAlbum
+                            } else {
+                                val targetArtistName = (album.primaryArtists ?: album.title)
+                                    .replace(Regex("(?i)\\b(artist|album|playlist|official)\\b"), "")
+                                    .trim()
+                                val artistTokens = targetArtistName.lowercase().split(" ").filter { it.length >= 3 }
 
-                            val strictlyArtistSongs = resolvedAlbum.songs.filter { song ->
-                                val sArtist = song.artist.lowercase()
-                                val sTitle = song.title.lowercase()
-                                if (artistTokens.isEmpty()) true else {
-                                    artistTokens.any { token -> sArtist.contains(token) || sTitle.contains(token) }
+                                // Filter out remixes, edits, lo-fi, slowed+reverb, mashups, karaoke
+                                val junkKeywords = listOf("remix", "re-mix", "mix", "edit", "lofi", "lo-fi", "slowed", "reverb", "mashup", "8d", "bass boosted", "karaoke", "ringtone")
+                                val strictlyArtistSongs = resolvedAlbum.songs.filter { song ->
+                                    val sArtist = song.artist.lowercase()
+                                    val sTitle = song.title.lowercase()
+                                    val isRealSong = junkKeywords.none { sTitle.contains(it) }
+                                    val matchesArtist = if (artistTokens.isEmpty()) true else {
+                                        artistTokens.any { token -> sArtist.contains(token) || sTitle.contains(token) }
+                                    }
+                                    isRealSong && matchesArtist
                                 }
+                                resolvedAlbum.copy(
+                                    songs = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs },
+                                    songCount = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs }.size
+                                )
                             }
-                            resolvedAlbum.copy(
-                                songs = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs },
-                                songCount = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs }.size
-                            )
                         } else {
                             resolvedAlbum
                         }

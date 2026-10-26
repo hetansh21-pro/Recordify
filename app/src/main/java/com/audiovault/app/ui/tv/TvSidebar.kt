@@ -143,7 +143,7 @@ fun TvSidebar(
                             onClick = onToggleExpand,
                             shape = CircleShape,
                             focusScale = 1.12f,
-                            focusBorderColor = SpotifyGreenBright
+                            focusBorderColor = Color.White
                         )
                 ) {
                     Box(contentAlignment = Alignment.Center) {

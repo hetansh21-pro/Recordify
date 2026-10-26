@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -70,6 +72,8 @@ fun TvQueuePanel(
     isPlaying: Boolean,
     onPlayQueueIndex: (Int) -> Unit,
     onRemoveQueueIndex: (Int) -> Unit,
+    onMoveQueueItemUp: ((Int) -> Unit)? = null,
+    onMoveQueueItemDown: ((Int) -> Unit)? = null,
     onClearQueue: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
@@ -95,7 +99,7 @@ fun TvQueuePanel(
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
         shadowElevation = 16.dp,
         modifier = modifier
-            .width(420.dp)
+            .width(460.dp)
             .fillMaxHeight()
             // Touch Isolation: Consume all taps inside panel so nothing touches background
             .pointerInput(Unit) {
@@ -362,10 +366,54 @@ fun TvQueuePanel(
                                 }
                             }
 
+                            // Move Up Button (enabled if index > 0)
+                            if (index > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .tvRemoteFocusable(
+                                            onClick = { onMoveQueueItemUp?.invoke(index) },
+                                            shape = CircleShape,
+                                            focusScale = 1.15f
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "Move Up in Queue",
+                                        tint = Color(0xFFCCCCCC),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            // Move Down Button (enabled if index < queueState.upcomingQueue.size - 1)
+                            if (index < queueState.upcomingQueue.size - 1) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .tvRemoteFocusable(
+                                            onClick = { onMoveQueueItemDown?.invoke(index) },
+                                            shape = CircleShape,
+                                            focusScale = 1.15f
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Move Down in Queue",
+                                        tint = Color(0xFFCCCCCC),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
                             // Remove Button (deletes track index)
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
                                     .tvRemoteFocusable(
                                         onClick = { onRemoveQueueIndex(index) },

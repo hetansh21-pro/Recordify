@@ -655,6 +655,15 @@ class PlaybackQueueManager(
     }
 
     // Queue mutations
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val current = _queueState.value.upcomingQueue.toMutableList()
+        if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+            _queueState.update { it.copy(upcomingQueue = current) }
+        }
+    }
+
     fun removeAt(index: Int) {
         val current = _queueState.value.upcomingQueue.toMutableList()
         if (index in current.indices) {

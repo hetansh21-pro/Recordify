@@ -128,7 +128,6 @@ fun TvNowPlayingView(
     val playPauseFocusRequester = remember { FocusRequester() }
     val timelineFocusRequester = remember { FocusRequester() }
     val playingFromFocusRequester = remember { FocusRequester() }
-    val profileFocusRequester = remember { FocusRequester() }
     val saveFocusRequester = remember { FocusRequester() }
     val prevFocusRequester = remember { FocusRequester() }
     val nextFocusRequester = remember { FocusRequester() }
@@ -139,10 +138,20 @@ fun TvNowPlayingView(
     val aboutFocusRequester = remember { FocusRequester() }
     val darkModeFocusRequester = remember { FocusRequester() }
 
+    // Auto-focus on Play/Pause button on initial entry into full screen player
+    LaunchedEffect(Unit) {
+        repeat(3) {
+            delay(120L)
+            try {
+                playPauseFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
     // Auto-focus management between controls deck and ambient mode
     LaunchedEffect(areControlsVisible, isQueueOpen) {
         if (!isQueueOpen) {
-            delay(100)
+            delay(100L)
             if (areControlsVisible) {
                 try {
                     playPauseFocusRequester.requestFocus()
@@ -166,7 +175,7 @@ fun TvNowPlayingView(
     // Automatic focus restoration when Queue panel closes
     LaunchedEffect(isQueueOpen) {
         if (!isQueueOpen && areControlsVisible) {
-            delay(100)
+            delay(100L)
             try {
                 queueFocusRequester.requestFocus()
             } catch (_: Exception) {
@@ -189,6 +198,16 @@ fun TvNowPlayingView(
         modifier = Modifier
             .fillMaxSize()
             .background(if (isDarkScreenActive) Color.Black else Color(0xFF0C0C0C))
+            // Preview key event: intercept ANY TV remote D-Pad or media key press when controls are hidden
+            .onPreviewKeyEvent { keyEvent ->
+                if (!areControlsVisible && keyEvent.type == KeyEventType.KeyDown) {
+                    if (keyEvent.key != Key.Back) {
+                        lastInteractionTime = System.currentTimeMillis()
+                        onControlsVisibilityChange(true)
+                        true
+                    } else false
+                } else false
+            }
             // Complete Touch Isolation: Consume all touches/clicks on full player background
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -273,7 +292,27 @@ fun TvNowPlayingView(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .focusRequester(ambientFocusRequester)
+                    .tvRemoteFocusable(
+                        onClick = {
+                            lastInteractionTime = System.currentTimeMillis()
+                            onControlsVisibilityChange(true)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        focusBorderColor = Color.White
+                    )
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            if (keyEvent.key != Key.Back) {
+                                lastInteractionTime = System.currentTimeMillis()
+                                onControlsVisibilityChange(true)
+                                true
+                            } else false
+                        } else false
+                    }
+                    .padding(8.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -344,19 +383,14 @@ fun TvNowPlayingView(
                             .focusRequester(playingFromFocusRequester)
                             .focusProperties {
                                 down = playPauseFocusRequester
-                                right = profileFocusRequester
                             }
                             .onKeyEvent { keyEvent ->
                                 if (keyEvent.type == KeyEventType.KeyDown) {
                                     lastInteractionTime = System.currentTimeMillis()
                                     when (keyEvent.key) {
-                                        Key.DirectionUp, Key.DirectionLeft -> true // Clamp
+                                        Key.DirectionUp, Key.DirectionLeft, Key.DirectionRight -> true // Clamp
                                         Key.DirectionDown -> {
                                             playPauseFocusRequester.requestFocus()
-                                            true
-                                        }
-                                        Key.DirectionRight -> {
-                                            profileFocusRequester.requestFocus()
                                             true
                                         }
                                         else -> false
@@ -398,52 +432,6 @@ fun TvNowPlayingView(
                                     )
                                 )
                             }
-                        }
-                    }
-
-                    // Profile Avatar Circle ("H")
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFFFFA07A),
-                        modifier = Modifier
-                            .size(40.dp)
-                            .focusRequester(profileFocusRequester)
-                            .focusProperties {
-                                down = saveFocusRequester
-                                left = playingFromFocusRequester
-                            }
-                            .onKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                    lastInteractionTime = System.currentTimeMillis()
-                                    when (keyEvent.key) {
-                                        Key.DirectionUp, Key.DirectionRight -> true // Clamp
-                                        Key.DirectionDown -> {
-                                            saveFocusRequester.requestFocus()
-                                            true
-                                        }
-                                        Key.DirectionLeft -> {
-                                            playingFromFocusRequester.requestFocus()
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
-                            }
-                            .tvRemoteFocusable(
-                                onClick = onBack,
-                                shape = CircleShape,
-                                focusScale = 1.15f
-                            )
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "H",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 18.sp
-                                )
-                            )
                         }
                     }
                 }
@@ -522,7 +510,7 @@ fun TvNowPlayingView(
                                 .height(40.dp)
                                 .focusRequester(saveFocusRequester)
                                 .focusProperties {
-                                    up = profileFocusRequester
+                                    up = playingFromFocusRequester
                                     down = timelineFocusRequester
                                     left = playPauseFocusRequester
                                 }
@@ -532,7 +520,7 @@ fun TvNowPlayingView(
                                         when (keyEvent.key) {
                                             Key.DirectionRight -> true // Clamp
                                             Key.DirectionUp -> {
-                                                profileFocusRequester.requestFocus()
+                                                playingFromFocusRequester.requestFocus()
                                                 true
                                             }
                                             Key.DirectionDown -> {

@@ -52,7 +52,7 @@ fun Modifier.tvRemoteFocusable(
     shape: Shape = RoundedCornerShape(10.dp),
     focusScale: Float = 1.03f,
     focusBorderWidth: Dp = 1.5.dp,
-    focusBorderColor: Color = SpotifyGreenBright,
+    focusBorderColor: Color = Color.White,
     unfocusedBorderColor: Color = Color.Transparent,
     elevationOnFocus: Dp = 0.dp,
     focusRequester: FocusRequester? = null,

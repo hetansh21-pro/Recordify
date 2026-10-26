@@ -84,7 +84,7 @@ fun TvLibraryView(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 24.dp)
+                .padding(horizontal = 48.dp, vertical = 24.dp)
         ) {
             // Header with Back button
             Row(
@@ -295,7 +295,7 @@ fun TvLibraryView(
         LazyColumn(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 48.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {

@@ -64,7 +64,7 @@ fun TvTopNavBar(
             .fillMaxWidth()
             .height(68.dp)
             .background(Color(0xFF0C0C0C))
-            .padding(horizontal = 28.dp, vertical = 10.dp),
+            .padding(horizontal = 48.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -266,30 +266,6 @@ fun TvTopNavBar(
                             fontWeight = FontWeight.Bold,
                             color = Color.Black,
                             fontSize = 13.sp
-                        )
-                    )
-                }
-            }
-
-            // User Profile Circle ("H" from user's TV photos)
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFFFA07A), // Peach/salmon color matching photo
-                modifier = Modifier
-                    .size(40.dp)
-                    .tvRemoteFocusable(
-                        onClick = onOpenSettings,
-                        shape = CircleShape,
-                        focusScale = 1.15f
-                    )
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "H",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 18.sp
                         )
                     )
                 }

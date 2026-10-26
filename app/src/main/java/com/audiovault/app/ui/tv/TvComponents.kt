@@ -159,7 +159,7 @@ fun TvInteractiveProgressBar(
                     .background(if (isFocused) Color(0xFF4A4A4A) else Color(0xFF282828))
             )
 
-            // Active progress fill line (illuminates bright green when focused)
+            // Active progress fill line (illuminates bright white when focused)
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction = progressFraction)
@@ -169,22 +169,22 @@ fun TvInteractiveProgressBar(
                         if (isFocused) {
                             Brush.horizontalGradient(
                                 listOf(
-                                    SpotifyGreenBright.copy(alpha = 0.85f),
-                                    SpotifyGreenBright
+                                    Color.White.copy(alpha = 0.95f),
+                                    Color.White
                                 )
                             )
                         } else {
                             Brush.horizontalGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.85f),
-                                    Color.White
+                                    Color.White.copy(alpha = 0.70f),
+                                    Color.White.copy(alpha = 0.85f)
                                 )
                             )
                         }
                     )
             )
 
-            // Scrubber Thumb (circle appears and glows when the line is focused)
+            // Scrubber Thumb (circle appears and glows white when the line is focused)
             if (isFocused || progressFraction > 0f) {
                 Box(
                     modifier = Modifier.fillMaxWidth(fraction = progressFraction)
@@ -194,16 +194,16 @@ fun TvInteractiveProgressBar(
                         color = Color.White,
                         border = androidx.compose.foundation.BorderStroke(
                             if (isFocused) 2.5.dp else 1.5.dp,
-                            if (isFocused) SpotifyGreenBright else Color(0xFF888888)
+                            if (isFocused) Color.White else Color(0xFF888888)
                         ),
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .size(if (isFocused) 15.dp else 8.dp)
                             .scale(thumbScale)
                             .shadow(
-                                elevation = if (isFocused) 6.dp else 0.dp,
+                                elevation = if (isFocused) 8.dp else 0.dp,
                                 shape = CircleShape,
-                                spotColor = SpotifyGreenBright
+                                spotColor = Color.White
                             )
                     ) {}
                 }

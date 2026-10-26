@@ -338,7 +338,7 @@ fun TvMiniPlayerBar(
                             onClick = onTogglePlay,
                             shape = RoundedCornerShape(8.dp),
                             focusScale = 1.02f,
-                            focusBorderColor = SpotifyGreenBright.copy(alpha = 0.5f)
+                            focusBorderColor = Color.White.copy(alpha = 0.6f)
                         )
                         .padding(horizontal = 6.dp, vertical = 4.dp)
                 ) {
@@ -356,7 +356,7 @@ fun TvMiniPlayerBar(
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(3.dp))
                                 .background(
-                                    if (isScrubberFocused) SpotifyGreenBright else Color(0xFFCCCCCC)
+                                    if (isScrubberFocused) Color.White else Color(0xFFCCCCCC)
                                 )
                         )
                     }
@@ -371,7 +371,7 @@ fun TvMiniPlayerBar(
                         Text(
                             text = formatTvDuration(positionMs),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isScrubberFocused) SpotifyGreenBright else Color(0xFF888888),
+                                color = if (isScrubberFocused) Color.White else Color(0xFF888888),
                                 fontSize = 11.sp
                             )
                         )
@@ -379,7 +379,7 @@ fun TvMiniPlayerBar(
                             Text(
                                 text = "◀ -10s | +10s ▶",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = SpotifyGreenBright,
+                                    color = Color.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )

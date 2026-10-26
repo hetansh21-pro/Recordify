@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,8 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,11 +90,20 @@ fun TvHomeView(
     val curatedAlbums = CuratedAlbumCatalog.curatedAlbums
 
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
+    val heroFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus on primary featured content when entering Home
+    LaunchedEffect(Unit) {
+        delay(150L)
+        try {
+            heroFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 48.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -108,6 +121,7 @@ fun TvHomeView(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(heroFocusRequester)
                         .tvRemoteFocusable(
                             onClick = { onPlayAlbum(featuredAlbum) },
                             shape = RoundedCornerShape(16.dp),

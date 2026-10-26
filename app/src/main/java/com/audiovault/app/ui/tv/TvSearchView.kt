@@ -42,9 +42,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -52,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.audiovault.app.core.catalog.CuratedAlbumCatalog
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
 import com.audiovault.app.ui.components.TrackCoverArt
@@ -82,10 +91,21 @@ fun TvSearchView(
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     var isSearchFocused by remember { mutableStateOf(false) }
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus on Search Bar when entering Search tab
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(150L)
+        try {
+            searchFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 48.dp),
         contentPadding = PaddingValues(top = 24.dp, bottom = 44.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -98,11 +118,19 @@ fun TvSearchView(
                 color = Color(0xFF141414),
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
-                    if (isSearchFocused || searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF444444)
+                    if (isSearchFocused || searchQuery.isNotBlank()) Color.White else Color(0xFF444444)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
+                    .tvRemoteFocusable(
+                        onClick = {
+                            searchFocusRequester.requestFocus()
+                            keyboardController?.show()
+                        },
+                        shape = RoundedCornerShape(50),
+                        focusBorderColor = Color.White
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -113,7 +141,7 @@ fun TvSearchView(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = if (searchQuery.isNotBlank() || isSearchFocused) SpotifyGreenBright else Color(0xFFB3B3B3),
+                        tint = if (searchQuery.isNotBlank() || isSearchFocused) Color.White else Color(0xFFB3B3B3),
                         modifier = Modifier.size(22.dp)
                     )
 
@@ -132,7 +160,7 @@ fun TvSearchView(
                             value = searchQuery,
                             onValueChange = onSearchQueryChange,
                             singleLine = true,
-                            cursorBrush = SolidColor(SpotifyGreenBright),
+                            cursorBrush = SolidColor(Color.White),
                             textStyle = TextStyle(
                                 color = Color.White,
                                 fontSize = 15.sp,
@@ -146,7 +174,21 @@ fun TvSearchView(
                             }),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .onFocusChanged { isSearchFocused = it.isFocused }
+                                .focusRequester(searchFocusRequester)
+                                .onFocusChanged { state ->
+                                    isSearchFocused = state.isFocused
+                                    if (state.isFocused) {
+                                        keyboardController?.show()
+                                    }
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown &&
+                                        (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                    ) {
+                                        keyboardController?.show()
+                                        true
+                                    } else false
+                                }
                         )
                     }
 
@@ -175,45 +217,27 @@ fun TvSearchView(
         }
 
         // -------------------------------------------------------------
-        // 2. RECENT SEARCHES SHELF (Spotify TV match: IMG20261026111721.jpg)
+        // 2. RECENT SEARCHES & CURATED COLLECTIONS (Full HD 500x500 Album Art)
         // -------------------------------------------------------------
         if (searchQuery.isBlank()) {
-            item {
-                Column {
-                    Text(
-                        text = "Recent searches",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 22.sp
-                        ),
-                        modifier = Modifier.padding(bottom = 14.dp)
-                    )
+            if (recentSearches.isNotEmpty()) {
+                item {
+                    Column {
+                        Text(
+                            text = "Recent searches",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 22.sp
+                            ),
+                            modifier = Modifier.padding(bottom = 14.dp)
+                        )
 
-                    val recentSearchItems = listOf<Triple<String, String, String>>(
-                        Triple("Midnight relaxing...", "Playlist • Sakshi Pannu", "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Ram Chahe Leela", "Song • Goliyon Ki Raasleela", "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Padmaavat", "EP • Sanjay Leela Bhansali", "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Sawaal - Acoustic", "Song • Sawaal (Acoustic)", "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Boyfriend", "Song • P-POP CULTURE", "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Aditya Gadhvi", "Artist", "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"),
-                        Triple("Navlaakhaal Loba...", "Song • Ochhav • Aditya", "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80")
-                    )
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(recentSearchItems) { (title, subtitle, artUrl) ->
-                            if (subtitle == "Artist") {
-                                TvCircularArtistCard(
-                                    name = title,
-                                    imageUrl = artUrl,
-                                    onClick = {
-                                        onSearchQueryChange(title)
-                                    }
-                                )
-                            } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(recentSearches.take(10)) { item ->
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
                                     color = Color(0xFF161616),
@@ -221,7 +245,7 @@ fun TvSearchView(
                                     modifier = Modifier
                                         .width(160.dp)
                                         .tvRemoteFocusable(
-                                            onClick = { onSearchQueryChange(title) },
+                                            onClick = { onSearchQueryChange(item.title) },
                                             shape = RoundedCornerShape(12.dp),
                                             focusScale = 1.08f
                                         )
@@ -233,16 +257,16 @@ fun TvSearchView(
                                                 .clip(RoundedCornerShape(8.dp))
                                         ) {
                                             TrackCoverArt(
-                                                albumArtPath = artUrl,
-                                                title = title,
-                                                artist = subtitle,
+                                                albumArtPath = item.albumArtPath,
+                                                title = item.title,
+                                                artist = item.artist,
                                                 size = 140.dp,
                                                 shape = RoundedCornerShape(8.dp)
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            text = title,
+                                            text = item.title,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White,
@@ -253,7 +277,7 @@ fun TvSearchView(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = subtitle,
+                                            text = item.artist,
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = Color(0xFF888888),
                                                 fontSize = 11.sp
@@ -264,6 +288,27 @@ fun TvSearchView(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Popular Playlists & Curated Albums Shelf (Verified Full HD 500x500 Cover Art)
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "Popular Playlists & Curated Albums",
+                        subtitle = "High definition official soundtracks and artist essentials"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(CuratedAlbumCatalog.curatedAlbums) { album ->
+                            TvAlbumCard(
+                                album = album,
+                                onClick = { onPlayAlbum(album) }
+                            )
                         }
                     }
                 }
@@ -324,7 +369,33 @@ fun TvSearchView(
                     }
                 }
             } else {
-                // A. Matching Albums Shelf
+                // A. Matching Artists Shelf
+                val matchingArtists = CuratedAlbumCatalog.curatedAlbums.filter { album ->
+                    album.type.equals("Artist", ignoreCase = true) &&
+                    (album.title.contains(searchQuery.trim(), ignoreCase = true) ||
+                     (album.primaryArtists ?: "").contains(searchQuery.trim(), ignoreCase = true))
+                }
+                if (matchingArtists.isNotEmpty()) {
+                    item {
+                        Column {
+                            TvShelfHeader(
+                                title = "Artists",
+                                subtitle = "Official artist essentials"
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                items(matchingArtists) { artistAlbum ->
+                                    TvCircularArtistCard(
+                                        name = artistAlbum.title,
+                                        imageUrl = artistAlbum.coverArtUrl ?: "",
+                                        onClick = { onPlayAlbum(artistAlbum) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // B. Matching Albums Shelf
                 if (matchingAlbums.isNotEmpty()) {
                     item {
                         Column {
@@ -341,7 +412,7 @@ fun TvSearchView(
                     }
                 }
 
-                // B. Matching Songs Section
+                // C. Matching Songs Section
                 if (searchResults.isNotEmpty()) {
                     item {
                         Text(
@@ -374,73 +445,6 @@ fun TvSearchView(
         // 6. DEFAULT DISCOVERY STATE (WHEN QUERY IS EMPTY)
         // -------------------------------------------------------------
         if (searchQuery.isBlank()) {
-            // Recent Searches Shelf
-            if (recentSearches.isNotEmpty()) {
-                item {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TvShelfHeader(
-                                title = "Recent Searches",
-                                subtitle = "Jump back in"
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF222222),
-                                modifier = Modifier.tvRemoteFocusable(
-                                    onClick = { viewModel.clearRecentSearches() },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            ) {
-                                Text(
-                                    text = "Clear All",
-                                    color = Color(0xFF888888),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
-                            }
-                        }
-
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(recentSearches.take(8)) { item ->
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF181818),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-                                    modifier = Modifier.tvRemoteFocusable(
-                                        onClick = { onSearchQueryChange(item.title) },
-                                        shape = RoundedCornerShape(10.dp)
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Search,
-                                            contentDescription = null,
-                                            tint = SpotifyGreenBright,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = item.title,
-                                            color = Color.White,
-                                            fontSize = 13.sp,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // Browse by Mood
             item {
                 Column {

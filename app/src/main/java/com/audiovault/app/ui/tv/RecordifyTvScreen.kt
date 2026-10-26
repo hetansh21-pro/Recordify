@@ -173,7 +173,7 @@ fun RecordifyTvScreen(
                         album = selectedAlbum!!,
                         viewModel = viewModel,
                         onBack = { viewModel.closeAlbumDetails() },
-                        onTrackPlayed = { isNowPlayingFullScreen = true }
+                        onTrackPlayed = { /* Playback updates top-left mini widget without forcing full-screen */ }
                     )
                 } else {
                     when (selectedTab) {
@@ -184,7 +184,6 @@ fun RecordifyTvScreen(
                                 homeContent = homeContent,
                                 onPlaySong = { song ->
                                     viewModel.playOnlineSong(song)
-                                    isNowPlayingFullScreen = true
                                 },
                                 onPlayAlbum = { album -> viewModel.openAlbumDetails(album) },
                                 onSearchMood = { query ->
@@ -209,7 +208,6 @@ fun RecordifyTvScreen(
                                 isSearching = isOnlineSearching,
                                 onPlaySong = { song ->
                                     viewModel.playOnlineSong(song)
-                                    isNowPlayingFullScreen = true
                                 },
                                 onPlayAlbum = { album -> viewModel.openAlbumDetails(album) }
                             )
@@ -222,7 +220,6 @@ fun RecordifyTvScreen(
                                 likedSongIds = likedSongIds,
                                 onPlaySong = { song ->
                                     viewModel.playOnlineSong(song)
-                                    isNowPlayingFullScreen = true
                                 },
                                 onOpenAlbum = { album -> viewModel.openAlbumDetails(album) }
                             )
@@ -238,7 +235,6 @@ fun RecordifyTvScreen(
                                 viewModel = viewModel,
                                 onPlaySong = { song ->
                                     viewModel.playOnlineSong(song)
-                                    isNowPlayingFullScreen = true
                                 }
                             )
                         }
@@ -247,7 +243,6 @@ fun RecordifyTvScreen(
                                 viewModel = viewModel,
                                 onPlaySong = { song ->
                                     viewModel.playOnlineSong(song)
-                                    isNowPlayingFullScreen = true
                                 }
                             )
                         }
@@ -336,6 +331,8 @@ fun RecordifyTvScreen(
                     isPlaying = playerState.isPlaying,
                     onPlayQueueIndex = { idx -> viewModel.playFromQueue(idx) },
                     onRemoveQueueIndex = { idx -> viewModel.removeFromQueue(idx) },
+                    onMoveQueueItemUp = { idx -> viewModel.moveQueueItemUp(idx) },
+                    onMoveQueueItemDown = { idx -> viewModel.moveQueueItemDown(idx) },
                     onClearQueue = { viewModel.clearQueue() },
                     onClose = { isQueueOpen = false },
                     modifier = Modifier.align(Alignment.CenterEnd)
