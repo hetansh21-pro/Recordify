@@ -49,6 +49,7 @@ fun RecordifyTvScreen(
 
     var selectedTab by remember { mutableStateOf(TvNavTab.HOME) }
     var isNowPlayingFullScreen by remember { mutableStateOf(false) }
+    var isNowPlayingControlsVisible by remember { mutableStateOf(true) }
     var isQueueOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var librarySubView by remember { mutableStateOf<String?>(null) }
@@ -88,9 +89,15 @@ fun RecordifyTvScreen(
         isQueueOpen = false
     }
 
-    // Level 4: Fullscreen Cinema Player open -> Exit full screen
-    BackHandler(enabled = !isQueueOpen && isNowPlayingFullScreen) {
+    // Level 4b: Fullscreen Cinema Player open & controls visible -> Hide controls to ambient mode first
+    BackHandler(enabled = !isQueueOpen && isNowPlayingFullScreen && isNowPlayingControlsVisible) {
+        isNowPlayingControlsVisible = false
+    }
+
+    // Level 4a: Fullscreen Cinema Player open & controls already hidden -> Exit full screen
+    BackHandler(enabled = !isQueueOpen && isNowPlayingFullScreen && !isNowPlayingControlsVisible) {
         isNowPlayingFullScreen = false
+        isNowPlayingControlsVisible = true
         if (selectedTab == TvNavTab.NOW_PLAYING) {
             selectedTab = TvNavTab.HOME
         }
@@ -259,29 +266,7 @@ fun RecordifyTvScreen(
         }
 
         // -------------------------------------------------------------
-        // 3. PLAYBACK QUEUE SIDE PANEL OVERLAY
-        // -------------------------------------------------------------
-        AnimatedVisibility(
-            visible = isQueueOpen,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
-            modifier = Modifier.align(Alignment.CenterEnd)
-        ) {
-            TvQueuePanel(
-                queueState = queueState,
-                currentRecordingTitle = currentRecording?.title,
-                currentRecordingArtist = currentRecording?.artist,
-                currentRecordingArt = currentRecording?.albumArtPath,
-                isPlaying = playerState.isPlaying,
-                onPlayQueueIndex = { idx -> viewModel.playFromQueue(idx) },
-                onRemoveQueueIndex = { idx -> viewModel.removeFromQueue(idx) },
-                onClearQueue = { viewModel.clearQueue() },
-                onClose = { isQueueOpen = false }
-            )
-        }
-
-        // -------------------------------------------------------------
-        // 4. FULL-SCREEN NOW PLAYING CINEMA STAGE OVERLAY
+        // 3. FULL-SCREEN NOW PLAYING CINEMA STAGE OVERLAY
         // -------------------------------------------------------------
         AnimatedVisibility(
             visible = isNowPlayingFullScreen,
@@ -309,10 +294,35 @@ fun RecordifyTvScreen(
                 onPlaySong = { song -> viewModel.playOnlineSong(song) },
                 onBack = {
                     isNowPlayingFullScreen = false
+                    isNowPlayingControlsVisible = true
                     if (selectedTab == TvNavTab.NOW_PLAYING) {
                         selectedTab = TvNavTab.HOME
                     }
-                }
+                },
+                areControlsVisible = isNowPlayingControlsVisible,
+                onControlsVisibilityChange = { isNowPlayingControlsVisible = it }
+            )
+        }
+
+        // -------------------------------------------------------------
+        // 4. PLAYBACK QUEUE SIDE PANEL OVERLAY (Renders on top of full-screen player)
+        // -------------------------------------------------------------
+        AnimatedVisibility(
+            visible = isQueueOpen,
+            enter = slideInHorizontally(initialOffsetX = { it }),
+            exit = slideOutHorizontally(targetOffsetX = { it }),
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
+            TvQueuePanel(
+                queueState = queueState,
+                currentRecordingTitle = currentRecording?.title,
+                currentRecordingArtist = currentRecording?.artist,
+                currentRecordingArt = currentRecording?.albumArtPath,
+                isPlaying = playerState.isPlaying,
+                onPlayQueueIndex = { idx -> viewModel.playFromQueue(idx) },
+                onRemoveQueueIndex = { idx -> viewModel.removeFromQueue(idx) },
+                onClearQueue = { viewModel.clearQueue() },
+                onClose = { isQueueOpen = false }
             )
         }
     }

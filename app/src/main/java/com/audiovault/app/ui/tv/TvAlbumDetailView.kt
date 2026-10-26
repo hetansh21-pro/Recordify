@@ -207,7 +207,9 @@ fun TvAlbumDetailView(
                                 onClick = {
                                     viewModel.toggleShuffle()
                                     if (trackList.isNotEmpty()) {
-                                        viewModel.playOnlineSong(trackList.shuffled().first())
+                                        val albumToPlay = album.copy(songs = trackList)
+                                        val randomIdx = trackList.indices.random()
+                                        viewModel.playAlbumSoundtrack(albumToPlay, startIndex = randomIdx)
                                         onTrackPlayed()
                                     }
                                 },
@@ -260,7 +262,8 @@ fun TvAlbumDetailView(
                             .tvRemoteFocusable(
                                 onClick = {
                                     if (trackList.isNotEmpty()) {
-                                        viewModel.playOnlineSong(trackList.first())
+                                        val albumToPlay = album.copy(songs = trackList)
+                                        viewModel.playAlbumSoundtrack(albumToPlay, startIndex = 0)
                                         onTrackPlayed()
                                     }
                                 },
@@ -299,7 +302,8 @@ fun TvAlbumDetailView(
                         isPlaying = playerState.currentRecording?.title.equals(song.title, ignoreCase = true) && playerState.isPlaying,
                         isLiked = likedSongIds.contains(song.id.hashCode().toLong()),
                         onPlay = {
-                            viewModel.playOnlineSong(song)
+                            val albumToPlay = album.copy(songs = trackList)
+                            viewModel.playAlbumSoundtrack(albumToPlay, startIndex = index)
                             onTrackPlayed()
                         },
                         onToggleLike = {

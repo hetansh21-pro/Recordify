@@ -20,13 +20,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SpaceBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,11 +36,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +80,7 @@ fun TvSearchView(
 ) {
     val recentSearches by viewModel.recentSearches.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
+    var isSearchFocused by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier
@@ -81,7 +90,7 @@ fun TvSearchView(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // -------------------------------------------------------------
-        // 1. CAPSULE SEARCH BAR (Matching Spotify TV: IMG20261026111721.jpg)
+        // 1. CAPSULE SEARCH BAR (Native Android TV OS Keyboard Input)
         // -------------------------------------------------------------
         item {
             Surface(
@@ -89,7 +98,7 @@ fun TvSearchView(
                 color = Color(0xFF141414),
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
-                    if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF444444)
+                    if (isSearchFocused || searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFF444444)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -104,21 +113,42 @@ fun TvSearchView(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = if (searchQuery.isNotBlank()) SpotifyGreenBright else Color(0xFFB3B3B3),
+                        tint = if (searchQuery.isNotBlank() || isSearchFocused) SpotifyGreenBright else Color(0xFFB3B3B3),
                         modifier = Modifier.size(22.dp)
                     )
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Text(
-                        text = if (searchQuery.isBlank()) "What do you want to play?" else searchQuery,
-                        color = if (searchQuery.isBlank()) Color(0xFF757575) else Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = if (searchQuery.isBlank()) FontWeight.Medium else FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "What do you want to play?",
+                                color = Color(0xFF757575),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = onSearchQueryChange,
+                            singleLine = true,
+                            cursorBrush = SolidColor(SpotifyGreenBright),
+                            textStyle = TextStyle(
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                if (searchQuery.isNotBlank()) {
+                                    viewModel.searchOnlineMusic(searchQuery)
+                                }
+                            }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isSearchFocused = it.isFocused }
+                        )
+                    }
 
                     if (searchQuery.isNotEmpty()) {
                         Box(
@@ -241,26 +271,7 @@ fun TvSearchView(
         }
 
         // -------------------------------------------------------------
-        // 3. STREAMLINED, SIMPLE ON-SCREEN KEYPAD STRIP
-        // -------------------------------------------------------------
-        item {
-            TvStreamlinedKeypad(
-                searchQuery = searchQuery,
-                onAppendLetter = { letter -> onSearchQueryChange(searchQuery + letter) },
-                onBackspace = {
-                    if (searchQuery.isNotEmpty()) onSearchQueryChange(searchQuery.dropLast(1))
-                },
-                onSpace = {
-                    if (searchQuery.isNotEmpty() && !searchQuery.endsWith(" ")) {
-                        onSearchQueryChange("$searchQuery ")
-                    }
-                },
-                onClear = { onSearchQueryChange("") }
-            )
-        }
-
-        // -------------------------------------------------------------
-        // 4. LOADING STATE
+        // 3. LOADING STATE
         // -------------------------------------------------------------
         if (isSearching) {
             item {
@@ -483,156 +494,6 @@ fun TvSearchView(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Streamlined 2-Row Keyboard Strip for effortless TV remote typing.
- * Row 1: A B C D E F G H I J K L M
- * Row 2: N O P Q R S T U V W X Y Z [SPACE] [DEL] [CLEAR]
- */
-@Composable
-private fun TvStreamlinedKeypad(
-    searchQuery: String,
-    onAppendLetter: (String) -> Unit,
-    onBackspace: () -> Unit,
-    onSpace: () -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val row1 = listOf("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M")
-    val row2 = listOf("N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z")
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color(0xFF121212), RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFF222222), RoundedCornerShape(12.dp))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        // Row 1: A - M
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            for (key in row1) {
-                TvSimpleKeyButton(
-                    text = key,
-                    onClick = { onAppendLetter(key) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        // Row 2: N - Z + Space, Del, Clear
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (key in row2) {
-                TvSimpleKeyButton(
-                    text = key,
-                    onClick = { onAppendLetter(key) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Space
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF202020),
-                modifier = Modifier
-                    .weight(1.8f)
-                    .height(34.dp)
-                    .tvRemoteFocusable(
-                        onClick = onSpace,
-                        shape = RoundedCornerShape(6.dp),
-                        focusScale = 1.08f
-                    )
-            ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("SPACE", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Del
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF202020),
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(34.dp)
-                    .tvRemoteFocusable(
-                        onClick = onBackspace,
-                        shape = RoundedCornerShape(6.dp),
-                        focusScale = 1.08f
-                    )
-            ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Backspace,
-                        contentDescription = "Delete",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-
-            // Clear
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF202020),
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(34.dp)
-                    .tvRemoteFocusable(
-                        onClick = onClear,
-                        shape = RoundedCornerShape(6.dp),
-                        focusScale = 1.08f
-                    )
-            ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("CLEAR", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-/**
- * Individual remote-focusable Keypad key.
- */
-@Composable
-private fun TvSimpleKeyButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF1E1E1E),
-        modifier = modifier
-            .height(34.dp)
-            .tvRemoteFocusable(
-                onClick = onClick,
-                shape = RoundedCornerShape(6.dp),
-                focusScale = 1.15f
-            )
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }

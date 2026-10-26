@@ -76,16 +76,16 @@ fun TvTopNavBar(
             contentAlignment = Alignment.CenterStart
         ) {
             if (!activeTrackTitle.isNullOrBlank()) {
-                // Interactive Now Playing Mini Capsule
+                // Interactive Now Playing Mini Rectangle Widget
                 Surface(
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = Color(0xFF1E1E1E),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
                     modifier = Modifier
                         .height(48.dp)
                         .tvRemoteFocusable(
                             onClick = onOpenNowPlaying,
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(8.dp),
                             focusScale = 1.05f
                         )
                 ) {

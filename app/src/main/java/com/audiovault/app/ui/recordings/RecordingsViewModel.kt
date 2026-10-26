@@ -399,13 +399,13 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         playerEngine.seekTo(positionMs)
     }
 
-    fun seekForward(deltaMs: Long = 10000L) {
+    fun seekForward(deltaMs: Long = 5000L) {
         val current = playerState.value.currentPositionMs
         val duration = playerState.value.durationMs
         seekTo((current + deltaMs).coerceAtMost(duration))
     }
 
-    fun seekBackward(deltaMs: Long = 10000L) {
+    fun seekBackward(deltaMs: Long = 5000L) {
         val current = playerState.value.currentPositionMs
         seekTo((current - deltaMs).coerceAtLeast(0L))
     }
