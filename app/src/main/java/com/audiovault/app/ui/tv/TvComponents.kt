@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,6 +67,7 @@ import com.audiovault.app.ui.theme.SpotifyGreenBright
 
 /**
  * Interactive Seek Timeline Bar for Android TV Remote.
+ * Only selects and highlights the progress line itself (no outer block border).
  * Supports D-Pad Left (-10s) and Right (+10s) navigation with glowing scrubber thumb.
  */
 @Composable
@@ -72,7 +77,12 @@ fun TvInteractiveProgressBar(
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
     onTogglePlay: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
+    leftFocusRequester: FocusRequester? = null,
+    rightFocusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val safeDuration = durationMs.coerceAtLeast(1L)
@@ -84,92 +94,125 @@ fun TvInteractiveProgressBar(
     )
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .onFocusChanged { isFocused = it.isFocused }
-            .onKeyEvent { keyEvent ->
-                if (keyEvent.type == KeyEventType.KeyDown) {
-                    when (keyEvent.key) {
-                        Key.DirectionRight -> {
-                            onSeekForward()
-                            true
-                        }
-                        Key.DirectionLeft -> {
-                            onSeekBackward()
-                            true
-                        }
-                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                            onTogglePlay()
-                            true
-                        }
-                        else -> false
-                    }
-                } else false
-            }
-            .tvRemoteFocusable(
-                onClick = onTogglePlay,
-                shape = RoundedCornerShape(12.dp),
-                focusScale = 1.02f,
-                focusBorderWidth = 1.5.dp,
-                focusBorderColor = SpotifyGreenBright.copy(alpha = 0.6f)
-            )
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.Center
     ) {
-        // Timeline Track with Animated Scrubber Thumb
+        // Scrubber line track: ONLY this line is focusable and selected
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (isFocused) 16.dp else 12.dp),
+                .height(20.dp)
+                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                .onFocusChanged { state ->
+                    isFocused = state.isFocused
+                }
+                .focusProperties {
+                    if (upFocusRequester != null) up = upFocusRequester
+                    if (downFocusRequester != null) down = downFocusRequester
+                    if (leftFocusRequester != null) left = leftFocusRequester
+                    if (rightFocusRequester != null) right = rightFocusRequester
+                }
+                .focusable()
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.key) {
+                            Key.DirectionRight -> {
+                                onSeekForward()
+                                true
+                            }
+                            Key.DirectionLeft -> {
+                                if (positionMs <= 3000L && leftFocusRequester != null) {
+                                    leftFocusRequester.requestFocus()
+                                } else {
+                                    onSeekBackward()
+                                }
+                                true
+                            }
+                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                onTogglePlay()
+                                true
+                            }
+                            Key.DirectionUp -> {
+                                if (upFocusRequester != null) {
+                                    upFocusRequester.requestFocus()
+                                    true
+                                } else false
+                            }
+                            Key.DirectionDown -> {
+                                if (downFocusRequester != null) {
+                                    downFocusRequester.requestFocus()
+                                    true
+                                } else false
+                            }
+                            else -> false
+                        }
+                    } else false
+                },
             contentAlignment = Alignment.CenterStart
         ) {
-            // Background track
+            // Background track line (clean slender line)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isFocused) 8.dp else 6.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF282828))
+                    .height(if (isFocused) 6.dp else 4.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (isFocused) Color(0xFF4A4A4A) else Color(0xFF282828))
             )
 
-            // Active progress fill
+            // Active progress fill line (illuminates bright green when focused)
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction = progressFraction)
-                    .height(if (isFocused) 8.dp else 6.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .height(if (isFocused) 6.dp else 4.dp)
+                    .clip(RoundedCornerShape(3.dp))
                     .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                SpotifyGreenBright.copy(alpha = 0.8f),
-                                SpotifyGreenBright
+                        if (isFocused) {
+                            Brush.horizontalGradient(
+                                listOf(
+                                    SpotifyGreenBright.copy(alpha = 0.85f),
+                                    SpotifyGreenBright
+                                )
                             )
-                        )
+                        } else {
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.85f),
+                                    Color.White
+                                )
+                            )
+                        }
                     )
             )
 
-            // Scrubber Thumb (glowing on remote focus)
-            Box(
-                modifier = Modifier.fillMaxWidth(fraction = progressFraction)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (isFocused) 3.dp else 2.dp,
-                        SpotifyGreenBright
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .size(if (isFocused) 16.dp else 12.dp)
-                        .scale(thumbScale)
-                        .shadow(if (isFocused) 8.dp else 2.dp, shape = CircleShape, spotColor = SpotifyGreenBright)
-                ) {}
+            // Scrubber Thumb (circle appears and glows when the line is focused)
+            if (isFocused || progressFraction > 0f) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(fraction = progressFraction)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = androidx.compose.foundation.BorderStroke(
+                            if (isFocused) 2.5.dp else 1.5.dp,
+                            if (isFocused) SpotifyGreenBright else Color(0xFF888888)
+                        ),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .size(if (isFocused) 15.dp else 8.dp)
+                            .scale(thumbScale)
+                            .shadow(
+                                elevation = if (isFocused) 6.dp else 0.dp,
+                                shape = CircleShape,
+                                spotColor = SpotifyGreenBright
+                            )
+                    ) {}
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        // Time labels and remote hints
+        // Time labels: Clean, minimal, no bounding boxes
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -177,30 +220,14 @@ fun TvInteractiveProgressBar(
         ) {
             Text(
                 text = formatTvDuration(positionMs),
-                color = if (isFocused) SpotifyGreenBright else Color(0xFF888888),
+                color = if (isFocused) Color.White else Color(0xFF888888),
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
                 fontSize = 12.sp
             )
 
-            if (isFocused) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = SpotifyGreenBright.copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright.copy(alpha = 0.5f))
-                ) {
-                    Text(
-                        text = "◀ D-Pad: Left (-10s) • Right (+10s) ▶",
-                        color = SpotifyGreenBright,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
             Text(
                 text = formatTvDuration(safeDuration),
-                color = if (isFocused) SpotifyGreenBright else Color(0xFF888888),
+                color = if (isFocused) Color.White else Color(0xFF888888),
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
                 fontSize = 12.sp
             )

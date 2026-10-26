@@ -46,10 +46,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,11 +101,24 @@ fun TvNowPlayingView(
     val durationMs = playerState.durationMs.coerceAtLeast(1L)
     var showLyricsDialog by remember { mutableStateOf(false) }
 
+    // Dedicated FocusRequesters for every interactive remote control on screen
     val playPauseFocusRequester = remember { FocusRequester() }
+    val timelineFocusRequester = remember { FocusRequester() }
+    val playingFromFocusRequester = remember { FocusRequester() }
+    val profileFocusRequester = remember { FocusRequester() }
+    val saveFocusRequester = remember { FocusRequester() }
+    val prevFocusRequester = remember { FocusRequester() }
+    val nextFocusRequester = remember { FocusRequester() }
+    val shuffleFocusRequester = remember { FocusRequester() }
+    val repeatFocusRequester = remember { FocusRequester() }
+    val lyricsFocusRequester = remember { FocusRequester() }
+    val queueFocusRequester = remember { FocusRequester() }
+    val aboutFocusRequester = remember { FocusRequester() }
+    val darkModeFocusRequester = remember { FocusRequester() }
 
     // Auto-focus play/pause button on entry for TV remote
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(150)
+        kotlinx.coroutines.delay(100)
         try {
             playPauseFocusRequester.requestFocus()
         } catch (_: Exception) {}
@@ -109,6 +128,23 @@ fun TvNowPlayingView(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C0C0C))
+            .onKeyEvent { keyEvent ->
+                // Safety net: If selection is ever lost, pressing any arrow/enter snaps focus back to Play/Pause
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    when (keyEvent.key) {
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter,
+                        Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight -> {
+                            try {
+                                playPauseFocusRequester.requestFocus()
+                                true
+                            } catch (_: Exception) {
+                                false
+                            }
+                        }
+                        else -> false
+                    }
+                } else false
+            }
     ) {
         // -----------------------------------------------------------------
         // 1. FULL-SCREEN ARTIST PHOTO BACKDROP (With dark gradient vignette)
@@ -167,6 +203,27 @@ fun TvNowPlayingView(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
                     modifier = Modifier
                         .height(46.dp)
+                        .focusRequester(playingFromFocusRequester)
+                        .focusProperties {
+                            down = playPauseFocusRequester
+                            right = profileFocusRequester
+                        }
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionUp, Key.DirectionLeft -> true // Clamp: cannot escape screen
+                                    Key.DirectionDown -> {
+                                        playPauseFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionRight -> {
+                                        profileFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
                         .tvRemoteFocusable(
                             onClick = onBack,
                             shape = RoundedCornerShape(24.dp),
@@ -211,6 +268,27 @@ fun TvNowPlayingView(
                     color = Color(0xFFFFA07A),
                     modifier = Modifier
                         .size(40.dp)
+                        .focusRequester(profileFocusRequester)
+                        .focusProperties {
+                            down = saveFocusRequester
+                            left = playingFromFocusRequester
+                        }
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionUp, Key.DirectionRight -> true // Clamp: cannot escape screen
+                                    Key.DirectionDown -> {
+                                        saveFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionLeft -> {
+                                        playingFromFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
                         .tvRemoteFocusable(
                             onClick = onBack,
                             shape = CircleShape,
@@ -302,6 +380,32 @@ fun TvNowPlayingView(
                         ),
                         modifier = Modifier
                             .height(40.dp)
+                            .focusRequester(saveFocusRequester)
+                            .focusProperties {
+                                up = profileFocusRequester
+                                down = timelineFocusRequester
+                                left = playPauseFocusRequester
+                            }
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.DirectionRight -> true // Clamp: cannot escape screen
+                                        Key.DirectionUp -> {
+                                            profileFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionDown -> {
+                                            timelineFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionLeft -> {
+                                            playPauseFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            }
                             .tvRemoteFocusable(
                                 onClick = onToggleLike,
                                 shape = RoundedCornerShape(50),
@@ -345,6 +449,31 @@ fun TvNowPlayingView(
                         modifier = Modifier
                             .size(46.dp)
                             .focusRequester(playPauseFocusRequester)
+                            .focusProperties {
+                                up = playingFromFocusRequester
+                                down = prevFocusRequester
+                                right = timelineFocusRequester
+                            }
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.DirectionLeft -> true // Clamp: cannot escape screen
+                                        Key.DirectionRight -> {
+                                            timelineFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionUp -> {
+                                            playingFromFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionDown -> {
+                                            prevFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            }
                             .tvRemoteFocusable(
                                 onClick = onTogglePlay,
                                 shape = CircleShape,
@@ -363,13 +492,17 @@ fun TvNowPlayingView(
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    // Scrubber Bar & Timestamps
+                    // Scrubber Bar & Timestamps (Line-only selection, no container box)
                     TvInteractiveProgressBar(
                         positionMs = positionMs,
                         durationMs = durationMs,
                         onSeekForward = { viewModel.seekForward(10000L) },
                         onSeekBackward = { viewModel.seekBackward(10000L) },
                         onTogglePlay = onTogglePlay,
+                        focusRequester = timelineFocusRequester,
+                        upFocusRequester = saveFocusRequester,
+                        downFocusRequester = lyricsFocusRequester,
+                        leftFocusRequester = playPauseFocusRequester,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -392,24 +525,127 @@ fun TvNowPlayingView(
                         TvCircleControlButton(
                             icon = Icons.Default.SkipPrevious,
                             contentDescription = "Previous",
-                            onClick = onPrevious
+                            onClick = onPrevious,
+                            modifier = Modifier
+                                .focusRequester(prevFocusRequester)
+                                .focusProperties {
+                                    up = playPauseFocusRequester
+                                    right = nextFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown, Key.DirectionLeft -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                playPauseFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                nextFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCircleControlButton(
                             icon = Icons.Default.SkipNext,
                             contentDescription = "Next",
-                            onClick = onNext
+                            onClick = onNext,
+                            modifier = Modifier
+                                .focusRequester(nextFocusRequester)
+                                .focusProperties {
+                                    up = playPauseFocusRequester
+                                    left = prevFocusRequester
+                                    right = shuffleFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                playPauseFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                prevFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                shuffleFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCircleControlButton(
                             icon = Icons.Default.Shuffle,
                             contentDescription = "Shuffle",
                             tint = if (isShuffle) SpotifyGreenBright else Color.White,
-                            onClick = onToggleShuffle
+                            onClick = onToggleShuffle,
+                            modifier = Modifier
+                                .focusRequester(shuffleFocusRequester)
+                                .focusProperties {
+                                    up = playPauseFocusRequester
+                                    left = nextFocusRequester
+                                    right = repeatFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                playPauseFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                nextFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                repeatFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCircleControlButton(
                             icon = if (repeatMode == PlaybackRepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                             contentDescription = "Repeat",
                             tint = if (repeatMode != PlaybackRepeatMode.OFF) SpotifyGreenBright else Color.White,
-                            onClick = onCycleRepeat
+                            onClick = onCycleRepeat,
+                            modifier = Modifier
+                                .focusRequester(repeatFocusRequester)
+                                .focusProperties {
+                                    up = timelineFocusRequester
+                                    left = shuffleFocusRequester
+                                    right = lyricsFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                timelineFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                shuffleFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                lyricsFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                     }
 
@@ -421,22 +657,125 @@ fun TvNowPlayingView(
                         TvCapsulePillButton(
                             label = "Lyrics",
                             icon = Icons.Default.Mic,
-                            onClick = { showLyricsDialog = !showLyricsDialog }
+                            onClick = { showLyricsDialog = !showLyricsDialog },
+                            modifier = Modifier
+                                .focusRequester(lyricsFocusRequester)
+                                .focusProperties {
+                                    up = timelineFocusRequester
+                                    left = repeatFocusRequester
+                                    right = queueFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                timelineFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                repeatFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                queueFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCapsulePillButton(
                             label = "Queue",
                             icon = Icons.AutoMirrored.Filled.QueueMusic,
-                            onClick = onOpenQueue
+                            onClick = onOpenQueue,
+                            modifier = Modifier
+                                .focusRequester(queueFocusRequester)
+                                .focusProperties {
+                                    up = timelineFocusRequester
+                                    left = lyricsFocusRequester
+                                    right = aboutFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                timelineFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                lyricsFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                aboutFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCapsulePillButton(
                             label = "About",
                             icon = Icons.Default.Person,
-                            onClick = {}
+                            onClick = {},
+                            modifier = Modifier
+                                .focusRequester(aboutFocusRequester)
+                                .focusProperties {
+                                    up = timelineFocusRequester
+                                    left = queueFocusRequester
+                                    right = darkModeFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                timelineFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                queueFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                darkModeFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                         TvCapsulePillButton(
                             label = "Dark mode",
                             icon = Icons.Default.DarkMode,
-                            onClick = {}
+                            onClick = {},
+                            modifier = Modifier
+                                .focusRequester(darkModeFocusRequester)
+                                .focusProperties {
+                                    up = saveFocusRequester
+                                    left = aboutFocusRequester
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionDown, Key.DirectionRight -> true // Clamp
+                                            Key.DirectionUp -> {
+                                                saveFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.DirectionLeft -> {
+                                                aboutFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                     }
                 }
@@ -450,12 +789,13 @@ private fun TvCircleControlButton(
     icon: ImageVector,
     contentDescription: String,
     tint: Color = Color.White,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         shape = CircleShape,
         color = Color(0xFF222222),
-        modifier = Modifier
+        modifier = modifier
             .size(40.dp)
             .tvRemoteFocusable(
                 onClick = onClick,
@@ -478,13 +818,14 @@ private fun TvCircleControlButton(
 private fun TvCapsulePillButton(
     label: String,
     icon: ImageVector,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(50),
         color = Color(0xFF202020),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
-        modifier = Modifier
+        modifier = modifier
             .height(36.dp)
             .tvRemoteFocusable(
                 onClick = onClick,
