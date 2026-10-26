@@ -690,7 +690,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                         else -> null
                     }
 
-                    val finalAlbum = if (fullAlbum != null && fullAlbum.songs.isNotEmpty()) {
+                    val resolvedAlbum = if (fullAlbum != null && fullAlbum.songs.isNotEmpty()) {
                         fullAlbum
                     } else {
                         // Clean semantic fallback search
@@ -708,6 +708,33 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                             album.copy(songs = foundSongs, songCount = foundSongs.size)
                         } else null
                     }
+
+                    // Enforce Artist Album Strict Filtering: only that artist's songs, top trending first
+                    val finalAlbum = if (resolvedAlbum != null) {
+                        val isArtist = album.type.equals("Artist", ignoreCase = true) ||
+                                album.year.equals("Artist", ignoreCase = true) ||
+                                album.id.startsWith("artist_")
+                        if (isArtist) {
+                            val targetArtistName = (album.primaryArtists ?: album.title)
+                                .replace(Regex("(?i)\\b(artist|album|playlist|official)\\b"), "")
+                                .trim()
+                            val artistTokens = targetArtistName.lowercase().split(" ").filter { it.length >= 3 }
+
+                            val strictlyArtistSongs = resolvedAlbum.songs.filter { song ->
+                                val sArtist = song.artist.lowercase()
+                                val sTitle = song.title.lowercase()
+                                if (artistTokens.isEmpty()) true else {
+                                    artistTokens.any { token -> sArtist.contains(token) || sTitle.contains(token) }
+                                }
+                            }
+                            resolvedAlbum.copy(
+                                songs = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs },
+                                songCount = strictlyArtistSongs.ifEmpty { resolvedAlbum.songs }.size
+                            )
+                        } else {
+                            resolvedAlbum
+                        }
+                    } else null
 
                     if (finalAlbum != null) {
                         _selectedAlbum.value = finalAlbum

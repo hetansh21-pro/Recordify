@@ -3,11 +3,13 @@ package com.audiovault.app.ui.tv
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.audiovault.app.core.online.OnlineAlbumModel
@@ -300,30 +303,44 @@ fun RecordifyTvScreen(
                     }
                 },
                 areControlsVisible = isNowPlayingControlsVisible,
-                onControlsVisibilityChange = { isNowPlayingControlsVisible = it }
+                onControlsVisibilityChange = { isNowPlayingControlsVisible = it },
+                isQueueOpen = isQueueOpen
             )
         }
 
         // -------------------------------------------------------------
-        // 4. PLAYBACK QUEUE SIDE PANEL OVERLAY (Renders on top of full-screen player)
+        // 4. PLAYBACK QUEUE SIDE PANEL OVERLAY (Renders on top of full-screen player with Touch Isolation)
         // -------------------------------------------------------------
         AnimatedVisibility(
             visible = isQueueOpen,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
-            modifier = Modifier.align(Alignment.CenterEnd)
+            enter = fadeIn(tween(250)),
+            exit = fadeOut(tween(200))
         ) {
-            TvQueuePanel(
-                queueState = queueState,
-                currentRecordingTitle = currentRecording?.title,
-                currentRecordingArtist = currentRecording?.artist,
-                currentRecordingArt = currentRecording?.albumArtPath,
-                isPlaying = playerState.isPlaying,
-                onPlayQueueIndex = { idx -> viewModel.playFromQueue(idx) },
-                onRemoveQueueIndex = { idx -> viewModel.removeFromQueue(idx) },
-                onClearQueue = { viewModel.clearQueue() },
-                onClose = { isQueueOpen = false }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                isQueueOpen = false
+                            }
+                        )
+                    }
+            ) {
+                TvQueuePanel(
+                    queueState = queueState,
+                    currentRecordingTitle = currentRecording?.title,
+                    currentRecordingArtist = currentRecording?.artist,
+                    currentRecordingArt = currentRecording?.albumArtPath,
+                    isPlaying = playerState.isPlaying,
+                    onPlayQueueIndex = { idx -> viewModel.playFromQueue(idx) },
+                    onRemoveQueueIndex = { idx -> viewModel.removeFromQueue(idx) },
+                    onClearQueue = { viewModel.clearQueue() },
+                    onClose = { isQueueOpen = false },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                )
+            }
         }
     }
 }

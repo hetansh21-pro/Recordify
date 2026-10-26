@@ -3,6 +3,7 @@ package com.audiovault.app.ui.tv
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,10 +29,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,10 +51,15 @@ import com.audiovault.app.core.online.OnlineSongModel
 import com.audiovault.app.core.queue.PlaybackQueueState
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.theme.SpotifyGreenBright
+import kotlinx.coroutines.delay
 
 /**
  * TV Playback Queue Management Side Panel.
  * Allows TV remote users to inspect, reorder, play, remove, and clear upcoming tracks.
+ * - Auto-focuses on open.
+ * - Un-nested side-by-side D-Pad navigation (Up/Down scrolls songs, Right/Left selects delete).
+ * - Back key on remote smoothly closes panel.
+ * - Touch isolated from background views.
  */
 @Composable
 fun TvQueuePanel(
@@ -58,14 +74,40 @@ fun TvQueuePanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val firstItemFocusRequester = remember { FocusRequester() }
+    val closeFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus on entry for TV remote
+    LaunchedEffect(Unit) {
+        delay(150)
+        try {
+            if (queueState.upcomingQueue.isNotEmpty()) {
+                firstItemFocusRequester.requestFocus()
+            } else {
+                closeFocusRequester.requestFocus()
+            }
+        } catch (_: Exception) {}
+    }
+
     Surface(
         shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp),
         color = Color(0xFF121212),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-        shadowElevation = 0.dp,
+        shadowElevation = 16.dp,
         modifier = modifier
             .width(420.dp)
             .fillMaxHeight()
+            // Touch Isolation: Consume all taps inside panel so nothing touches background
+            .pointerInput(Unit) {
+                detectTapGestures { /* Consume touches inside queue panel */ }
+            }
+            // Direct Remote Back button handling
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back) {
+                    onClose()
+                    true
+                } else false
+            }
     ) {
         Column(
             modifier = Modifier
@@ -124,6 +166,7 @@ fun TvQueuePanel(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
+                            .focusRequester(closeFocusRequester)
                             .tvRemoteFocusable(
                                 onClick = onClose,
                                 shape = CircleShape,
@@ -252,84 +295,91 @@ fun TvQueuePanel(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(queueState.upcomingQueue) { index, song ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF1A1A1A),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .tvRemoteFocusable(
-                                    onClick = { onPlayQueueIndex(index) },
-                                    shape = RoundedCornerShape(10.dp),
-                                    focusScale = 1.02f
-                                )
+                        // Un-nested side-by-side D-Pad layout: Track on Left, Remove on Right
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${index + 1}",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF888888),
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    modifier = Modifier.width(24.dp)
-                                )
-
-                                TrackCoverArt(
-                                    albumArtPath = song.albumArtPath,
-                                    title = song.title,
-                                    artist = song.artist,
-                                    size = 40.dp,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = song.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color.White,
-                                            fontSize = 12.sp
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                            // Track Item Surface (Clicking plays the track index)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF1A1A1A),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier)
+                                    .tvRemoteFocusable(
+                                        onClick = { onPlayQueueIndex(index) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        focusScale = 1.02f
                                     )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = song.artist,
+                                        text = "${index + 1}",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xFF888888),
-                                            fontSize = 10.sp
+                                            fontWeight = FontWeight.Bold
                                         ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        modifier = Modifier.width(24.dp)
                                     )
-                                }
 
-                                Spacer(modifier = Modifier.width(6.dp))
-
-                                // Remove button
-                                Box(
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(CircleShape)
-                                        .tvRemoteFocusable(
-                                            onClick = { onRemoveQueueIndex(index) },
-                                            shape = CircleShape,
-                                            focusScale = 1.15f
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Remove from Queue",
-                                        tint = Color(0xFF888888),
-                                        modifier = Modifier.size(16.dp)
+                                    TrackCoverArt(
+                                        albumArtPath = song.albumArtPath,
+                                        title = song.title,
+                                        artist = song.artist,
+                                        size = 40.dp,
+                                        shape = RoundedCornerShape(6.dp)
                                     )
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = song.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color.White,
+                                                fontSize = 12.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = song.artist,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color(0xFF888888),
+                                                fontSize = 10.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
+                            }
+
+                            // Remove Button (deletes track index)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .tvRemoteFocusable(
+                                        onClick = { onRemoveQueueIndex(index) },
+                                        shape = CircleShape,
+                                        focusScale = 1.15f
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove from Queue",
+                                    tint = Color(0xFF888888),
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
                     }

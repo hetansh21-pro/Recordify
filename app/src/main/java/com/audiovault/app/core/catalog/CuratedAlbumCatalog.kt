@@ -5,7 +5,7 @@ import com.audiovault.app.core.online.OnlineAlbumModel
 /**
  * Curated catalog of pre-built internet music albums covering iconic eras
  * (90s Bollywood, 70s/80s Old Classics, Romantic Melodies, Retro Legends, Pop & Rock).
- * These albums dynamically fetch genuine full-fidelity internet streams on demand.
+ * All artist albums contain strictly only that artist's songs, ordered with top trending hits first.
  * All artwork uses verified, clean, full HD (500x500) movie posters and authentic artist portraits.
  */
 object CuratedAlbumCatalog {
@@ -38,18 +38,95 @@ object CuratedAlbumCatalog {
                 "Zaalima Arijit Singh Harshdeep Kaur"
             )
         ),
-        // Kumar Sanu All Time Hits
+        // Arijit Singh Curated Artist Album (Strictly Arijit Singh, Top Trending Hits First)
+        OnlineAlbumModel(
+            id = "curated_arijit_singh",
+            title = "Arijit Singh",
+            year = "Artist",
+            artist = "Artist • Arijit Singh",
+            primaryArtists = "Arijit Singh",
+            coverArtUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Arijit Singh top hits",
+            songCount = 12,
+            trackQueries = listOf(
+                "Tum Hi Ho Arijit Singh",
+                "Kesariya Arijit Singh",
+                "Channa Mereya Arijit Singh",
+                "Apna Bana Le Arijit Singh",
+                "Agar Tum Saath Ho Arijit Singh",
+                "Hawayein Arijit Singh",
+                "Ae Dil Hai Mushkil Arijit Singh",
+                "Shayad Arijit Singh",
+                "Gerua Arijit Singh Antara Mitra",
+                "Zaalima Arijit Singh",
+                "Kalank Title Track Arijit Singh",
+                "Raabta Arijit Singh"
+            )
+        ),
+        // Aditya Gadhvi Curated Artist Album (Strictly Aditya Gadhvi, Top Trending Hits First)
+        OnlineAlbumModel(
+            id = "curated_aditya_gadhvi",
+            title = "Aditya Gadhvi",
+            year = "Artist",
+            artist = "Artist • Aditya Gadhvi",
+            primaryArtists = "Aditya Gadhvi",
+            coverArtUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_004_20260902060949_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Aditya Gadhvi Gujarati songs",
+            songCount = 8,
+            trackQueries = listOf(
+                "Khalasi Coke Studio Bharat Aditya Gadhvi Achint",
+                "Mor Bani Thanghat Kare Aditya Gadhvi",
+                "Vhalam Aavo Ne Aditya Gadhvi",
+                "Navlaakhaal Loba Aditya Gadhvi",
+                "Dakla Aditya Gadhvi",
+                "Mahahetwali Aditya Gadhvi",
+                "Aavjo Aditya Gadhvi",
+                "Maha Hetvali Aditya Gadhvi"
+            )
+        ),
+        // Pritam Curated Artist Album (Strictly Pritam compositions, Top Trending Hits First)
+        OnlineAlbumModel(
+            id = "curated_pritam",
+            title = "Pritam",
+            year = "Artist",
+            artist = "Artist • Pritam",
+            primaryArtists = "Pritam",
+            coverArtUrl = "https://c.saavncdn.com/artists/Pritam_Chakraborty-20170711073326_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Pritam hits songs",
+            songCount = 12,
+            trackQueries = listOf(
+                "Kesariya Pritam Arijit Singh",
+                "Channa Mereya Pritam Arijit Singh",
+                "Tum Se Hi Pritam Mohit Chauhan",
+                "Subhanallah Pritam Sreerama Chandra",
+                "Badtameez Dil Pritam Benny Dayal",
+                "Kabira Pritam Tochi Raina Rekha Bhardwaj",
+                "Shayad Pritam Arijit Singh",
+                "Illahi Pritam Arijit Singh",
+                "Pee Loon Pritam Mohit Chauhan",
+                "Tera Hone Laga Hoon Pritam Atif Aslam",
+                "Mauja Hi Mauja Pritam Mika Singh",
+                "Tum Mile Pritam Neeraj Shridhar"
+            )
+        ),
+        // Kumar Sanu Curated Artist Album (Strictly Kumar Sanu, All-Time Greatest Hits First)
         OnlineAlbumModel(
             id = "curated_kumar_sanu_all_time_hits",
-            title = "Kumar Sanu All Time Hits - Hindi Songs",
-            year = "Album",
-            artist = "Album • Kumar Sanu",
+            title = "Kumar Sanu All Time Hits",
+            year = "Artist",
+            artist = "Artist • Kumar Sanu",
             primaryArtists = "Kumar Sanu",
             coverArtUrl = "https://c.saavncdn.com/886/Kumar-Sanu-Hits-2012-500x500.jpg",
-            type = "Album",
+            type = "Artist",
             source = "curated",
             searchQuery = "Kumar Sanu all time hits Hindi songs",
-            songCount = 10,
+            songCount = 12,
             trackQueries = listOf(
                 "Tujhe Dekha To Kumar Sanu",
                 "Dheere Dheere Se Meri Zindagi Kumar Sanu",
@@ -60,7 +137,117 @@ object CuratedAlbumCatalog {
                 "Do Dil Mil Rahe Hain Kumar Sanu",
                 "Baazigar O Baazigar Kumar Sanu",
                 "Sambhala Hai Maine Kumar Sanu",
-                "Yeh Kaali Kaali Aankhen Kumar Sanu"
+                "Yeh Kaali Kaali Aankhen Kumar Sanu",
+                "Aankh Marey O Ladka Aankh Mare Kumar Sanu",
+                "Ladki Badi Anjani Hai Kumar Sanu"
+            )
+        ),
+        // Kishore Kumar Curated Artist Album (Strictly Kishore Kumar, Top Trending Hits First)
+        OnlineAlbumModel(
+            id = "curated_kishore_kumar",
+            title = "Retro Kishore Kumar Golden Hits",
+            year = "Artist",
+            artist = "Artist • Kishore Kumar",
+            primaryArtists = "Kishore Kumar",
+            coverArtUrl = "https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Kishore Kumar golden hits",
+            songCount = 12,
+            trackQueries = listOf(
+                "Pal Pal Dil Ke Paas Kishore Kumar",
+                "Yeh Sham Mastani Kishore Kumar",
+                "O Mere Dil Ke Chain Kishore Kumar",
+                "Roop Tera Mastana Kishore Kumar",
+                "Mere Sapno Ki Rani Kishore Kumar",
+                "Khaike Paan Banaras Wala Kishore Kumar",
+                "Yeh Dosti Hum Nahi Todenge Kishore Kumar",
+                "Ek Ajnabee Haseena Se Kishore Kumar",
+                "Zindagi Ek Safar Hai Suhana Kishore Kumar",
+                "Chala Jata Hoon Kishore Kumar",
+                "Kora Kagaz Tha Yeh Man Mera Kishore Kumar",
+                "Aane Wala Pal Jaane Wala Hai Kishore Kumar"
+            )
+        ),
+        // Lata Mangeshkar Curated Artist Album (Strictly Lata Mangeshkar, Top Hits First)
+        OnlineAlbumModel(
+            id = "curated_lata_mangeshkar",
+            title = "Evergreen Lata Mangeshkar Classics",
+            year = "Artist",
+            artist = "Artist • Lata Mangeshkar",
+            primaryArtists = "Lata Mangeshkar",
+            coverArtUrl = "https://c.saavncdn.com/artists/Lata_Mangeshkar_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Lata Mangeshkar classics hits",
+            songCount = 12,
+            trackQueries = listOf(
+                "Lag Ja Gale Se Phir Lata Mangeshkar",
+                "Ajeeb Dastan Hai Yeh Lata Mangeshkar",
+                "Tere Bina Zindagi Se Lata Mangeshkar",
+                "Tujhse Naraz Nahin Zindagi Lata Mangeshkar",
+                "Dekha Ek Khwab Lata Mangeshkar",
+                "Hothon Mein Aisi Baat Lata Mangeshkar",
+                "Kora Kagaz Tha Yeh Man Mera Lata Mangeshkar",
+                "Piya Tose Naina Laage Re Lata Mangeshkar",
+                "Tujhe Dekha To Lata Mangeshkar",
+                "Didi Tera Devar Deewana Lata Mangeshkar",
+                "Chura Liya Hai Tumne Jo Dil Ko Lata Mangeshkar",
+                "Aap Ki Ankhon Mein Kuch Lata Mangeshkar"
+            )
+        ),
+        // Mohammed Rafi Curated Artist Album (Strictly Mohammed Rafi, Top Hits First)
+        OnlineAlbumModel(
+            id = "curated_mohd_rafi",
+            title = "Immortal Mohammed Rafi Hits",
+            year = "Artist",
+            artist = "Artist • Mohammed Rafi",
+            primaryArtists = "Mohammed Rafi",
+            coverArtUrl = "https://c.saavncdn.com/artists/Mohammed_Rafi_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Mohammed Rafi hits",
+            songCount = 12,
+            trackQueries = listOf(
+                "Likhe Jo Khat Tujhe Mohammed Rafi",
+                "Kya Hua Tera Wada Mohammed Rafi",
+                "Gulabi Aankhen Mohammed Rafi",
+                "Chura Liya Hai Tumne Jo Dil Ko Mohammed Rafi",
+                "Badan Pe Sitare Lapete Huye Mohammed Rafi",
+                "Parda Hai Parda Mohammed Rafi",
+                "Baharon Phool Barsao Mohammed Rafi",
+                "Chaudhvin Ka Chand Ho Mohammed Rafi",
+                "Ehsan Tera Hoga Mujh Par Mohammed Rafi",
+                "Taarif Karoon Kya Uski Mohammed Rafi",
+                "Ye Reshmi Zulfein Mohammed Rafi",
+                "Deewana Hua Badal Mohammed Rafi"
+            )
+        ),
+        // Shreya Ghoshal Curated Artist Album (Strictly Shreya Ghoshal, Top Hits First)
+        OnlineAlbumModel(
+            id = "curated_shreya_ghoshal",
+            title = "Shreya Ghoshal",
+            year = "Artist",
+            artist = "Artist • Shreya Ghoshal",
+            primaryArtists = "Shreya Ghoshal",
+            coverArtUrl = "https://c.saavncdn.com/artists/Shreya_Ghoshal_007_20241101074144_500x500.jpg",
+            type = "Artist",
+            source = "curated",
+            searchQuery = "Shreya Ghoshal top hits",
+            songCount = 12,
+            trackQueries = listOf(
+                "Ghoomar Shreya Ghoshal Swaroop Khan",
+                "Deewani Mastani Shreya Ghoshal",
+                "Sunn Raha Hai Shreya Ghoshal",
+                "Teri Ore Shreya Ghoshal Rahat Fateh Ali Khan",
+                "Manwa Laage Shreya Ghoshal Arijit Singh",
+                "Saibo Shreya Ghoshal Sachin Jigar",
+                "Barso Re Shreya Ghoshal A R Rahman",
+                "Piyu Bole Shreya Ghoshal Sonu Nigam",
+                "Thodi Der Shreya Ghoshal Farhan Saeed",
+                "Param Sundari Shreya Ghoshal",
+                "Nagada Sang Dhol Shreya Ghoshal Osman Mir",
+                "Dola Re Dola Shreya Ghoshal Kavita Krishnamurthy"
             )
         ),
         // Padmaavat EP
@@ -82,27 +269,6 @@ object CuratedAlbumCatalog {
                 "Ek Dil Ek Jaan Shivam Pathak",
                 "Nainowale Ne Neeti Mohan",
                 "Holi Padmaavat Richa Sharma"
-            )
-        ),
-        // Aditya Gadhvi Curated
-        OnlineAlbumModel(
-            id = "curated_aditya_gadhvi",
-            title = "Aditya Gadhvi",
-            year = "Artist",
-            artist = "Artist • Aditya Gadhvi",
-            primaryArtists = "Aditya Gadhvi",
-            coverArtUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_004_20260902060949_500x500.jpg",
-            type = "Artist",
-            source = "curated",
-            searchQuery = "Aditya Gadhvi Gujarati songs",
-            songCount = 6,
-            trackQueries = listOf(
-                "Khalasi Coke Studio Aditya Gadhvi Achint",
-                "Navlaakhaal Loba Aditya Gadhvi",
-                "Mahahetwali Aditya Gadhvi",
-                "Vhalam Aavo Ne Aditya Gadhvi",
-                "Dakla Aditya Gadhvi",
-                "Mor Bani Thanghat Kare Aditya Gadhvi"
             )
         ),
         // My songs Curated Playlist
@@ -147,52 +313,6 @@ object CuratedAlbumCatalog {
                 "Mat Maari Kunal Ganjawala Sunidhi Chauhan",
                 "Kaddu Katega Antara Mitra",
                 "Saree Ke Fall Sa Remix"
-            )
-        ),
-        // Pritam
-        OnlineAlbumModel(
-            id = "curated_pritam",
-            title = "Pritam",
-            year = "Artist",
-            artist = "Artist • Pritam",
-            primaryArtists = "Pritam",
-            coverArtUrl = "https://c.saavncdn.com/artists/Pritam_Chakraborty-20170711073326_500x500.jpg",
-            type = "Artist",
-            source = "curated",
-            searchQuery = "Pritam hits songs",
-            songCount = 8,
-            trackQueries = listOf(
-                "Kesariya Pritam Arijit Singh",
-                "Channa Mereya Pritam Arijit Singh",
-                "Subhanallah Pritam Sreerama Chandra",
-                "Shayad Pritam Arijit Singh",
-                "Tum Se Hi Pritam Mohit Chauhan",
-                "Kabira Pritam Tochi Raina Rekha Bhardwaj",
-                "Badtameez Dil Pritam Benny Dayal",
-                "Illahi Pritam Arijit Singh"
-            )
-        ),
-        // Arijit Singh
-        OnlineAlbumModel(
-            id = "curated_arijit_singh",
-            title = "Arijit Singh",
-            year = "Artist",
-            artist = "Artist • Arijit Singh",
-            primaryArtists = "Arijit Singh",
-            coverArtUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
-            type = "Artist",
-            source = "curated",
-            searchQuery = "Arijit Singh hits",
-            songCount = 8,
-            trackQueries = listOf(
-                "Tum Hi Ho Arijit Singh",
-                "Channa Mereya Arijit Singh",
-                "Agar Tum Saath Ho Arijit Singh",
-                "Kesariya Arijit Singh",
-                "Apna Bana Le Arijit Singh",
-                "Hawayein Arijit Singh",
-                "Ae Dil Hai Mushkil Arijit Singh",
-                "Gerua Arijit Singh Antara Mitra"
             )
         ),
         // Love song 🥰💖 Playlist
@@ -292,78 +412,6 @@ object CuratedAlbumCatalog {
                 "Dheere Dheere Se Meri Zindagi Kumar Sanu",
                 "Main Yahaan Hoon Udit Narayan",
                 "Humko Humise Chura Lo Udit Narayan Lata Mangeshkar"
-            )
-        ),
-        OnlineAlbumModel(
-            id = "curated_kishore_kumar",
-            title = "Retro Kishore Kumar Golden Hits",
-            year = "Timeless",
-            artist = "Kishore Kumar",
-            primaryArtists = "Kishore Kumar",
-            coverArtUrl = "https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg",
-            type = "Curated Legend",
-            source = "curated",
-            searchQuery = "Kishore Kumar hits",
-            songCount = 10,
-            trackQueries = listOf(
-                "Pal Pal Dil Ke Paas Kishore Kumar",
-                "Yeh Sham Mastani Kishore Kumar",
-                "O Mere Dil Ke Chain Kishore Kumar",
-                "Roop Tera Mastana Kishore Kumar",
-                "Mere Sapno Ki Rani Kishore Kumar",
-                "Khaike Paan Banaras Wala Kishore Kumar",
-                "Yeh Dosti Hum Nahi Todenge Kishore Kumar",
-                "Ek Ajnabee Haseena Se Kishore Kumar",
-                "Zindagi Ek Safar Hai Suhana Kishore Kumar",
-                "Chala Jata Hoon Kishore Kumar"
-            )
-        ),
-        OnlineAlbumModel(
-            id = "curated_lata_mangeshkar",
-            title = "Evergreen Lata Mangeshkar Classics",
-            year = "Golden Era",
-            artist = "Lata Mangeshkar",
-            primaryArtists = "Lata Mangeshkar",
-            coverArtUrl = "https://c.saavncdn.com/artists/Lata_Mangeshkar_500x500.jpg",
-            type = "Curated Legend",
-            source = "curated",
-            searchQuery = "Lata Mangeshkar hits",
-            songCount = 10,
-            trackQueries = listOf(
-                "Lag Ja Gale Se Phir Lata Mangeshkar",
-                "Ajeeb Dastan Hai Yeh Lata Mangeshkar",
-                "Tere Bina Zindagi Se Lata Mangeshkar",
-                "Tujhse Naraz Nahin Zindagi Lata Mangeshkar",
-                "Dekha Ek Khwab Lata Mangeshkar",
-                "Hothon Mein Aisi Baat Lata Mangeshkar",
-                "Kora Kagaz Tha Yeh Man Mera Lata Mangeshkar",
-                "Piya Tose Naina Laage Re Lata Mangeshkar",
-                "Tujhe Dekha To Lata Mangeshkar",
-                "Didi Tera Devar Deewana Lata Mangeshkar"
-            )
-        ),
-        OnlineAlbumModel(
-            id = "curated_mohd_rafi",
-            title = "Immortal Mohammed Rafi Hits",
-            year = "Golden Era",
-            artist = "Mohammed Rafi",
-            primaryArtists = "Mohammed Rafi",
-            coverArtUrl = "https://c.saavncdn.com/artists/Mohammed_Rafi_500x500.jpg",
-            type = "Curated Legend",
-            source = "curated",
-            searchQuery = "Mohammed Rafi hits",
-            songCount = 10,
-            trackQueries = listOf(
-                "Likhe Jo Khat Tujhe Mohammed Rafi",
-                "Kya Hua Tera Wada Mohammed Rafi",
-                "Gulabi Aankhen Mohammed Rafi",
-                "Chura Liya Hai Tumne Jo Dil Ko Mohammed Rafi",
-                "Badan Pe Sitare Lapete Huye Mohammed Rafi",
-                "Parda Hai Parda Mohammed Rafi",
-                "Baharon Phool Barsao Mohammed Rafi",
-                "Chaudhvin Ka Chand Ho Mohammed Rafi",
-                "Ehsan Tera Hoga Mujh Par Mohammed Rafi",
-                "Taarif Karoon Kya Uski Mohammed Rafi"
             )
         ),
         OnlineAlbumModel(

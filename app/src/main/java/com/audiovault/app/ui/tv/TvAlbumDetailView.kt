@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,6 +95,9 @@ fun TvAlbumDetailView(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF0C0C0C))
+            .pointerInput(Unit) {
+                detectTapGestures { /* Touch isolation: consume all taps so they never leak */ }
+            }
     ) {
         // Atmospheric background artist image with heavy dark gradient
         val backdropBitmap by rememberAsyncCoverArt(

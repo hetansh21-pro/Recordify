@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,6 +64,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -107,7 +110,8 @@ fun TvNowPlayingView(
     onPlaySong: (OnlineSongModel) -> Unit = {},
     onBack: () -> Unit = {},
     areControlsVisible: Boolean = true,
-    onControlsVisibilityChange: (Boolean) -> Unit = {}
+    onControlsVisibilityChange: (Boolean) -> Unit = {},
+    isQueueOpen: Boolean = false
 ) {
     val rec = playerState.currentRecording
     val positionMs = playerState.currentPositionMs
@@ -120,6 +124,7 @@ fun TvNowPlayingView(
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // Dedicated FocusRequesters for every interactive remote control on screen
+    val ambientFocusRequester = remember { FocusRequester() }
     val playPauseFocusRequester = remember { FocusRequester() }
     val timelineFocusRequester = remember { FocusRequester() }
     val playingFromFocusRequester = remember { FocusRequester() }
@@ -134,21 +139,41 @@ fun TvNowPlayingView(
     val aboutFocusRequester = remember { FocusRequester() }
     val darkModeFocusRequester = remember { FocusRequester() }
 
-    // Auto-focus play/pause button when controls are visible
-    LaunchedEffect(areControlsVisible) {
-        if (areControlsVisible) {
+    // Auto-focus management between controls deck and ambient mode
+    LaunchedEffect(areControlsVisible, isQueueOpen) {
+        if (!isQueueOpen) {
             delay(100)
-            try {
-                playPauseFocusRequester.requestFocus()
-            } catch (_: Exception) {}
+            if (areControlsVisible) {
+                try {
+                    playPauseFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            } else {
+                try {
+                    ambientFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
         }
     }
 
-    // 5-second inactivity auto-hide timer
-    LaunchedEffect(lastInteractionTime, areControlsVisible, showAboutDialog, showLyricsDialog) {
-        if (areControlsVisible && !showAboutDialog && !showLyricsDialog) {
+    // 5-second inactivity auto-hide timer (paused while Queue or dialogs are open)
+    LaunchedEffect(lastInteractionTime, areControlsVisible, showAboutDialog, showLyricsDialog, isQueueOpen) {
+        if (areControlsVisible && !showAboutDialog && !showLyricsDialog && !isQueueOpen) {
             delay(5000L)
             onControlsVisibilityChange(false)
+        }
+    }
+
+    // Automatic focus restoration when Queue panel closes
+    LaunchedEffect(isQueueOpen) {
+        if (!isQueueOpen && areControlsVisible) {
+            delay(100)
+            try {
+                queueFocusRequester.requestFocus()
+            } catch (_: Exception) {
+                try {
+                    playPauseFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -164,21 +189,38 @@ fun TvNowPlayingView(
         modifier = Modifier
             .fillMaxSize()
             .background(if (isDarkScreenActive) Color.Black else Color(0xFF0C0C0C))
-            .onPreviewKeyEvent { keyEvent ->
-                if (keyEvent.type == KeyEventType.KeyDown) {
-                    lastInteractionTime = System.currentTimeMillis()
-                    if (!areControlsVisible) {
-                        // Any remote key press wakes up full controls immediately
-                        onControlsVisibilityChange(true)
-                        try {
-                            playPauseFocusRequester.requestFocus()
-                        } catch (_: Exception) {}
-                        true // Consume wakeup key
-                    } else {
-                        false
+            // Complete Touch Isolation: Consume all touches/clicks on full player background
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        lastInteractionTime = System.currentTimeMillis()
+                        if (!areControlsVisible) {
+                            onControlsVisibilityChange(true)
+                        }
                     }
-                } else false
+                )
             }
+            // Ambient remote wakeup: Active focus receiver when controls are hidden
+            .then(
+                if (!areControlsVisible) {
+                    Modifier
+                        .focusRequester(ambientFocusRequester)
+                        .focusable()
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                if (keyEvent.key == Key.Back) {
+                                    // Let BackHandler handle exiting to Home
+                                    false
+                                } else {
+                                    // Any remote D-pad / Enter key wakes up controls instantly
+                                    lastInteractionTime = System.currentTimeMillis()
+                                    onControlsVisibilityChange(true)
+                                    true
+                                }
+                            } else false
+                        }
+                } else Modifier
+            )
     ) {
         // -----------------------------------------------------------------
         // 1. FULL-SCREEN ARTIST PHOTO BACKDROP (Hidden if Dark Screen Active)
@@ -980,6 +1022,13 @@ fun TvNowPlayingView(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.82f))
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                showAboutDialog = false
+                            }
+                        )
+                    }
                     .onKeyEvent { keyEvent ->
                         if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back) {
                             showAboutDialog = false
@@ -995,6 +1044,9 @@ fun TvNowPlayingView(
                     modifier = Modifier
                         .width(520.dp)
                         .padding(24.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures { /* consume taps inside modal */ }
+                        }
                 ) {
                     Column(
                         modifier = Modifier.padding(28.dp),
