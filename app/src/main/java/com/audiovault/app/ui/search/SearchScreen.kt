@@ -1230,7 +1230,8 @@ fun SearchScreen(
                                                 onPlayClick = {
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    viewModel.playOnlineSong(onlineSong)
+                                                    val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
+                                                    viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
                                                 },
                                                 onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
                                                 onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
@@ -1284,7 +1285,8 @@ fun SearchScreen(
                                     onPlayClick = {
                                         keyboardController?.hide()
                                         focusManager.clearFocus()
-                                        viewModel.playOnlineSong(onlineSong)
+                                        val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
+                                        viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
                                     },
                                     onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
                                     onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }

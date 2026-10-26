@@ -43,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -109,6 +110,8 @@ fun TvNowPlayingView(
     onOpenQueue: () -> Unit,
     onPlaySong: (OnlineSongModel) -> Unit = {},
     onBack: () -> Unit = {},
+    onOpenAlbumSource: (com.audiovault.app.core.online.OnlineAlbumModel) -> Unit = {},
+    onOpenMovieSource: (albumName: String?, artistName: String?, artUrl: String?) -> Unit = { _, _, _ -> },
     areControlsVisible: Boolean = true,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     isQueueOpen: Boolean = false
@@ -288,13 +291,12 @@ fun TvNowPlayingView(
             exit = fadeOut(tween(300)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 48.dp, bottom = 44.dp)
+                .padding(start = 64.dp, bottom = 48.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
-                    .focusRequester(ambientFocusRequester)
                     .tvRemoteFocusable(
                         onClick = {
                             lastInteractionTime = System.currentTimeMillis()
@@ -364,7 +366,7 @@ fun TvNowPlayingView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 36.dp, vertical = 20.dp),
+                    .padding(horizontal = 64.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Top Bar: "Playing from" Pill on Left, Profile on Right
@@ -373,7 +375,28 @@ fun TvNowPlayingView(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // "Playing from" Pill Button (Clicking returns to previous / playlist)
+                    val activeAlbumContext by viewModel.activeAlbumContext.collectAsState()
+                    val currentAlbum = activeAlbumContext
+                    val hasActiveAlbum = currentAlbum != null
+                    val isPlaylist = currentAlbum?.type?.equals("Playlist", ignoreCase = true) == true
+                    val isArtist = currentAlbum?.type?.equals("Artist", ignoreCase = true) == true
+
+                    val pillSubtitle = when {
+                        isPlaylist -> "PLAYING FROM PLAYLIST"
+                        isArtist -> "PLAYING FROM ARTIST"
+                        hasActiveAlbum -> "PLAYING FROM ALBUM"
+                        else -> "PLAYING FROM MOVIE"
+                    }
+                    val pillTitle = when {
+                        hasActiveAlbum -> currentAlbum?.title ?: "Album"
+                        else -> rec?.album ?: queueState.currentTrack?.album ?: "Single Track"
+                    }
+                    val pillArt = when {
+                        hasActiveAlbum -> currentAlbum?.coverArtUrl ?: rec?.albumArtPath
+                        else -> rec?.albumArtPath
+                    }
+
+                    // "Playing from" Pill Button (Clicking opens playlist or movie album details)
                     Surface(
                         shape = RoundedCornerShape(24.dp),
                         color = Color.Black.copy(alpha = 0.6f),
@@ -398,18 +421,25 @@ fun TvNowPlayingView(
                                 } else false
                             }
                             .tvRemoteFocusable(
-                                onClick = onBack,
+                                onClick = {
+                                    if (currentAlbum != null) {
+                                        onOpenAlbumSource(currentAlbum)
+                                    } else {
+                                        val movieName = rec?.album ?: queueState.currentTrack?.album
+                                        onOpenMovieSource(movieName, rec?.artist, rec?.albumArtPath)
+                                    }
+                                },
                                 shape = RoundedCornerShape(24.dp),
                                 focusScale = 1.05f
                             )
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TrackCoverArt(
-                                albumArtPath = rec?.albumArtPath,
-                                title = rec?.title ?: "Music",
+                                albumArtPath = pillArt,
+                                title = pillTitle,
                                 artist = rec?.artist ?: "Artist",
                                 size = 32.dp,
                                 shape = RoundedCornerShape(4.dp)
@@ -417,19 +447,22 @@ fun TvNowPlayingView(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(verticalArrangement = Arrangement.Center) {
                                 Text(
-                                    text = "Playing from",
+                                    text = pillSubtitle,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = Color(0xFFAAAAAA),
-                                        fontSize = 10.sp
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 )
                                 Text(
-                                    text = rec?.album ?: queueState.currentTrack?.album ?: "Bollywood Mush",
+                                    text = pillTitle,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
                                         fontSize = 12.sp
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -442,7 +475,11 @@ fun TvNowPlayingView(
                 // LOWER HALF: TRACK INFO & CONTROLS DECK
                 // -------------------------------------------------------------
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusProperties {
+                            canFocus = !showAboutDialog && !showLyricsDialog
+                        },
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Track Info Row: Album Art + Title & Artists on Left, [(+) Save] on Right
@@ -1017,10 +1054,21 @@ fun TvNowPlayingView(
                             }
                         )
                     }
-                    .onKeyEvent { keyEvent ->
-                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back) {
-                            showAboutDialog = false
-                            true
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            when (keyEvent.key) {
+                                Key.Back -> {
+                                    showAboutDialog = false
+                                    true
+                                }
+                                Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight -> {
+                                    try {
+                                        closeFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                    true
+                                }
+                                else -> false
+                            }
                         } else false
                     },
                 contentAlignment = Alignment.Center
@@ -1127,6 +1175,12 @@ fun TvNowPlayingView(
                             color = Color.White,
                             modifier = Modifier
                                 .focusRequester(closeFocusRequester)
+                                .focusProperties {
+                                    up = closeFocusRequester
+                                    down = closeFocusRequester
+                                    left = closeFocusRequester
+                                    right = closeFocusRequester
+                                }
                                 .tvRemoteFocusable(
                                     onClick = { showAboutDialog = false },
                                     shape = RoundedCornerShape(24.dp),

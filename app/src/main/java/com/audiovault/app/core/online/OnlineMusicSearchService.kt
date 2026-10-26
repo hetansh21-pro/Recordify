@@ -473,6 +473,86 @@ object OnlineMusicSearchService {
         }
     }
 
+    suspend fun resolveMovieSoundtrack(albumName: String): OnlineAlbumModel? = withContext(Dispatchers.IO) {
+        if (albumName.isBlank()) return@withContext null
+        val clean = albumName.trim()
+            .replace(Regex("[\\p{So}\\p{Cn}]"), "")
+            .replace(Regex("(?i)\\b(album|soundtrack|ost|movie|original motion picture soundtrack|edition)\\b"), "")
+            .trim()
+        if (clean.isBlank()) return@withContext null
+
+        try {
+            // 1. Direct search on JioSaavn album endpoint
+            val encodedQuery = URLEncoder.encode(clean, "UTF-8")
+            val endpoint = "https://www.jiosaavn.com/api.php?__call=search.getAlbumResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=5&p=1&q=$encodedQuery"
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 4000
+                readTimeout = 4000
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+            }
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val root = JSONObject(text)
+            val results = root.optJSONArray("results")
+            if (results != null && results.length() > 0) {
+                for (i in 0 until results.length()) {
+                    val item = results.getJSONObject(i)
+                    val albumId = item.optString("id", "")
+                    val title = cleanText(item.optString("title", ""))
+                    if (albumId.isNotBlank() && com.audiovault.app.core.intelligence.TrackMatcher.similarity(clean, title) >= 0.45) {
+                        val full = fetchAlbumSoundtrack(albumId)
+                        if (full != null && full.songs.isNotEmpty()) {
+                            return@withContext full
+                        }
+                    }
+                }
+                // If none crossed strict similarity threshold, try the first result if title has overlap
+                val firstId = results.getJSONObject(0).optString("id", "")
+                val firstTitle = cleanText(results.getJSONObject(0).optString("title", ""))
+                if (firstId.isNotBlank() && (firstTitle.contains(clean, ignoreCase = true) || clean.contains(firstTitle, ignoreCase = true))) {
+                    val full = fetchAlbumSoundtrack(firstId)
+                    if (full != null && full.songs.isNotEmpty()) {
+                        return@withContext full
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resolving movie soundtrack for $albumName", e)
+        }
+
+        // 2. Fallback: Search songs for "$clean movie songs" and deduplicate distinct tracks
+        try {
+            val songs = searchSongs("$clean movie songs", limit = 30)
+            val videoJunkKeywords = listOf(
+                "full video", "video song", "8k", "4k", "lyrical", "promo", "teaser", "trailer",
+                "making of", "dialogue", "scene", "mashup", "slowed", "reverb", "lofi", "ringtone"
+            )
+            val distinctTracks = mutableListOf<OnlineSongModel>()
+            val seenTitles = mutableSetOf<String>()
+            for (song in songs) {
+                val lowerTitle = song.title.lowercase()
+                val isJunk = videoJunkKeywords.any { lowerTitle.contains(it) }
+                val normTitle = com.audiovault.app.core.intelligence.TrackMatcher.normalize(song.title)
+                if (!isJunk && normTitle.isNotBlank() && seenTitles.add(normTitle)) {
+                    distinctTracks.add(song)
+                }
+            }
+            if (distinctTracks.isNotEmpty()) {
+                return@withContext OnlineAlbumModel(
+                    id = "soundtrack_${clean.hashCode()}",
+                    title = clean,
+                    artist = distinctTracks.firstOrNull()?.artist ?: "Soundtrack",
+                    coverArtUrl = distinctTracks.firstOrNull()?.highResArtUrl,
+                    songCount = distinctTracks.size,
+                    songs = distinctTracks,
+                    type = "Album"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in movie songs search fallback for $albumName", e)
+        }
+        null
+    }
+
     suspend fun searchAlbumsAndSoundtracks(query: String, limit: Int = 4): List<OnlineAlbumModel> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
         try {

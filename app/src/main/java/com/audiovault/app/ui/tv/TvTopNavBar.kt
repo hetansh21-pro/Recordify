@@ -64,7 +64,7 @@ fun TvTopNavBar(
             .fillMaxWidth()
             .height(68.dp)
             .background(Color(0xFF0C0C0C))
-            .padding(horizontal = 48.dp, vertical = 10.dp),
+            .padding(horizontal = 64.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

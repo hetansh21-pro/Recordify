@@ -157,30 +157,36 @@ object SmartVibeQueueEngine {
         val vibe = detectVibeType(seed.title, seed.artist, seed.album)
         val isEnglishAllowed = preferredLanguages.any { it.equals("English", ignoreCase = true) }
 
+        val curatedPool = CuratedAlbumCatalog.curatedAlbums.flatMap { it.songs }
+
         val sourceSongs: List<OnlineSongModel> = when {
             // Old song played -> strictly old/retro/90s songs
             era == SongEra.OLD_RETRO || vibe == SongVibeType.CLASSIC_RETRO -> {
-                TvCatalogFallbacks.golden90sBollywood
+                (TvCatalogFallbacks.golden90sBollywood + curatedPool
+                    .filter { detectEra(it.title, it.artist) == SongEra.OLD_RETRO }).shuffled()
             }
             // Punjabi/Party song played -> strictly Punjabi/Party hits
             vibe == SongVibeType.PARTY_PUNJABI -> {
-                TvCatalogFallbacks.punjabiParty
+                (TvCatalogFallbacks.punjabiParty + curatedPool
+                    .filter { detectVibeType(it.title, it.artist) == SongVibeType.PARTY_PUNJABI }).shuffled()
             }
             // Chill/Lo-Fi song played -> strictly Chill/Lo-Fi songs
             vibe == SongVibeType.CHILL_LOFI -> {
-                TvCatalogFallbacks.chillLofi
+                TvCatalogFallbacks.chillLofi.shuffled()
             }
             // Romantic song played -> strictly Romantic songs
             vibe == SongVibeType.ROMANTIC -> {
-                TvCatalogFallbacks.romanticMelodies
+                (TvCatalogFallbacks.romanticMelodies + curatedPool
+                    .filter { detectVibeType(it.title, it.artist) == SongVibeType.ROMANTIC }).shuffled()
             }
             // New / Modern song played -> strictly New / Trending songs
             era == SongEra.NEW_MODERN -> {
-                TvCatalogFallbacks.newReleases + TvCatalogFallbacks.topHitsIndia
+                (TvCatalogFallbacks.newReleases + TvCatalogFallbacks.topHitsIndia + curatedPool
+                    .filter { detectEra(it.title, it.artist) == SongEra.NEW_MODERN }).shuffled()
             }
             // General fallback
             else -> {
-                TvCatalogFallbacks.topHitsIndia
+                (TvCatalogFallbacks.topHitsIndia + TvCatalogFallbacks.newReleases).shuffled()
             }
         }
 
@@ -220,6 +226,13 @@ object SmartVibeQueueEngine {
         val lang = targetLanguage.ifBlank { "Hindi" }
 
         val queries = mutableListOf<String>()
+
+        if (!seed.album.isNullOrBlank() && !seed.album.equals("Recordify", ignoreCase = true) && !seed.album.equals("Soundtrack", ignoreCase = true)) {
+            queries.add("${seed.album} songs")
+        }
+        if (primaryArtist.isNotBlank()) {
+            queries.add("$primaryArtist best songs")
+        }
 
         when {
             era == SongEra.OLD_RETRO || vibe == SongVibeType.CLASSIC_RETRO -> {

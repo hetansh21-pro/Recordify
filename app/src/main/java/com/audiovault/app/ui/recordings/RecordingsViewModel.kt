@@ -723,20 +723,26 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                     val resolvedAlbum = if (fullAlbum != null && fullAlbum.songs.isNotEmpty()) {
                         fullAlbum
                     } else {
-                        // Clean semantic fallback search
-                        val cleanTitle = album.title
-                            .replace(Regex("[\\p{So}\\p{Cn}]"), "")
-                            .replace(Regex("(?i)\\b(playlist|spotify|album|official|edition|curated)\\b"), "")
-                            .trim()
-                        val cleanArtist = (album.primaryArtists ?: album.artist ?: "")
-                            .replace(Regex("[\\p{So}\\p{Cn}]"), "")
-                            .replace(Regex("(?i)\\b(playlist|spotify|various artists)\\b"), "")
-                            .trim()
-                        val queryToSearch = album.searchQuery ?: "$cleanTitle $cleanArtist".trim()
-                        val foundSongs = com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs(queryToSearch.trim(), limit = 35)
-                        if (foundSongs.isNotEmpty()) {
-                            album.copy(songs = foundSongs, songCount = foundSongs.size)
-                        } else null
+                        // 1. Resolve authentic movie / album soundtrack directly from official catalog
+                        val movieSoundtrack = com.audiovault.app.core.online.OnlineMusicSearchService.resolveMovieSoundtrack(album.title)
+                        if (movieSoundtrack != null && movieSoundtrack.songs.isNotEmpty()) {
+                            movieSoundtrack
+                        } else {
+                            // 2. Clean semantic fallback search
+                            val cleanTitle = album.title
+                                .replace(Regex("[\\p{So}\\p{Cn}]"), "")
+                                .replace(Regex("(?i)\\b(playlist|spotify|album|official|edition|curated)\\b"), "")
+                                .trim()
+                            val cleanArtist = (album.primaryArtists ?: album.artist ?: "")
+                                .replace(Regex("[\\p{So}\\p{Cn}]"), "")
+                                .replace(Regex("(?i)\\b(playlist|spotify|various artists)\\b"), "")
+                                .trim()
+                            val queryToSearch = album.searchQuery ?: "$cleanTitle $cleanArtist".trim()
+                            val foundSongs = com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs(queryToSearch.trim(), limit = 35)
+                            if (foundSongs.isNotEmpty()) {
+                                album.copy(songs = foundSongs, songCount = foundSongs.size)
+                            } else null
+                        }
                     }
 
                     // Enforce Strict Filtering: only authentic matching songs, top trending first, no remix/edit/leakage
@@ -805,12 +811,15 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         val cleanAlbum = albumName?.trim() ?: return
         if (cleanAlbum.isBlank()) return
 
+        val primaryArtist = artistName?.split(",", "&", "feat.", "ft.", "/")?.firstOrNull()?.trim()
+
         val albumModel = com.audiovault.app.core.online.OnlineAlbumModel(
             id = "album_${cleanAlbum.hashCode()}",
             title = cleanAlbum,
-            artist = artistName ?: "Soundtrack",
+            artist = primaryArtist ?: "Soundtrack",
             coverArtUrl = coverArtUrl,
-            source = "online"
+            source = "online",
+            type = "Album"
         )
         openAlbumDetails(albumModel)
     }
@@ -879,7 +888,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun playOnlineSong(song: OnlineSongModel, isManualAction: Boolean = true, fromAlbumContext: Boolean = false) {
+    fun playOnlineSong(
+        song: OnlineSongModel,
+        upcomingSongs: List<OnlineSongModel>? = null,
+        isManualAction: Boolean = true,
+        fromAlbumContext: Boolean = false
+    ) {
         val current = playerState.value.currentRecording
         if (current != null && (current.filePath == song.streamUrl || current.title.equals(song.title, ignoreCase = true))) {
             playerEngine.togglePlayPause()
@@ -897,6 +911,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         val isSkipSaverEnabled = userSettings.value.isSongPreviewSkipSaverEnabled
 
         val queueItem = QueueItem.fromOnlineSong(song)
+        val upcomingQueueItems = upcomingSongs?.filter { it.id != song.id }?.map { QueueItem.fromOnlineSong(it) }
         val virtualRecording = queueItem.toRecordingEntity()
 
         // 0. OFFLINE-FIRST: Check if already downloaded locally on device (0 MB data consumed, instant play!)
@@ -926,14 +941,22 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 _isPendingSongPreview.value = false
                 _pendingSongCountdown.value = 0
                 // Timer finished! Stream song audio now via queue manager
-                playbackQueueManager.playTrackExplicitly(queueItem, isDataSaver = isDataSaver)
+                playbackQueueManager.playTrackExplicitly(
+                    item = queueItem,
+                    newUpcoming = upcomingQueueItems,
+                    isDataSaver = isDataSaver
+                )
             }
             return
         }
 
         _isPendingSongPreview.value = false
         _pendingSongCountdown.value = 0
-        playbackQueueManager.playTrackExplicitly(queueItem, isDataSaver = isDataSaver)
+        playbackQueueManager.playTrackExplicitly(
+            item = queueItem,
+            newUpcoming = upcomingQueueItems,
+            isDataSaver = isDataSaver
+        )
     }
 
     fun playImmediatelyWithoutWaiting() {

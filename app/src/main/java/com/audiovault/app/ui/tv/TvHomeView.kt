@@ -78,7 +78,7 @@ fun TvHomeView(
     viewModel: RecordingsViewModel,
     homeFeed: HomeRecommendationFeed,
     homeContent: SpotifyHomeContent,
-    onPlaySong: (OnlineSongModel) -> Unit,
+    onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onPlayAlbum: (OnlineAlbumModel) -> Unit,
     onSearchMood: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -94,16 +94,18 @@ fun TvHomeView(
 
     // Auto-focus on primary featured content when entering Home
     LaunchedEffect(Unit) {
-        delay(150L)
-        try {
-            heroFocusRequester.requestFocus()
-        } catch (_: Exception) {}
+        repeat(3) {
+            delay(50L)
+            try {
+                heroFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
     }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 64.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -370,7 +372,7 @@ fun TvHomeView(
                             )
                             TvSongCard(
                                 song = songModel,
-                                onClick = { onPlaySong(songModel) }
+                                onClick = { onPlaySong(songModel, null) }
                             )
                         }
                     }
@@ -397,7 +399,10 @@ fun TvHomeView(
                         items(newReleasesList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = newReleasesList.drop(newReleasesList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -424,7 +429,10 @@ fun TvHomeView(
                         items(countryHits) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = countryHits.drop(countryHits.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -452,7 +460,10 @@ fun TvHomeView(
                         items(madeForYouList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = madeForYouList.drop(madeForYouList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -479,7 +490,10 @@ fun TvHomeView(
                         items(romanticList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = romanticList.drop(romanticList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -506,7 +520,10 @@ fun TvHomeView(
                         items(chillList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = chillList.drop(chillList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -533,7 +550,10 @@ fun TvHomeView(
                         items(bollywoodList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = bollywoodList.drop(bollywoodList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }
@@ -560,7 +580,10 @@ fun TvHomeView(
                         items(partyList) { song ->
                             TvSongCard(
                                 song = song,
-                                onClick = { onPlaySong(song) }
+                                onClick = {
+                                    val upcoming = partyList.drop(partyList.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                }
                             )
                         }
                     }

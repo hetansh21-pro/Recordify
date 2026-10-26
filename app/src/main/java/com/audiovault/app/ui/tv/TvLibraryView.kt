@@ -69,7 +69,7 @@ fun TvLibraryView(
     librarySubView: String?,
     onLibrarySubViewChange: (String?) -> Unit,
     likedSongIds: Set<Long>,
-    onPlaySong: (OnlineSongModel) -> Unit,
+    onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onOpenAlbum: (OnlineAlbumModel) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,7 +84,7 @@ fun TvLibraryView(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 24.dp)
+                .padding(horizontal = 64.dp, vertical = 24.dp)
         ) {
             // Header with Back button
             Row(
@@ -153,7 +153,8 @@ fun TvLibraryView(
                                                 artist = rec.artist ?: "Unknown",
                                                 streamUrl = rec.filePath,
                                                 highResArtUrl = rec.albumArtPath
-                                            )
+                                            ),
+                                            null
                                         )
                                     }
                                 )
@@ -184,7 +185,8 @@ fun TvLibraryView(
                                                 artist = rec.artist ?: "Unknown",
                                                 streamUrl = rec.filePath,
                                                 highResArtUrl = rec.albumArtPath
-                                            )
+                                            ),
+                                            null
                                         )
                                     }
                                 )
@@ -295,7 +297,7 @@ fun TvLibraryView(
         LazyColumn(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp),
+                .padding(horizontal = 64.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {

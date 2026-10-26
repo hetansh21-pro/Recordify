@@ -83,30 +83,32 @@ fun TvSearchView(
     searchResults: List<OnlineSongModel>,
     matchingAlbums: List<OnlineAlbumModel>,
     isSearching: Boolean,
-    onPlaySong: (OnlineSongModel) -> Unit,
+    onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onPlayAlbum: (OnlineAlbumModel) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val recentSearches by viewModel.recentSearches.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val searchContainer by viewModel.searchResultContainer.collectAsState()
-    var isSearchFocused by remember { mutableStateOf(false) }
+    var isCapsuleFocused by remember { mutableStateOf(false) }
+    var isEditingText by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
-    val searchFocusRequester = remember { FocusRequester() }
+    val capsuleFocusRequester = remember { FocusRequester() }
+    val textFieldFocusRequester = remember { FocusRequester() }
 
-    // Auto-focus on Search Bar when entering Search tab
+    // Auto-focus on Search Capsule (highlight only, do NOT auto-show keyboard)
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(150L)
+        kotlinx.coroutines.delay(100L)
         try {
-            searchFocusRequester.requestFocus()
+            capsuleFocusRequester.requestFocus()
         } catch (_: Exception) {}
     }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 64.dp),
         contentPadding = PaddingValues(top = 24.dp, bottom = 44.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -119,14 +121,21 @@ fun TvSearchView(
                 color = Color(0xFF141414),
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
-                    if (isSearchFocused || searchQuery.isNotBlank()) Color.White else Color(0xFF444444)
+                    if (isCapsuleFocused || isEditingText || searchQuery.isNotBlank()) Color.White else Color(0xFF444444)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
+                    .focusRequester(capsuleFocusRequester)
+                    .onFocusChanged { state ->
+                        isCapsuleFocused = state.isFocused
+                    }
                     .tvRemoteFocusable(
                         onClick = {
-                            searchFocusRequester.requestFocus()
+                            isEditingText = true
+                            try {
+                                textFieldFocusRequester.requestFocus()
+                            } catch (_: Exception) {}
                             keyboardController?.show()
                         },
                         shape = RoundedCornerShape(50),
@@ -142,7 +151,7 @@ fun TvSearchView(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = if (searchQuery.isNotBlank() || isSearchFocused) Color.White else Color(0xFFB3B3B3),
+                        tint = if (searchQuery.isNotBlank() || isCapsuleFocused || isEditingText) Color.White else Color(0xFFB3B3B3),
                         modifier = Modifier.size(22.dp)
                     )
 
@@ -169,25 +178,47 @@ fun TvSearchView(
                             ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = {
+                                isEditingText = false
+                                keyboardController?.hide()
+                                try {
+                                    capsuleFocusRequester.requestFocus()
+                                } catch (_: Exception) {}
                                 if (searchQuery.isNotBlank()) {
                                     viewModel.searchOnlineMusic(searchQuery)
                                 }
                             }),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .focusRequester(searchFocusRequester)
+                                .focusRequester(textFieldFocusRequester)
                                 .onFocusChanged { state ->
-                                    isSearchFocused = state.isFocused
-                                    if (state.isFocused) {
-                                        keyboardController?.show()
+                                    if (!state.isFocused && isEditingText) {
+                                        isEditingText = false
                                     }
                                 }
                                 .onKeyEvent { keyEvent ->
-                                    if (keyEvent.type == KeyEventType.KeyDown &&
-                                        (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
-                                    ) {
-                                        keyboardController?.show()
-                                        true
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.Back -> {
+                                                isEditingText = false
+                                                keyboardController?.hide()
+                                                try {
+                                                    capsuleFocusRequester.requestFocus()
+                                                } catch (_: Exception) {}
+                                                true
+                                            }
+                                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                                isEditingText = false
+                                                keyboardController?.hide()
+                                                try {
+                                                    capsuleFocusRequester.requestFocus()
+                                                } catch (_: Exception) {}
+                                                if (searchQuery.isNotBlank()) {
+                                                    viewModel.searchOnlineMusic(searchQuery)
+                                                }
+                                                true
+                                            }
+                                            else -> false
+                                        }
                                     } else false
                                 }
                         )
@@ -445,7 +476,10 @@ fun TvSearchView(
                         TvSimpleSearchSongRow(
                             song = song,
                             isLiked = isLiked,
-                            onPlay = { onPlaySong(song) },
+                            onPlay = {
+                                val upcoming = searchResults.drop(searchResults.indexOf(song) + 1)
+                                onPlaySong(song, upcoming)
+                            },
                             onToggleLike = {
                                 viewModel.toggleLikedSong(song.id.hashCode().toLong())
                             }

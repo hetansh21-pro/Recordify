@@ -134,7 +134,7 @@ fun TvAlbumDetailView(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 12.dp)
+                .padding(horizontal = 64.dp, vertical = 12.dp)
         ) {
             // -------------------------------------------------------------
             // 1. LEFT STATIONARY COLUMN (Cover Art, Title, Info, Action Buttons)

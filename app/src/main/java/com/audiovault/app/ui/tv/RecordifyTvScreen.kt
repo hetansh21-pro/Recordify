@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -137,7 +138,13 @@ fun RecordifyTvScreen(
             .fillMaxSize()
             .background(Color(0xFF0C0C0C))
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusProperties {
+                    canFocus = !isNowPlayingFullScreen && !isQueueOpen
+                }
+        ) {
             // -------------------------------------------------------------
             // 1. GLOBAL TOP NAVIGATION BAR (Matching Spotify TV Photos)
             // Left: Now Playing Mini Widget Pill with Equalizer Bars
@@ -182,8 +189,8 @@ fun RecordifyTvScreen(
                                 viewModel = viewModel,
                                 homeFeed = homeFeed,
                                 homeContent = homeContent,
-                                onPlaySong = { song ->
-                                    viewModel.playOnlineSong(song)
+                                onPlaySong = { song, upcoming ->
+                                    viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
                                 onPlayAlbum = { album -> viewModel.openAlbumDetails(album) },
                                 onSearchMood = { query ->
@@ -206,8 +213,8 @@ fun RecordifyTvScreen(
                                 searchResults = onlineSearchResults,
                                 matchingAlbums = matchingAlbums,
                                 isSearching = isOnlineSearching,
-                                onPlaySong = { song ->
-                                    viewModel.playOnlineSong(song)
+                                onPlaySong = { song, upcoming ->
+                                    viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
                                 onPlayAlbum = { album -> viewModel.openAlbumDetails(album) }
                             )
@@ -218,8 +225,8 @@ fun RecordifyTvScreen(
                                 librarySubView = librarySubView,
                                 onLibrarySubViewChange = { librarySubView = it },
                                 likedSongIds = likedSongIds,
-                                onPlaySong = { song ->
-                                    viewModel.playOnlineSong(song)
+                                onPlaySong = { song, upcoming ->
+                                    viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
                                 onOpenAlbum = { album -> viewModel.openAlbumDetails(album) }
                             )
@@ -295,6 +302,18 @@ fun RecordifyTvScreen(
                     isNowPlayingControlsVisible = true
                     if (selectedTab == TvNavTab.NOW_PLAYING) {
                         selectedTab = TvNavTab.HOME
+                    }
+                },
+                onOpenAlbumSource = { album ->
+                    isNowPlayingFullScreen = false
+                    isNowPlayingControlsVisible = true
+                    viewModel.openAlbumDetails(album)
+                },
+                onOpenMovieSource = { albumName, artistName, artUrl ->
+                    isNowPlayingFullScreen = false
+                    isNowPlayingControlsVisible = true
+                    if (!albumName.isNullOrBlank()) {
+                        viewModel.openAlbumByName(albumName, artistName, artUrl)
                     }
                 },
                 areControlsVisible = isNowPlayingControlsVisible,

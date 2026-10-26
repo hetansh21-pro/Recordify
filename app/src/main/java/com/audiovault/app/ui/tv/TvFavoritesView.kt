@@ -62,7 +62,7 @@ fun TvFavoritesView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 64.dp),
         contentPadding = PaddingValues(top = 28.dp, bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
