@@ -10,7 +10,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.audiovault.app.ui.recordings.RecordingsViewModel
+import com.audiovault.app.ui.splash.RecordifySplashScreen
 import com.audiovault.app.ui.theme.AudioVaultTheme
 
 /**
@@ -28,8 +33,18 @@ class TvMainActivity : ComponentActivity() {
 
         setContent {
             AudioVaultTheme {
+                var showSplash by remember { mutableStateOf(true) }
+
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    RecordifyTvScreen(viewModel = viewModel)
+                    if (showSplash) {
+                        RecordifySplashScreen(
+                            isTv = true,
+                            durationMs = 1200L,
+                            onSplashFinished = { showSplash = false }
+                        )
+                    } else {
+                        RecordifyTvScreen(viewModel = viewModel)
+                    }
                 }
             }
         }

@@ -64,6 +64,11 @@ class PlaybackQueueManager(
     private var consecutiveFailureCount = 0
     private var activeReplenishJob: Job? = null
 
+    @Volatile
+    private var cachedPreferredLanguages: Set<String> = setOf("Hindi", "Gujarati")
+    @Volatile
+    private var cachedUserCountry: String = "IN"
+
     init {
         // Wire completion listener directly to queue manager
         playerEngine.onSongCompleted = { finishedRecording ->
@@ -77,6 +82,22 @@ class PlaybackQueueManager(
                 Log.w(TAG, "Playback error: $errorMsg for ${failedRec?.title}. Advancing safely.")
                 skipToNext(isUserInitiated = false)
             }
+        }
+
+        // Cache user language and country preferences safely in the background
+        try {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    userPreferencesRepository.userSettingsFlow.collect { settings ->
+                        cachedPreferredLanguages = settings.preferredLanguages
+                        cachedUserCountry = settings.userCountryCode
+                    }
+                } catch (_: Throwable) {
+                    // Ignore DataStore errors in unit tests with mock contexts
+                }
+            }
+        } catch (_: Throwable) {
+            // Ignore in tests
         }
     }
 
@@ -108,8 +129,9 @@ class PlaybackQueueManager(
                 // Intelligent auto-queue continuity:
                 // When playing a single track, immediately seed the upcoming queue matching
                 // that exact era and vibe (old -> old classics, new -> new chartbusters, romantic -> romantic, etc.)
+                // and strictly respecting user's preferred languages and country
                 val resolvedUpcoming = newUpcoming ?: if (mode == QueueMode.VIBE_RADIO || mode == QueueMode.USER_QUEUE) {
-                    SmartVibeQueueEngine.getInstantSeedQueue(item)
+                    SmartVibeQueueEngine.getInstantSeedQueue(item, cachedPreferredLanguages, cachedUserCountry)
                 } else {
                     _queueState.value.upcomingQueue.filter { q -> q.id != item.id }
                 }
@@ -506,9 +528,8 @@ class PlaybackQueueManager(
             val currentVibe = recommendationService.currentVibe.value.category
             val (cooldownIds, cooldownNormalized) = recommendationService.getRecentCooldownSongs()
 
-            val userSettings = userPreferencesRepository.userSettingsFlow.firstOrNull()
-            val preferredLangs = userSettings?.preferredLanguages ?: setOf("Hindi", "Gujarati")
-            val primaryLang = userSettings?.primaryLanguage ?: "Hindi"
+            val preferredLangs = cachedPreferredLanguages
+            val primaryLang = if (preferredLangs.isNotEmpty()) preferredLangs.first() else "Hindi"
             val isEnglishAllowed = preferredLangs.any { it.equals("English", ignoreCase = true) }
 
             // Target language lock: if seed is Hindi -> Hindi only; if Gujarati -> Gujarati only
@@ -558,21 +579,22 @@ class PlaybackQueueManager(
                 val candLang = cand.language
                     ?: VibeFlowMoodAnalyzer.inferLanguage("${cand.normalizedTitle} ${cand.normalizedPrimaryArtist}")
 
-                // Rule B: If English is not in user's preferences, strictly exclude English tracks
+                // Rule B: If English is not in user's preferences, strictly exclude English tracks and Western artists
                 if (!isEnglishAllowed) {
                     if (candLang?.equals("English", ignoreCase = true) == true ||
-                        cand.language?.equals("english", ignoreCase = true) == true) {
+                        cand.language?.equals("english", ignoreCase = true) == true ||
+                        VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(cand.normalizedTitle, cand.normalizedPrimaryArtist)) {
                         return@filter false
                     }
                 }
 
-                // Rule C: Strictly enforce seed language (Hindi -> Hindi, Gujarati -> Gujarati)
+                // Rule C: Strictly enforce language connection
                 if (candLang != null) {
-                    if (!candLang.equals(targetLanguage, ignoreCase = true)) {
+                    if (!candLang.equals(targetLanguage, ignoreCase = true) && !preferredLangs.any { it.equals(candLang, ignoreCase = true) }) {
                         return@filter false
                     }
-                } else if (cand.language != null) {
-                    if (!cand.language.equals(targetLanguage, ignoreCase = true)) {
+                } else {
+                    if (!isEnglishAllowed && VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(cand.normalizedTitle, cand.normalizedPrimaryArtist)) {
                         return@filter false
                     }
                 }

@@ -98,49 +98,25 @@ fun TvHomeView(
             Column {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text(
                             text = "$greeting${if (userName.isNotBlank()) ", $userName" else ""}",
                             style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 28.sp
                             )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Recordify TV • Studio Master Lossless Audio 320 KBPS",
+                            text = "Music for every moment",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF888888),
-                                fontSize = 13.sp
+                                color = Color(0xFF9E9E9E),
+                                fontSize = 14.sp
                             )
                         )
-                    }
-
-                    // Region & Quality Badge
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF1A1A1A),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2C2C))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SpotifyGreenBright))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${userSettings.userCountryCode} • LOSSLESS FLAC/MP3",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
                     }
                 }
 
@@ -212,15 +188,7 @@ fun TvHomeView(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color(0xFF0F2617),
-                                        Color(0xFF141414),
-                                        Color(0xFF1A1A1A)
-                                    )
-                                )
-                            )
+                            .background(Color(0xFF161616))
                             .padding(24.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -50,7 +50,7 @@ data class UserSettings(
     val userCountryCode: String = "IN",
     val userCountryName: String = "India",
     val primaryLanguage: String = "Hindi",
-    val preferredLanguages: Set<String> = setOf("Hindi", "Gujarati", "English"),
+    val preferredLanguages: Set<String> = setOf("Hindi", "Gujarati"),
     val favoriteGenres: Set<String> = setOf("Bollywood", "Gujarati", "Romantic", "Pop"),
     val favoriteArtists: Set<String> = emptySet()
 )
@@ -232,7 +232,7 @@ class UserPreferencesRepository(private val context: Context) {
             userCountryCode = preferences[PreferencesKeys.KEY_USER_COUNTRY_CODE] ?: defaultCountry.code,
             userCountryName = preferences[PreferencesKeys.KEY_USER_COUNTRY_NAME] ?: defaultCountry.name,
             primaryLanguage = preferences[PreferencesKeys.KEY_PRIMARY_LANGUAGE] ?: "Hindi",
-            preferredLanguages = preferences[PreferencesKeys.KEY_PREFERRED_LANGUAGES] ?: setOf("Hindi", "Gujarati", "English"),
+            preferredLanguages = preferences[PreferencesKeys.KEY_PREFERRED_LANGUAGES] ?: setOf("Hindi", "Gujarati"),
             favoriteGenres = preferences[PreferencesKeys.KEY_FAVORITE_GENRES] ?: setOf("Bollywood", "Gujarati", "Romantic", "Pop"),
             favoriteArtists = preferences[PreferencesKeys.KEY_FAVORITE_ARTISTS] ?: emptySet()
         )

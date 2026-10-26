@@ -6,8 +6,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.audiovault.app.ui.navigation.AudioVaultNavGraph
+import com.audiovault.app.ui.splash.RecordifySplashScreen
 import com.audiovault.app.ui.theme.AudioVaultTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,8 +31,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AudioVaultTheme {
+                var showSplash by remember { mutableStateOf(true) }
+
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AudioVaultNavGraph()
+                    if (showSplash) {
+                        RecordifySplashScreen(
+                            isTv = false,
+                            durationMs = 1100L,
+                            onSplashFinished = { showSplash = false }
+                        )
+                    } else {
+                        AudioVaultNavGraph()
+                    }
                 }
             }
         }

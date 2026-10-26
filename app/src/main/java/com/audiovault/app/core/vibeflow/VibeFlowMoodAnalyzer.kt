@@ -281,15 +281,47 @@ object VibeFlowMoodAnalyzer {
             text.contains("j-pop") || text.contains("japanese") || text.contains("anime") ||
             text.contains("yoasobi") || text.contains("kenshi yonezu") || text.contains("lisa") -> "Japanese"
 
-            // English
+            // English / Western
             text.contains("english") || text.contains("ed sheeran") || text.contains("taylor swift") ||
             text.contains("taylor") || text.contains("billie eilish") || text.contains("drake") ||
-            text.contains("the weeknd") || text.contains("dua lipa") || text.contains("justin bieber") ||
-            text.contains("eminem") || text.contains("post malone") || text.contains("ariana grande") ||
-            text.contains("bruno mars") || text.contains("charlie puth") || text.contains("coldplay") ||
-            text.contains("imagine dragons") -> "English"
+            text.contains("the weeknd") || text.contains("weeknd") || text.contains("dua lipa") ||
+            text.contains("justin bieber") || text.contains("eminem") || text.contains("post malone") ||
+            text.contains("ariana grande") || text.contains("bruno mars") || text.contains("charlie puth") ||
+            text.contains("coldplay") || text.contains("imagine dragons") || text.contains("maroon 5") ||
+            text.contains("adele") || text.contains("shawn mendes") || text.contains("selena gomez") ||
+            text.contains("alan walker") || text.contains("chainsmokers") || text.contains("marshmello") ||
+            text.contains("david guetta") || text.contains("calvin harris") || text.contains("rihanna") ||
+            text.contains("beyonce") || text.contains("katy perry") || text.contains("lady gaga") ||
+            text.contains("benson boone") || text.contains("sabrina carpenter") || text.contains("olivia rodrigo") ||
+            text.contains("harry styles") || text.contains("snoop dogg") || text.contains("kanye") ||
+            text.contains("travis scott") || text.contains("kendrick") || text.contains("cardi b") ||
+            text.contains("nicki minaj") || text.contains("linkin park") || text.contains("avicii") ||
+            text.contains("shakira") || text.contains("pitbull") || text.contains("camila cabello") ||
+            text.contains("dj snake") || text.contains("one direction") || text.contains("clean bandit") ||
+            text.contains("sia") || text.contains("halsey") || text.contains("twenty one pilots") ||
+            text.contains("sam smith") || text.contains("zayn") -> "English"
 
             else -> null
         }
+    }
+
+    /**
+     * Checks if a track title or artist is distinctly English/Western.
+     */
+    fun isEnglishArtistOrTitle(title: String, artist: String): Boolean {
+        val lower = "${title.lowercase()} ${artist.lowercase()}"
+        val westernKeywords = listOf(
+            "ed sheeran", "taylor swift", "billie eilish", "drake", "weeknd",
+            "dua lipa", "justin bieber", "eminem", "post malone", "ariana grande",
+            "bruno mars", "charlie puth", "coldplay", "imagine dragons", "maroon 5",
+            "adele", "shawn mendes", "selena gomez", "alan walker", "chainsmokers",
+            "marshmello", "david guetta", "calvin harris", "rihanna", "beyonce",
+            "katy perry", "lady gaga", "benson boone", "sabrina carpenter",
+            "olivia rodrigo", "harry styles", "snoop dogg", "kanye", "travis scott",
+            "kendrick", "cardi b", "nicki minaj", "linkin park", "avicii",
+            "shakira", "pitbull", "camila cabello", "dj snake", "one direction",
+            "clean bandit", "sia", "halsey", "twenty one pilots", "sam smith", "zayn"
+        )
+        return westernKeywords.any { lower.contains(it) }
     }
 }

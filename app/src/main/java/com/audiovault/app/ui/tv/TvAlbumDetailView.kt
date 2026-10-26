@@ -83,15 +83,7 @@ fun TvAlbumDetailView(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF162A1D),
-                        Color(0xFF0F1813),
-                        Color(0xFF0C0C0C)
-                    )
-                )
-            )
+            .background(Color(0xFF0C0C0C))
     ) {
         LazyColumn(
             modifier = Modifier
@@ -143,9 +135,8 @@ fun TvAlbumDetailView(
                     Box(
                         modifier = Modifier
                             .size(190.dp)
-                            .shadow(20.dp, RoundedCornerShape(14.dp), spotColor = SpotifyGreenBright.copy(alpha = 0.35f))
                             .clip(RoundedCornerShape(14.dp))
-                            .border(1.5.dp, Color(0xFF2C2C2C), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFF282828), RoundedCornerShape(14.dp))
                     ) {
                         TrackCoverArt(
                             albumArtPath = album.coverArtUrl,

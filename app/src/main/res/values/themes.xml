@@ -6,6 +6,7 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:windowSplashScreenBackground" tools:targetApi="s">@color/background_dark</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">#0A0A0A</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/ic_recordify_logo_circle</item>
     </style>
 </resources>

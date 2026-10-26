@@ -50,11 +50,11 @@ fun isTvDevice(context: Context): Boolean {
 fun Modifier.tvRemoteFocusable(
     onClick: () -> Unit,
     shape: Shape = RoundedCornerShape(10.dp),
-    focusScale: Float = 1.07f,
-    focusBorderWidth: Dp = 2.5.dp,
+    focusScale: Float = 1.03f,
+    focusBorderWidth: Dp = 1.5.dp,
     focusBorderColor: Color = SpotifyGreenBright,
     unfocusedBorderColor: Color = Color.Transparent,
-    elevationOnFocus: Dp = 8.dp,
+    elevationOnFocus: Dp = 0.dp,
     focusRequester: FocusRequester? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null
 ): Modifier {
@@ -88,7 +88,7 @@ fun Modifier.tvRemoteFocusable(
             onFocusChanged?.invoke(state.isFocused)
         }
         .scale(scale)
-        .shadow(currentElevation.dp, shape = shape)
+        .then(if (currentElevation > 0f) Modifier.shadow(currentElevation.dp, shape = shape) else Modifier)
         .border(width = if (isFocused) focusBorderWidth else 1.dp, color = borderColor, shape = shape)
         .focusable(interactionSource = interactionSource)
         .onKeyEvent { keyEvent ->

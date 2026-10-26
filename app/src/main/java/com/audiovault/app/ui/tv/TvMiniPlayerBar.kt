@@ -93,8 +93,8 @@ fun TvMiniPlayerBar(
     Surface(
         shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
         color = Color(0xFF141414),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF282828)),
-        shadowElevation = 16.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
+        shadowElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
             .height(88.dp)
@@ -237,11 +237,10 @@ fun TvMiniPlayerBar(
                     color = SpotifyGreenBright,
                     modifier = Modifier
                         .size(48.dp)
-                        .shadow(8.dp, CircleShape, spotColor = SpotifyGreenBright)
                         .tvRemoteFocusable(
                             onClick = onTogglePlay,
                             shape = CircleShape,
-                            focusScale = 1.15f
+                            focusScale = 1.08f
                         )
                 ) {
                     Box(contentAlignment = Alignment.Center) {

@@ -107,16 +107,7 @@ fun TvNowPlayingView(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF0F2E1B),
-                        Color(0xFF0A170F),
-                        Color(0xFF070707)
-                    ),
-                    radius = 1400f
-                )
-            )
+            .background(Color(0xFF0C0C0C))
     ) {
         Column(
             modifier = Modifier
@@ -124,11 +115,11 @@ fun TvNowPlayingView(
                 .padding(horizontal = 36.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Top Cinema Header Bar
+            // 1. Top Cinema Header Bar (Clean Minimal Back Button)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Start
             ) {
                 // Focusable Back Pill Button
                 Surface(
@@ -138,7 +129,7 @@ fun TvNowPlayingView(
                     modifier = Modifier.tvRemoteFocusable(
                         onClick = onBack,
                         shape = CircleShape,
-                        focusScale = 1.08f
+                        focusScale = 1.05f
                     )
                 ) {
                     Row(
@@ -157,30 +148,6 @@ fun TvNowPlayingView(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
-                            )
-                        )
-                    }
-                }
-
-                // Streaming Quality / VibeFlow Master Badge (Pure Recordify Branding)
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = SpotifyGreenBright.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright.copy(alpha = 0.4f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TvEqualizerBars(isPlaying = playerState.isPlaying)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "RECORDIFY VIBEFLOW • 320 KBPS MASTER • LOSSLESS",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = SpotifyGreenBright,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                letterSpacing = 0.8.sp
                             )
                         )
                     }
@@ -205,10 +172,9 @@ fun TvNowPlayingView(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(280.dp)
-                            .shadow(28.dp, shape = RoundedCornerShape(16.dp), spotColor = SpotifyGreenBright.copy(alpha = 0.35f))
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color(0xFF141414))
-                            .border(1.5.dp, Color(0xFF2E2E2E), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0xFF282828), RoundedCornerShape(16.dp))
                     ) {
                         TrackCoverArt(
                             albumArtPath = rec?.albumArtPath,
@@ -373,11 +339,10 @@ fun TvNowPlayingView(
                             color = SpotifyGreenBright,
                             modifier = Modifier
                                 .size(66.dp)
-                                .shadow(18.dp, shape = CircleShape, spotColor = SpotifyGreenBright)
                                 .tvRemoteFocusable(
                                     onClick = onTogglePlay,
                                     shape = CircleShape,
-                                    focusScale = 1.15f,
+                                    focusScale = 1.08f,
                                     focusRequester = playPauseFocusRequester
                                 )
                         ) {

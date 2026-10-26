@@ -62,7 +62,7 @@ fun TvQueuePanel(
         shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp),
         color = Color(0xFF121212),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-        shadowElevation = 24.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .width(420.dp)
             .fillMaxHeight()

@@ -148,9 +148,14 @@ object SmartVibeQueueEngine {
      * Instantly seeds the upcoming queue with 10+ matching tracks when a user manually starts a song,
      * ensuring immediate zero-latency era and vibe consistency.
      */
-    fun getInstantSeedQueue(seed: QueueItem): List<QueueItem> {
+    fun getInstantSeedQueue(
+        seed: QueueItem,
+        preferredLanguages: Set<String> = emptySet(),
+        userCountry: String = "IN"
+    ): List<QueueItem> {
         val era = detectEra(seed.title, seed.artist, seed.album)
         val vibe = detectVibeType(seed.title, seed.artist, seed.album)
+        val isEnglishAllowed = preferredLanguages.any { it.equals("English", ignoreCase = true) }
 
         val sourceSongs: List<OnlineSongModel> = when {
             // Old song played -> strictly old/retro/90s songs
@@ -179,7 +184,7 @@ object SmartVibeQueueEngine {
             }
         }
 
-        // Filter out the seed track itself and map to QueueItem
+        // Filter out the seed track itself, enforce era compatibility, and STRICTLY exclude English if not preferred
         val seedTitleNorm = seed.title.lowercase().trim()
         val seedArtistNorm = seed.artist.lowercase().trim()
 
@@ -187,7 +192,18 @@ object SmartVibeQueueEngine {
             .filter { song ->
                 val sTitle = song.title.lowercase().trim()
                 val sArtist = song.artist.lowercase().trim()
-                song.id != seed.id && !sTitle.contains(seedTitleNorm) && !seedTitleNorm.contains(sTitle)
+                if (song.id == seed.id || sTitle.contains(seedTitleNorm) || seedTitleNorm.contains(sTitle)) {
+                    return@filter false
+                }
+                // If user did not select English, strictly filter out any English/Western songs
+                if (!isEnglishAllowed && preferredLanguages.isNotEmpty()) {
+                    val sLang = song.language ?: com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.inferLanguage("$sTitle $sArtist")
+                    if (sLang?.equals("English", ignoreCase = true) == true ||
+                        com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(sTitle, sArtist)) {
+                        return@filter false
+                    }
+                }
+                true
             }
             .distinctBy { it.title.lowercase().trim() }
             .take(12)
@@ -195,24 +211,25 @@ object SmartVibeQueueEngine {
     }
 
     /**
-     * Generates intelligent, era-aware search queries for network background replenishment.
+     * Generates intelligent, era-aware and language-connected search queries for background replenishment.
      */
     fun generateIntelligentSearchQueries(seed: QueueItem, targetLanguage: String): List<String> {
         val primaryArtist = seed.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
         val era = detectEra(seed.title, seed.artist, seed.album)
         val vibe = detectVibeType(seed.title, seed.artist, seed.album)
+        val lang = targetLanguage.ifBlank { "Hindi" }
 
         val queries = mutableListOf<String>()
 
         when {
             era == SongEra.OLD_RETRO || vibe == SongVibeType.CLASSIC_RETRO -> {
                 if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist 90s evergreen hits")
-                    queries.add("$primaryArtist golden retro classics")
+                    queries.add("$primaryArtist $lang 90s evergreen hits")
+                    queries.add("$primaryArtist $lang golden retro classics")
                 }
-                queries.add("90s Bollywood romantic evergreen hits")
+                queries.add("90s $lang romantic evergreen hits")
                 queries.add("Golden 70s 80s Kishore Kumar Lata hits")
-                queries.add("Evergreen old Hindi songs superhit")
+                queries.add("Evergreen old $lang songs superhit")
             }
 
             vibe == SongVibeType.PARTY_PUNJABI -> {
@@ -225,33 +242,33 @@ object SmartVibeQueueEngine {
 
             vibe == SongVibeType.CHILL_LOFI -> {
                 if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist chill acoustic")
+                    queries.add("$primaryArtist $lang chill acoustic")
                 }
-                queries.add("Chill lofi acoustic Hindi songs")
-                queries.add("Acoustic study relax beats")
+                queries.add("Chill lofi acoustic $lang songs")
+                queries.add("Acoustic study relax beats $lang")
             }
 
             vibe == SongVibeType.ROMANTIC -> {
                 if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist romantic love songs")
+                    queries.add("$primaryArtist $lang romantic love songs")
                 }
-                queries.add("Romantic Hindi love melodies superhit")
-                queries.add("Soulful romantic Bollywood songs")
+                queries.add("Romantic $lang love melodies superhit")
+                queries.add("Soulful romantic $lang songs")
             }
 
             era == SongEra.NEW_MODERN -> {
                 if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist latest trending songs")
+                    queries.add("$primaryArtist $lang latest trending songs")
                 }
-                queries.add("Latest Bollywood chartbusters 2024 2025")
-                queries.add("Trending new Hindi songs viral")
+                queries.add("Latest $lang chartbusters 2024 2025")
+                queries.add("Trending new $lang songs viral")
             }
 
             else -> {
                 if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $targetLanguage top songs")
+                    queries.add("$primaryArtist $lang top songs")
                 }
-                queries.add("Bollywood $targetLanguage superhit songs")
+                queries.add("$lang superhit songs")
             }
         }
 

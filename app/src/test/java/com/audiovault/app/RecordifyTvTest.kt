@@ -349,4 +349,47 @@ class RecordifyTvTest {
             )
         )
     }
+
+    @Test
+    fun testQueueStrictlyRejectsEnglishWhenEnglishNotSelected() {
+        val seed = com.audiovault.app.core.queue.QueueItem(
+            id = "test_hindi_seed",
+            title = "Tum Hi Ho",
+            artist = "Arijit Singh",
+            album = "Aashiqui 2"
+        )
+
+        // 1. When English is not selected (preferred languages = Hindi & Gujarati only)
+        val hindiQueue = com.audiovault.app.core.queue.SmartVibeQueueEngine.getInstantSeedQueue(
+            seed = seed,
+            preferredLanguages = setOf("Hindi", "Gujarati"),
+            userCountry = "IN"
+        )
+        assertTrue(hindiQueue.isNotEmpty())
+
+        for (item in hindiQueue) {
+            val inferredLang = com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.inferLanguage("${item.title} ${item.artist}")
+            assertFalse(
+                "Queue must NOT contain English track '${item.title}' when English is not selected",
+                inferredLang.equals("English", ignoreCase = true)
+            )
+            assertFalse(
+                "Queue must NOT contain Western artist '${item.artist}'",
+                com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(item.title, item.artist)
+            )
+        }
+
+        // 2. Western artist detector test
+        assertTrue(com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle("Shape of You", "Ed Sheeran"))
+        assertTrue(com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle("Faded", "Alan Walker"))
+        assertFalse(com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle("Kesariya", "Arijit Singh"))
+        assertFalse(com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle("Pehla Nasha", "Udit Narayan"))
+
+        // 3. Language-connected query generation
+        val gujaratiQueries = com.audiovault.app.core.queue.SmartVibeQueueEngine.generateIntelligentSearchQueries(seed, "Gujarati")
+        assertTrue(gujaratiQueries.any { it.contains("Gujarati", ignoreCase = true) })
+
+        val hindiQueries = com.audiovault.app.core.queue.SmartVibeQueueEngine.generateIntelligentSearchQueries(seed, "Hindi")
+        assertTrue(hindiQueries.any { it.contains("Hindi", ignoreCase = true) })
+    }
 }
