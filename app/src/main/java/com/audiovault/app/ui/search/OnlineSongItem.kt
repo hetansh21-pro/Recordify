@@ -126,7 +126,10 @@ fun OnlineSongItem(
                 }
                 Text(
                     text = "Song • ${song.artist}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3)),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xB3FFFFFF),
+                        fontSize = 12.sp
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

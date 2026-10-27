@@ -1,5 +1,6 @@
 package com.audiovault.app.ui.tv
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -83,16 +84,27 @@ fun TvLibraryView(
     firstPillFocusRequester: FocusRequester = remember { FocusRequester() },
     onNavigateUpToHeader: () -> Unit = {}
 ) {
-    val recordings by viewModel.recordings.collectAsState(initial = emptyList())
+    val allRecordings by viewModel.allRecordings.collectAsState(initial = emptyList())
     val playlists by viewModel.playlists.collectAsState()
     val savedArtists by viewModel.savedArtists.collectAsState()
 
+    val likedSongs = remember(allRecordings, likedSongIds) {
+        allRecordings.filter { likedSongIds.contains(it.id) }
+    }
+    val savedRecordings = remember(allRecordings) {
+        allRecordings.filter { it.filePath.isNotBlank() }
+    }
+
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
     val subviewBackFocusRequester = remember { FocusRequester() }
+    val firstSongFocusRequester = remember { FocusRequester() }
+
+    BackHandler(enabled = librarySubView != null) {
+        onLibrarySubViewChange(null)
+    }
 
     LaunchedEffect(librarySubView) {
         if (librarySubView != null) {
-            kotlinx.coroutines.delay(100L)
             try {
                 subviewBackFocusRequester.requestFocus()
             } catch (_: Exception) {}
@@ -115,14 +127,30 @@ fun TvLibraryView(
                     shape = CircleShape,
                     color = Color(0xFF1E1E1E),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
-                    modifier = Modifier.tvRemoteFocusable(
-                        onClick = { onLibrarySubViewChange(null) },
-                        shape = CircleShape,
-                        focusScale = 1.12f,
-                        focusRequester = subviewBackFocusRequester,
-                        focusBorderWidth = 2.dp,
-                        focusBorderColor = Color.White
-                    )
+                    modifier = Modifier
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionUp -> true // top locked
+                                    Key.DirectionLeft -> true // left locked
+                                    Key.DirectionDown -> {
+                                        try {
+                                            firstSongFocusRequester.requestFocus()
+                                        } catch (_: Exception) {}
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
+                        .tvRemoteFocusable(
+                            onClick = { onLibrarySubViewChange(null) },
+                            shape = CircleShape,
+                            focusScale = 1.12f,
+                            focusRequester = subviewBackFocusRequester,
+                            focusBorderWidth = 2.dp,
+                            focusBorderColor = Color.White
+                        )
                 ) {
                     Box(modifier = Modifier.padding(10.dp), contentAlignment = Alignment.Center) {
                         Icon(
@@ -138,9 +166,9 @@ fun TvLibraryView(
 
                 Text(
                     text = when (librarySubView) {
-                        "SAVED" -> "Your Episodes & Saved Songs (${recordings.size})"
-                        "FAVORITES" -> "Liked Songs (${likedSongIds.size})"
-                        "PLAYLISTS" -> "Playlists & Curated Vault"
+                        "SAVED" -> "Your Episodes & Saved Songs (${savedRecordings.size})"
+                        "FAVORITES" -> "Liked Songs (${likedSongs.size})"
+                        "PLAYLISTS" -> "Playlists & Curated Vault (${playlists.size})"
                         "ARTISTS" -> "Followed Artists (${savedArtists.size})"
                         else -> "Library Subview"
                     },
@@ -155,7 +183,7 @@ fun TvLibraryView(
 
             when (librarySubView) {
                 "SAVED" -> {
-                    if (recordings.isEmpty()) {
+                    if (savedRecordings.isEmpty()) {
                         TvEmptyLibraryState(
                             title = "No Saved Songs Found",
                             subtitle = "Download online songs or import local MP3s in Settings to view them here."
@@ -165,10 +193,37 @@ fun TvLibraryView(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(bottom = 32.dp)
                         ) {
-                            itemsIndexed(recordings) { index, rec ->
+                            itemsIndexed(savedRecordings) { index, rec ->
                                 TvSavedSongRow(
                                     rec = rec,
+                                    modifier = Modifier
+                                        .then(if (index == 0) Modifier.focusRequester(firstSongFocusRequester) else Modifier)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                                when (keyEvent.key) {
+                                                    Key.DirectionUp -> {
+                                                        if (index == 0) {
+                                                            try { subviewBackFocusRequester.requestFocus() } catch (_: Exception) {}
+                                                            true
+                                                        } else false
+                                                    }
+                                                    Key.DirectionLeft -> true
+                                                    Key.DirectionRight -> true
+                                                    Key.DirectionDown -> if (index == savedRecordings.lastIndex) true else false
+                                                    else -> false
+                                                }
+                                            } else false
+                                        },
                                     onPlay = {
+                                        val upcoming = savedRecordings.drop(index + 1).map {
+                                            OnlineSongModel(
+                                                id = it.id.toString(),
+                                                title = it.title,
+                                                artist = it.artist ?: "Unknown",
+                                                streamUrl = it.filePath,
+                                                highResArtUrl = it.albumArtPath
+                                            )
+                                        }
                                         onPlaySong(
                                             OnlineSongModel(
                                                 id = rec.id.toString(),
@@ -177,7 +232,7 @@ fun TvLibraryView(
                                                 streamUrl = rec.filePath,
                                                 highResArtUrl = rec.albumArtPath
                                             ),
-                                            null
+                                            upcoming
                                         )
                                     }
                                 )
@@ -186,7 +241,6 @@ fun TvLibraryView(
                     }
                 }
                 "FAVORITES" -> {
-                    val likedSongs = recordings.filter { likedSongIds.contains(it.id) }
                     if (likedSongs.isEmpty()) {
                         TvEmptyLibraryState(
                             title = "No Favorite Songs Yet",
@@ -200,7 +254,34 @@ fun TvLibraryView(
                             itemsIndexed(likedSongs) { index, rec ->
                                 TvSavedSongRow(
                                     rec = rec,
+                                    modifier = Modifier
+                                        .then(if (index == 0) Modifier.focusRequester(firstSongFocusRequester) else Modifier)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                                when (keyEvent.key) {
+                                                    Key.DirectionUp -> {
+                                                        if (index == 0) {
+                                                            try { subviewBackFocusRequester.requestFocus() } catch (_: Exception) {}
+                                                            true
+                                                        } else false
+                                                    }
+                                                    Key.DirectionLeft -> true
+                                                    Key.DirectionRight -> true
+                                                    Key.DirectionDown -> if (index == likedSongs.lastIndex) true else false
+                                                    else -> false
+                                                }
+                                            } else false
+                                        },
                                     onPlay = {
+                                        val upcoming = likedSongs.drop(index + 1).map {
+                                            OnlineSongModel(
+                                                id = it.id.toString(),
+                                                title = it.title,
+                                                artist = it.artist ?: "Unknown",
+                                                streamUrl = it.filePath,
+                                                highResArtUrl = it.albumArtPath
+                                            )
+                                        }
                                         onPlaySong(
                                             OnlineSongModel(
                                                 id = rec.id.toString(),
@@ -209,7 +290,7 @@ fun TvLibraryView(
                                                 streamUrl = rec.filePath,
                                                 highResArtUrl = rec.albumArtPath
                                             ),
-                                            null
+                                            upcoming
                                         )
                                     }
                                 )
@@ -269,45 +350,56 @@ fun TvLibraryView(
                     }
                 }
                 "ARTISTS" -> {
-                    val allArtists = (savedArtists + listOf("Aditya Gadhvi", "Pritam", "Arijit Singh", "Kumar Sanu")).distinct()
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 32.dp)
-                    ) {
-                        items(allArtists) { artistName ->
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF161616),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .tvRemoteFocusable(
-                                        onClick = {},
-                                        shape = RoundedCornerShape(10.dp),
-                                        focusScale = 1.02f
-                                    )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFF262626),
-                                        modifier = Modifier.size(44.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Default.Person, contentDescription = null, tint = SpotifyGreenBright)
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(
-                                        text = artistName,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                    if (savedArtists.isEmpty()) {
+                        TvEmptyLibraryState(
+                            title = "No Followed Artists Yet",
+                            subtitle = "Follow artists from search or album views to see them here."
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 32.dp)
+                        ) {
+                            items(savedArtists.toList()) { artistName ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF161616),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .tvRemoteFocusable(
+                                            onClick = {
+                                                val album = CuratedAlbumCatalog.curatedAlbums.find { it.title.contains(artistName, ignoreCase = true) }
+                                                if (album != null) onOpenAlbum(album)
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            focusScale = 1.02f,
+                                            isLeftBoundary = true,
+                                            isRightBoundary = true
                                         )
-                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(0xFF262626),
+                                            modifier = Modifier.size(44.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Person, contentDescription = null, tint = SpotifyGreenBright)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            text = artistName,
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -443,7 +535,7 @@ fun TvLibraryView(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "📌 Playlist • ${likedSongIds.size.coerceAtLeast(6)} songs",
+                                        text = "📌 Playlist • ${likedSongs.size} ${if (likedSongs.size == 1) "song" else "songs"}",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xFF888888),
                                             fontSize = 11.sp
@@ -504,7 +596,7 @@ fun TvLibraryView(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "📌 Playlist • Recordify Vault",
+                                        text = "📌 Saved • ${savedRecordings.size} ${if (savedRecordings.size == 1) "track" else "tracks"}",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xFF888888),
                                             fontSize = 11.sp
@@ -516,65 +608,31 @@ fun TvLibraryView(
                         }
                     }
 
-                    // 3. Circular Artist Card: Aditya Gadhvi
-                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
-                        item {
-                            TvCircularArtistCard(
-                                name = "Aditya Gadhvi",
-                                imageUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_000_20231019075727_500x500.jpg",
-                                onClick = {
-                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_aditya_gadhvi" }
-                                    if (album != null) onOpenAlbum(album)
-                                }
-                            )
-                        }
-                    }
-
-                    // 4. Playlist Card: My songs
+                    // 3. User & Curated Playlists
                     if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
-                        item {
-                            val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_my_songs" }
-                            if (album != null) {
+                        val displayPlaylists = CuratedAlbumCatalog.curatedAlbums.take(4)
+                        displayPlaylists.forEach { album ->
+                            item {
                                 TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
                             }
                         }
                     }
 
-                    // 5. Playlist Card: Sadi ke fall sa
-                    if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
-                        item {
-                            val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_sadi_ke_fall_sa" }
-                            if (album != null) {
-                                TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
+                    // 4. Followed Artists
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
+                        if (savedArtists.isNotEmpty()) {
+                            savedArtists.take(4).forEach { artistName ->
+                                item {
+                                    TvCircularArtistCard(
+                                        name = artistName,
+                                        imageUrl = null,
+                                        onClick = {
+                                            val album = CuratedAlbumCatalog.curatedAlbums.find { it.title.contains(artistName, ignoreCase = true) }
+                                            if (album != null) onOpenAlbum(album)
+                                        }
+                                    )
+                                }
                             }
-                        }
-                    }
-
-                    // 6. Circular Artist Card: Pritam
-                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
-                        item {
-                            TvCircularArtistCard(
-                                name = "Pritam",
-                                imageUrl = "https://c.saavncdn.com/artists/Pritam_500x500.jpg",
-                                onClick = {
-                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_pritam" }
-                                    if (album != null) onOpenAlbum(album)
-                                }
-                            )
-                        }
-                    }
-
-                    // 7. Circular Artist Card: Arijit Singh
-                    if (selectedFilterPill == "All" || selectedFilterPill == "Artists") {
-                        item {
-                            TvCircularArtistCard(
-                                name = "Arijit Singh",
-                                imageUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
-                                onClick = {
-                                    val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_arijit_singh" }
-                                    if (album != null) onOpenAlbum(album)
-                                }
-                            )
                         }
                     }
                 }
@@ -643,18 +701,21 @@ private fun TvLibraryCategoryCard(
 @Composable
 private fun TvSavedSongRow(
     rec: RecordingEntity,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
         color = Color(0xFF161616),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .tvRemoteFocusable(
                 onClick = onPlay,
                 shape = RoundedCornerShape(10.dp),
-                focusScale = 1.02f
+                focusScale = 1.02f,
+                isLeftBoundary = true,
+                isRightBoundary = true
             )
     ) {
         Row(

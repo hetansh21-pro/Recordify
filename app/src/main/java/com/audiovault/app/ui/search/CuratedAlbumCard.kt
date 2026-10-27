@@ -126,9 +126,9 @@ fun CuratedAlbumCard(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = album.artist ?: "Curated Album",
+                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFFB3B3B3),
+                    color = Color(0xB3FFFFFF),
                     fontSize = 11.sp
                 ),
                 maxLines = 1,

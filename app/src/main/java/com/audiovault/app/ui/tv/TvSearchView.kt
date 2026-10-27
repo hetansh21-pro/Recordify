@@ -138,6 +138,31 @@ fun TvSearchView(
             } catch (_: Exception) {}
         } else {
             keyboardController?.hide()
+            kotlinx.coroutines.delay(60L)
+            try {
+                capsuleFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(isSearching) {
+        if (isSearching) {
+            try {
+                capsuleFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        } else if (searchQuery.isNotBlank()) {
+            kotlinx.coroutines.delay(100L)
+            if (searchResults.isNotEmpty() || matchingAlbums.isNotEmpty()) {
+                try {
+                    firstContentFocusRequester.requestFocus()
+                } catch (_: Exception) {
+                    try { capsuleFocusRequester.requestFocus() } catch (_: Exception) {}
+                }
+            } else {
+                try {
+                    capsuleFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -176,8 +201,8 @@ fun TvSearchView(
                                 Key.DirectionDown -> {
                                     try {
                                         firstContentFocusRequester.requestFocus()
-                                        true
-                                    } catch (_: Exception) { false }
+                                    } catch (_: Exception) {}
+                                    true
                                 }
                                 Key.DirectionRight -> {
                                     if (searchQuery.isNotEmpty()) {
@@ -312,8 +337,8 @@ fun TvSearchView(
                                             Key.DirectionDown -> {
                                                 try {
                                                     firstContentFocusRequester.requestFocus()
-                                                    true
-                                                } catch (_: Exception) { false }
+                                                } catch (_: Exception) {}
+                                                true
                                             }
                                             Key.DirectionUp -> {
                                                 onNavigateUpToHeader()

@@ -129,6 +129,11 @@ fun RecordifyTvScreen(
         librarySubView = null
     }
 
+    // Level 3 (Library Subview): In Library Subview -> Return to Library main cards
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView != null) {
+        librarySubView = null
+    }
+
     // Level 2 (Search): Search query active -> Clear search query
     BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && selectedTab == TvNavTab.SEARCH && searchQuery.isNotBlank()) {
         searchQuery = ""

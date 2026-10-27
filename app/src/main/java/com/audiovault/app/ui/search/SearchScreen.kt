@@ -141,6 +141,16 @@ fun SearchScreen(
     val selectedLanguageFilter by viewModel.selectedLanguageFilter.collectAsState()
     val selectedVersionFilter by viewModel.selectedVersionFilter.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val userSettings by viewModel.userSettings.collectAsState()
+    val countryProfile = remember(userSettings.userCountryCode) {
+        com.audiovault.app.core.catalog.CountryMusicCatalog.getProfile(userSettings.userCountryCode)
+    }
+    val dynamicDiscoveryAlbums = remember(countryProfile.countryCode, searchContainer?.albums) {
+        val regional = countryProfile.quickAccessTiles
+        val curated = com.audiovault.app.core.catalog.CuratedAlbumCatalog.curatedAlbums
+        val online = searchContainer?.albums ?: emptyList()
+        (online + regional + curated).distinctBy { it.id }.shuffled().take(16)
+    }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -794,6 +804,34 @@ fun SearchScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
+                        // Loading Animation during active search
+                        if (isOnlineSearching) {
+                            item(key = "search_loading_indicator") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = SpotifyGreenBright,
+                                        modifier = Modifier.size(22.dp),
+                                        strokeWidth = 2.5.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Searching Recordify Catalog...",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color(0xB3FFFFFF),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
                         // 1. TOP SPOTIFY AUTOCOMPLETE SUGGESTIONS (Search icon on left, Up-right arrow on right)
                         if (searchSuggestions.isNotEmpty() && (selectedSearchTab == "All" || selectedSearchTab == "Songs")) {
                             items(searchSuggestions) { suggestionText ->
@@ -888,10 +926,10 @@ fun SearchScreen(
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Text(
-                                                    text = album.artist ?: "Playlist • Recordify",
+                                                    text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
                                                     style = MaterialTheme.typography.bodySmall.copy(
-                                                        color = Color(0xFFB3B3B3),
-                                                        fontSize = 13.sp
+                                                        color = Color(0xB3FFFFFF),
+                                                        fontSize = 12.sp
                                                     ),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
@@ -994,10 +1032,10 @@ fun SearchScreen(
                                                     )
                                                     Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
-                                                        text = playlist90s.artist ?: "Playlist • Recordify",
+                                                        text = "Playlist • Recordify",
                                                         style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xFFB3B3B3),
-                                                            fontSize = 13.sp
+                                                            color = Color(0xB3FFFFFF),
+                                                            fontSize = 12.sp
                                                         ),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -1068,10 +1106,10 @@ fun SearchScreen(
                                                     )
                                                     Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
-                                                        text = playlistOldIsGold.artist ?: "Playlist • Recordify",
+                                                        text = "Playlist • Recordify",
                                                         style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xFFB3B3B3),
-                                                            fontSize = 13.sp
+                                                            color = Color(0xB3FFFFFF),
+                                                            fontSize = 12.sp
                                                         ),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -1158,10 +1196,10 @@ fun SearchScreen(
                                                     )
                                                     Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
-                                                        text = album.artist ?: "Album",
+                                                        text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
                                                         style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xFFB3B3B3),
-                                                            fontSize = 13.sp
+                                                            color = Color(0xB3FFFFFF),
+                                                            fontSize = 12.sp
                                                         ),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -1203,8 +1241,11 @@ fun SearchScreen(
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                         Text(
-                                                            text = album.artist ?: "Album",
-                                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3)),
+                                                            text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                color = Color(0xB3FFFFFF),
+                                                                fontSize = 12.sp
+                                                            ),
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
@@ -1480,7 +1521,7 @@ fun SearchScreen(
                         item {
                             Column(modifier = Modifier.padding(bottom = 18.dp)) {
                                 Text(
-                                    text = "Timeless Eras & Curated Albums",
+                                    text = "Popular Albums & Playlists in ${countryProfile.countryName}",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -1494,7 +1535,7 @@ fun SearchScreen(
                                         .horizontalScroll(rememberScrollState()),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    com.audiovault.app.core.catalog.CuratedAlbumCatalog.curatedAlbums.forEach { curated ->
+                                    dynamicDiscoveryAlbums.forEach { curated ->
                                         CuratedAlbumCard(
                                             album = curated,
                                             onClick = {
@@ -2119,7 +2160,10 @@ fun ArtistSearchResultItem(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = if (songCount > 0) "Artist • $songCount ${if (songCount == 1) "track" else "tracks"}" else "Artist",
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3)),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xB3FFFFFF),
+                    fontSize = 12.sp
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
