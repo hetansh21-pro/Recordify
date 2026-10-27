@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.audiovault.app.core.online.OnlineSongModel
+import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.theme.SpotifyGreenBright
 
@@ -49,16 +50,22 @@ fun OnlineSongItem(
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onCancelDownload: () -> Unit = {},
+    onSwipeToQueue: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    SwipeToQueueContainer(
+        onSwipeToQueue = { onSwipeToQueue?.invoke() },
+        enabled = onSwipeToQueue != null,
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .clickable { onPlayClick() }
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { onPlayClick() }
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         // High-Resolution Square Cover Art (Identical to normal songs)
         Box(
             modifier = Modifier.size(48.dp),
@@ -194,4 +201,5 @@ fun OnlineSongItem(
             }
         }
     }
+}
 }

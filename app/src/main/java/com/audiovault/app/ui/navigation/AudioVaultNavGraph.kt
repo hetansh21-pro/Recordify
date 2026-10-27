@@ -278,6 +278,12 @@ fun AudioVaultNavGraph(
                             AudioVaultBottomBar(
                                 currentRoute = currentRoute,
                                 onNavigateToRoute = { route ->
+                                    // Dismiss open album/playlist details and overlays cleanly
+                                    recordingsViewModel.closeAlbumDetails()
+                                    showRecordOverlay = false
+                                    showSettingsOverlay = false
+                                    isArtistDetailOpen = false
+
                                     val targetIndex = Screen.items.indexOfFirst { it.route == route }
                                     if (targetIndex >= 0) {
                                         scope.launch {
@@ -328,6 +334,7 @@ fun AudioVaultNavGraph(
                             1 -> SearchScreen(
                                 viewModel = recordingsViewModel,
                                 userName = userName,
+                                isCurrentPage = pagerState.currentPage == 1,
                                 onOpenDrawer = {
                                     scope.launch {
                                         drawerState.open()
@@ -337,6 +344,7 @@ fun AudioVaultNavGraph(
                             2 -> LibraryScreen(
                                 viewModel = recordingsViewModel,
                                 userName = userName,
+                                isCurrentPage = pagerState.currentPage == 2,
                                 onNavigateToSearch = {
                                     scope.launch {
                                         pagerState.scrollToPage(1)

@@ -2,6 +2,7 @@ package com.audiovault.app.ui.library
 
 import androidx.activity.compose.BackHandler
 import com.audiovault.app.ui.components.ArtistAvatar
+import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.components.TrackCoverArt
 
 import androidx.compose.animation.AnimatedVisibility
@@ -126,6 +127,7 @@ fun LibraryScreen(
     userName: String = "",
     onArtistDetailStateChange: (Boolean) -> Unit = {},
     onOpenDrawer: () -> Unit = {},
+    isCurrentPage: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val recordings by viewModel.recordings.collectAsState()
@@ -139,6 +141,13 @@ fun LibraryScreen(
     var selectedTab by remember { mutableStateOf(LibraryTab.ALL) }
     var selectedArtistForDetail by remember { mutableStateOf<String?>(null) }
     var selectedPlaylistForDetail by remember { mutableStateOf<String?>(null) } // "LIKED" or playlistId
+
+    LaunchedEffect(isCurrentPage) {
+        if (!isCurrentPage) {
+            selectedPlaylistForDetail = null
+            selectedArtistForDetail = null
+        }
+    }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showAddArtistDialog by remember { mutableStateOf(false) }
     var playlistToRename by remember { mutableStateOf<com.audiovault.app.data.repository.UserPlaylist?>(null) }
@@ -148,6 +157,7 @@ fun LibraryScreen(
     var librarySearchQuery by remember { mutableStateOf("") }
     var isGridView by rememberSaveable { mutableStateOf(false) }
     val libraryGridState = rememberLazyGridState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(selectedArtistForDetail, selectedPlaylistForDetail) {
         onArtistDetailStateChange(selectedArtistForDetail != null || selectedPlaylistForDetail != null)
@@ -292,7 +302,11 @@ fun LibraryScreen(
             onDeleteArtist = { artistToDelete = Pair(artistName, artistSongs.size) },
             onRename = { recordingToRename = it },
             onDelete = { recordingToDelete = it },
-            onLyrics = { recordingForLyrics = it }
+            onLyrics = { recordingForLyrics = it },
+            onSwipeToQueue = { song ->
+                viewModel.addRecordingToQueue(song)
+                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+            }
         )
     } else if (selectedPlaylistForDetail != null) {
         val isLikedView = selectedPlaylistForDetail == "LIKED"
@@ -323,7 +337,11 @@ fun LibraryScreen(
             },
             onRenameSong = { recordingToRename = it },
             onDeleteSong = { recordingToDelete = it },
-            onLyricsSong = { recordingForLyrics = it }
+            onLyricsSong = { recordingForLyrics = it },
+            onSwipeToQueue = { song ->
+                viewModel.addRecordingToQueue(song)
+                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+            }
         )
     } else {
         val libraryListState = rememberLazyListState()
@@ -902,7 +920,11 @@ fun LibraryScreen(
                                     onPlayClick = { viewModel.playPauseRecording(recording) },
                                     onRename = { recordingToRename = recording },
                                     onDelete = { recordingToDelete = recording },
-                                    onLyrics = { recordingForLyrics = recording }
+                                    onLyrics = { recordingForLyrics = recording },
+                                    onSwipeToQueue = {
+                                        viewModel.addRecordingToQueue(recording)
+                                        android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                 )
                             }
                         }
@@ -1316,18 +1338,23 @@ fun SongLibraryRow(
     onPlayClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
-    onLyrics: () -> Unit
+    onLyrics: () -> Unit,
+    onSwipeToQueue: (() -> Unit)? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onPlayClick() }
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SwipeToQueueContainer(
+        onSwipeToQueue = { onSwipeToQueue?.invoke() },
+        enabled = onSwipeToQueue != null
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onPlayClick() }
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         // Square Track Thumbnail with Album Art
         Box(
             modifier = Modifier.size(54.dp),
@@ -1430,6 +1457,7 @@ fun SongLibraryRow(
         }
     }
 }
+}
 
 /**
  * Artist discography detail view showing all captured songs divided under this artist.
@@ -1447,7 +1475,8 @@ fun ArtistDetailView(
     onDeleteArtist: () -> Unit,
     onRename: (RecordingEntity) -> Unit,
     onDelete: (RecordingEntity) -> Unit,
-    onLyrics: (RecordingEntity) -> Unit
+    onLyrics: (RecordingEntity) -> Unit,
+    onSwipeToQueue: ((RecordingEntity) -> Unit)? = null
 ) {
     var artistMenuExpanded by remember { mutableStateOf(false) }
 
@@ -1609,7 +1638,8 @@ fun ArtistDetailView(
                     onPlayClick = { onSongClick(song) },
                     onRename = { onRename(song) },
                     onDelete = { onDelete(song) },
-                    onLyrics = { onLyrics(song) }
+                    onLyrics = { onLyrics(song) },
+                    onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(song) } }
                 )
             }
         }
@@ -2172,7 +2202,8 @@ fun PlaylistDetailView(
     onRemoveSong: (RecordingEntity) -> Unit,
     onRenameSong: (RecordingEntity) -> Unit,
     onDeleteSong: (RecordingEntity) -> Unit,
-    onLyricsSong: (RecordingEntity) -> Unit
+    onLyricsSong: (RecordingEntity) -> Unit,
+    onSwipeToQueue: ((RecordingEntity) -> Unit)? = null
 ) {
     var headerMenuExpanded by remember { mutableStateOf(false) }
 
@@ -2379,14 +2410,18 @@ fun PlaylistDetailView(
                     val isTrackPlaying = isPlaying && currentPlayingId == song.id
                     var menuExpanded by remember { mutableStateOf(false) }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSongClick(song) }
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    SwipeToQueueContainer(
+                        onSwipeToQueue = { onSwipeToQueue?.invoke(song) },
+                        enabled = onSwipeToQueue != null
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onSongClick(song) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         TrackCoverArt(
                             albumArtPath = song.albumArtPath,
                             title = song.title,
@@ -2473,6 +2508,7 @@ fun PlaylistDetailView(
                             }
                         }
                     }
+                }
                 }
             }
         }

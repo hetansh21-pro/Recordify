@@ -543,6 +543,8 @@ fun SpotifyFullScreenPlayer(
         if (showQueueSheet && queueState != null) {
             VibeFlowQueueBottomSheet(
                 queueState = queueState,
+                isPlaying = playerState.isPlaying,
+                onTogglePlayPause = onTogglePlayPause,
                 onPlayTrackAt = onPlayQueueItem,
                 onRemoveTrackAt = onRemoveQueueItem,
                 onMoveQueueItemUp = onMoveQueueItemUp,

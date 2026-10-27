@@ -55,6 +55,7 @@ import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.recordings.RecordingsViewModel
+import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.theme.SpotifyBlack
 import com.audiovault.app.ui.theme.SpotifyGreenBright
 
@@ -74,6 +75,7 @@ fun AlbumDetailScreen(
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
     val albumDownloadProgress by viewModel.albumDownloadProgress.collectAsState()
     val selectedAlbumState by viewModel.selectedAlbum.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val currentAlbum = (selectedAlbumState?.takeIf { it.id == album.id }) ?: album
 
@@ -392,7 +394,11 @@ fun AlbumDetailScreen(
                     downloadProgress = trackProgress,
                     onClick = { viewModel.playAlbumSoundtrack(currentAlbum, index) },
                     onDownload = { viewModel.downloadOnlineSong(track) },
-                    onCancelDownload = { viewModel.cancelDownload(track.id) }
+                    onCancelDownload = { viewModel.cancelDownload(track.id) },
+                    onSwipeToQueue = {
+                        viewModel.addSongToQueue(track)
+                        android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 )
             }
         }
@@ -409,15 +415,21 @@ private fun AlbumTrackRow(
     onClick: () -> Unit,
     onDownload: () -> Unit = {},
     onCancelDownload: () -> Unit = {},
+    onSwipeToQueue: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    SwipeToQueueContainer(
+        onSwipeToQueue = { onSwipeToQueue?.invoke() },
+        enabled = onSwipeToQueue != null,
         modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -504,4 +516,5 @@ private fun AlbumTrackRow(
             )
         }
     }
+}
 }

@@ -730,6 +730,12 @@ class PlaybackQueueManager(
     }
 
     // Queue mutations
+    fun addToQueue(item: QueueItem) {
+        val current = _queueState.value.upcomingQueue.toMutableList()
+        current.add(item)
+        _queueState.update { it.copy(upcomingQueue = current) }
+    }
+
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
         val current = _queueState.value.upcomingQueue.toMutableList()
         if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {

@@ -92,7 +92,13 @@ fun TvLibraryView(
         allRecordings.filter { likedSongIds.contains(it.id) }
     }
     val savedRecordings = remember(allRecordings) {
-        allRecordings.filter { it.filePath.isNotBlank() }
+        allRecordings.filter { rec ->
+            rec.filePath.isNotBlank() &&
+            !rec.filePath.startsWith("http://") &&
+            !rec.filePath.startsWith("https://") &&
+            rec.sourcePackage != "com.audiovault.online" &&
+            java.io.File(rec.filePath).exists()
+        }
     }
 
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
@@ -484,6 +490,7 @@ fun TvLibraryView(
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 24.dp, top = 8.dp, bottom = 8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // 1. Special "Liked Songs" Card
@@ -497,7 +504,8 @@ fun TvLibraryView(
                                     .tvRemoteFocusable(
                                         onClick = { onLibrarySubViewChange("FAVORITES") },
                                         shape = RoundedCornerShape(12.dp),
-                                        focusScale = 1.08f
+                                        focusScale = 1.08f,
+                                        isLeftBoundary = true
                                     )
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {

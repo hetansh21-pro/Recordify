@@ -1,11 +1,13 @@
 package com.audiovault.app.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -66,8 +70,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import com.audiovault.app.core.queue.PlaybackQueueState
 import com.audiovault.app.core.queue.PlaybackRepeatMode
 import com.audiovault.app.core.queue.QueueItem
@@ -89,6 +96,8 @@ import com.audiovault.app.ui.theme.SpotifyGreenBright
 @Composable
 fun VibeFlowQueueBottomSheet(
     queueState: PlaybackQueueState,
+    isPlaying: Boolean = true,
+    onTogglePlayPause: () -> Unit = {},
     onPlayTrackAt: (Int) -> Unit,
     onRemoveTrackAt: (Int) -> Unit,
     onMoveQueueItemUp: ((Int) -> Unit)? = null,
@@ -105,6 +114,11 @@ fun VibeFlowQueueBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var activeEditIndex by remember { mutableStateOf<Int?>(null) }
     var showTimerMenu by remember { mutableStateOf(false) }
+
+    val density = LocalDensity.current
+    val rowThresholdPx = with(density) { 56.dp.toPx() }
+    var draggingItemId by remember { mutableStateOf<String?>(null) }
+    var draggingDeltaY by remember { mutableFloatStateOf(0f) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -281,14 +295,17 @@ fun VibeFlowQueueBottomSheet(
                                 Surface(
                                     shape = CircleShape,
                                     color = Color.White,
-                                    modifier = Modifier.size(34.dp)
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onTogglePlayPause() }
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
-                                            imageVector = Icons.Default.Pause,
-                                            contentDescription = "Playing",
+                                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = if (isPlaying) "Pause" else "Play",
                                             tint = Color.Black,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
@@ -374,12 +391,37 @@ fun VibeFlowQueueBottomSheet(
                 } else {
                     itemsIndexed(
                         queueState.upcomingQueue,
-                        key = { index, item -> "queue_${item.id}_$index" }
+                        key = { _, item -> item.id }
                     ) { index, item ->
+                        val isItemDragging = draggingItemId == item.id
                         SpotifyQueueTrackRow(
                             item = item,
                             index = index,
                             totalCount = queueState.upcomingQueue.size,
+                            isDragging = isItemDragging,
+                            draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
+                            onDragStart = {
+                                draggingItemId = item.id
+                                draggingDeltaY = 0f
+                            },
+                            onDragEnd = {
+                                draggingItemId = null
+                                draggingDeltaY = 0f
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                draggingDeltaY += dragAmount.y
+                                val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
+                                if (currentIdx >= 0) {
+                                    if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
+                                        onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
+                                        draggingDeltaY -= rowThresholdPx
+                                    } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
+                                        onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
+                                        draggingDeltaY += rowThresholdPx
+                                    }
+                                }
+                            },
                             isEditing = activeEditIndex == index,
                             onToggleEdit = {
                                 activeEditIndex = if (activeEditIndex == index) null else index
@@ -553,6 +595,11 @@ private fun SpotifyQueueTrackRow(
     item: QueueItem,
     index: Int,
     totalCount: Int,
+    isDragging: Boolean = false,
+    draggingOffsetY: Float = 0f,
+    onDragStart: () -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDrag: (androidx.compose.ui.input.pointer.PointerInputChange, androidx.compose.ui.geometry.Offset) -> Unit = { _, _ -> },
     isEditing: Boolean = false,
     onToggleEdit: () -> Unit,
     onPlay: () -> Unit,
@@ -561,152 +608,189 @@ private fun SpotifyQueueTrackRow(
     onRemove: () -> Unit
 ) {
     val density = LocalDensity.current
-    val rowThresholdPx = with(density) { 54.dp.toPx() }
-    var isDragging by remember { mutableStateOf(false) }
-    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val deleteThresholdPx = with(density) { 72.dp.toPx() }
+    var swipeOffsetX by remember { mutableFloatStateOf(0f) }
+    val animatedSwipeOffsetX by animateFloatAsState(targetValue = swipeOffsetX)
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .zIndex(if (isDragging) 10f else 0f)
             .graphicsLayer {
-                translationY = dragOffsetY
-                scaleX = if (isDragging) 1.03f else 1f
-                scaleY = if (isDragging) 1.03f else 1f
-                shadowElevation = if (isDragging) 24f else 0f
+                translationY = draggingOffsetY
+                scaleX = if (isDragging) 1.04f else 1f
+                scaleY = if (isDragging) 1.04f else 1f
+                shadowElevation = if (isDragging) 28f else 0f
             }
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isDragging) Color(0xFF282828) else if (isEditing) Color(0xFF222222) else Color.Transparent)
-            .combinedClickable(
-                onClick = onPlay,
-                onLongClick = onToggleEdit
-            )
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Album Cover Art (Square 46.dp)
-        TrackCoverArt(
-            albumArtPath = item.albumArtPath,
-            title = item.title,
-            artist = item.artist,
-            size = 46.dp,
-            shape = RoundedCornerShape(4.dp)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Title and Artist Subtitle (Clean Spotify-Style without green badges)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 14.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = item.artist,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFFB3B3B3),
-                    fontSize = 12.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        if (isEditing) {
-            // Three Quick Action Items: Up, Down, Close
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+        // Red swipe-left-to-delete background
+        if (animatedSwipeOffsetX < 0f) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color(0xFFE91E63)),
+                contentAlignment = Alignment.CenterEnd
             ) {
-                // 1. Move Up
-                IconButton(
-                    onClick = onMoveUp,
-                    enabled = index > 0,
-                    modifier = Modifier.size(32.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Move Up",
-                        tint = if (index > 0) Color.White else Color(0xFF555555),
-                        modifier = Modifier.size(20.dp)
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete from Queue",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
                     )
-                }
-
-                // 2. Move Down
-                IconButton(
-                    onClick = onMoveDown,
-                    enabled = index < totalCount - 1,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Move Down",
-                        tint = if (index < totalCount - 1) Color.White else Color(0xFF555555),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // 3. Remove
-                IconButton(
-                    onClick = onRemove,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove from Queue",
-                        tint = Color(0xFFE91E63),
-                        modifier = Modifier.size(18.dp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Delete",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
                     )
                 }
             }
-        } else {
-            // Authentic 3-Bar Drag Handle (`≡`)
-            // Fluid vertical drag tracking + visual lift effect
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .pointerInput(index) {
-                        detectDragGestures(
-                            onDragStart = {
-                                isDragging = true
-                                dragOffsetY = 0f
-                            },
-                            onDragEnd = {
-                                isDragging = false
-                                dragOffsetY = 0f
-                            },
-                            onDragCancel = {
-                                isDragging = false
-                                dragOffsetY = 0f
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffsetY += dragAmount.y
-                                if (dragOffsetY > rowThresholdPx && index < totalCount - 1) {
-                                    onMoveDown()
-                                    dragOffsetY -= rowThresholdPx
-                                } else if (dragOffsetY < -rowThresholdPx && index > 0) {
-                                    onMoveUp()
-                                    dragOffsetY += rowThresholdPx
-                                }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedSwipeOffsetX.roundToInt(), 0) }
+                .background(if (isDragging) Color(0xFF282828) else if (isEditing) Color(0xFF222222) else Color(0xFF141414))
+                .pointerInput(item.id) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {},
+                        onDragEnd = {
+                            if (swipeOffsetX < -deleteThresholdPx) {
+                                onRemove()
                             }
+                            swipeOffsetX = 0f
+                        },
+                        onDragCancel = {
+                            swipeOffsetX = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            val newOffset = swipeOffsetX + dragAmount
+                            if (newOffset <= 0f) {
+                                change.consume()
+                                swipeOffsetX = newOffset.coerceAtLeast(-deleteThresholdPx * 1.5f)
+                            }
+                        }
+                    )
+                }
+                .combinedClickable(
+                    onClick = onPlay,
+                    onLongClick = onToggleEdit
+                )
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Album Cover Art (Square 46.dp)
+            TrackCoverArt(
+                albumArtPath = item.albumArtPath,
+                title = item.title,
+                artist = item.artist,
+                size = 46.dp,
+                shape = RoundedCornerShape(4.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Title and Artist Subtitle (Clean Spotify-Style without green badges)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 14.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = item.artist,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFB3B3B3),
+                        fontSize = 12.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            if (isEditing) {
+                // Three Quick Action Items: Up, Down, Close
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    // 1. Move Up
+                    IconButton(
+                        onClick = onMoveUp,
+                        enabled = index > 0,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Move Up",
+                            tint = if (index > 0) Color.White else Color(0xFF555555),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    .clip(CircleShape)
-                    .clickable { onToggleEdit() },
-                contentAlignment = Alignment.Center
-            ) {
-                SpotifyDragHandleIcon(color = if (isDragging) Color.White else Color(0xFF888888))
+
+                    // 2. Move Down
+                    IconButton(
+                        onClick = onMoveDown,
+                        enabled = index < totalCount - 1,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Move Down",
+                            tint = if (index < totalCount - 1) Color.White else Color(0xFF555555),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // 3. Remove
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove from Queue",
+                            tint = Color(0xFFE91E63),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            } else {
+                // Authentic 3-Bar Drag Handle (`≡`)
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .pointerInput(item.id) {
+                            detectDragGestures(
+                                onDragStart = { onDragStart() },
+                                onDragEnd = { onDragEnd() },
+                                onDragCancel = { onDragEnd() },
+                                onDrag = { change, dragAmount -> onDrag(change, dragAmount) }
+                            )
+                        }
+                        .clip(CircleShape)
+                        .clickable { onToggleEdit() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    SpotifyDragHandleIcon(color = if (isDragging) Color.White else Color(0xFF888888))
+                }
             }
         }
     }

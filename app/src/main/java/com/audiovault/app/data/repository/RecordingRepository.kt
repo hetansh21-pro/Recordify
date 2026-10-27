@@ -205,8 +205,10 @@ class RecordingRepository(
         try {
             val allRecordings = recordingDao.getAllRecordings()
             allRecordings.forEach { rec ->
-                if (rec.durationMs < 50_000L || isAdvertisement(rec.title, rec.artist)) {
-                    android.util.Log.i("AudioVault/Repo", "Cleaning up short/ad recording: ${rec.title} (${rec.durationMs}ms)")
+                val isOnlinePlaceholder = rec.sourcePackage == "com.audiovault.online" || rec.filePath.startsWith("http")
+                val isMissingPhysicalFile = !isOnlinePlaceholder && (rec.filePath.isBlank() || !java.io.File(rec.filePath).exists())
+                if (rec.durationMs < 50_000L || isAdvertisement(rec.title, rec.artist) || isMissingPhysicalFile) {
+                    android.util.Log.i("AudioVault/Repo", "Cleaning up invalid/missing recording: ${rec.title} (${rec.durationMs}ms)")
                     deleteRecording(rec)
                 }
             }

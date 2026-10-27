@@ -428,6 +428,20 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         playbackQueueManager.toggleRepeatMode()
     }
 
+    fun addToQueue(item: com.audiovault.app.core.queue.QueueItem) {
+        playbackQueueManager.addToQueue(item)
+    }
+
+    fun addSongToQueue(song: com.audiovault.app.core.online.OnlineSongModel) {
+        val item = com.audiovault.app.core.queue.QueueItem.fromOnlineSong(song)
+        playbackQueueManager.addToQueue(item)
+    }
+
+    fun addRecordingToQueue(recording: RecordingEntity) {
+        val item = com.audiovault.app.core.queue.QueueItem.fromRecording(recording)
+        playbackQueueManager.addToQueue(item)
+    }
+
     fun removeFromQueue(index: Int) {
         playbackQueueManager.removeAt(index)
     }

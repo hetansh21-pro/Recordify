@@ -121,6 +121,7 @@ fun SearchScreen(
     viewModel: RecordingsViewModel,
     userName: String = "",
     onOpenDrawer: () -> Unit = {},
+    isCurrentPage: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val recordings by viewModel.recordings.collectAsState()
@@ -153,6 +154,7 @@ fun SearchScreen(
     }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -167,6 +169,12 @@ fun SearchScreen(
     var recordingToRename by remember { mutableStateOf<RecordingEntity?>(null) }
     var recordingForLyrics by remember { mutableStateOf<RecordingEntity?>(null) }
     var artistToDelete by remember { mutableStateOf<Pair<String, Int>?>(null) }
+
+    LaunchedEffect(isCurrentPage) {
+        if (!isCurrentPage) {
+            selectedArtistForDetail = null
+        }
+    }
 
     // Request focus when entering active search mode
     LaunchedEffect(isSearchActive) {
@@ -959,7 +967,11 @@ fun SearchScreen(
                                                 viewModel.playOnlineSong(onlineSong)
                                             },
                                             onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
+                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                            onSwipeToQueue = {
+                                                viewModel.addSongToQueue(onlineSong)
+                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
                                         )
                                     }
                                 }
@@ -993,7 +1005,11 @@ fun SearchScreen(
                                                 viewModel.playOnlineSong(onlineSong)
                                             },
                                             onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
+                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                            onSwipeToQueue = {
+                                                viewModel.addSongToQueue(onlineSong)
+                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
                                         )
                                     }
 
@@ -1066,7 +1082,11 @@ fun SearchScreen(
                                                     viewModel.playOnlineSong(song3)
                                                 },
                                                 onDownloadClick = { viewModel.downloadOnlineSong(song3) },
-                                                onCancelDownload = { viewModel.cancelDownload(song3.id) }
+                                                onCancelDownload = { viewModel.cancelDownload(song3.id) },
+                                                onSwipeToQueue = {
+                                                    viewModel.addSongToQueue(song3)
+                                                    android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
                                             )
                                         }
                                     }
@@ -1154,7 +1174,11 @@ fun SearchScreen(
                                                 viewModel.playOnlineSong(onlineSong)
                                             },
                                             onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
+                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                            onSwipeToQueue = {
+                                                viewModel.addSongToQueue(onlineSong)
+                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
                                         )
                                     }
                                 }
@@ -1330,7 +1354,11 @@ fun SearchScreen(
                                         viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
                                     },
                                     onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                    onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
+                                    onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                    onSwipeToQueue = {
+                                        viewModel.addSongToQueue(onlineSong)
+                                        android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                 )
                             }
                         } else if (selectedSearchTab == "Albums" || selectedSearchTab == "Playlists") {
