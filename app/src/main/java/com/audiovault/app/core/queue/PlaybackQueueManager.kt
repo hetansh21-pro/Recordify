@@ -759,7 +759,11 @@ class PlaybackQueueManager(
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
         val current = _queueState.value.upcomingQueue.toMutableList()
         if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
-            val item = current.removeAt(fromIndex)
+            var item = current.removeAt(fromIndex)
+            val userQueueEndIndex = current.indexOfFirst { !it.isUserQueued }.let { if (it == -1) current.size else it }
+            if (toIndex <= userQueueEndIndex) {
+                item = item.copy(isUserQueued = true)
+            }
             current.add(toIndex, item)
             _queueState.update { it.copy(upcomingQueue = current) }
         }

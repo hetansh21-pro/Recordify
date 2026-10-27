@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.audiovault.app.core.catalog.CuratedAlbumCatalog
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
@@ -104,6 +105,9 @@ fun TvLibraryView(
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
     val subviewBackFocusRequester = remember { FocusRequester() }
     val firstSongFocusRequester = remember { FocusRequester() }
+    var lastOpenedSubView by remember { mutableStateOf<String?>(null) }
+    val likedCardFocusRequester = remember { FocusRequester() }
+    val savedCardFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = librarySubView != null) {
         onLibrarySubViewChange(null)
@@ -113,6 +117,15 @@ fun TvLibraryView(
         if (librarySubView != null) {
             try {
                 subviewBackFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        } else if (lastOpenedSubView != null) {
+            delay(80)
+            try {
+                when (lastOpenedSubView) {
+                    "FAVORITES" -> likedCardFocusRequester.requestFocus()
+                    "SAVED" -> savedCardFocusRequester.requestFocus()
+                    else -> firstPillFocusRequester?.requestFocus()
+                }
             } catch (_: Exception) {}
         }
     }
@@ -502,10 +515,14 @@ fun TvLibraryView(
                                 modifier = Modifier
                                     .width(160.dp)
                                     .tvRemoteFocusable(
-                                        onClick = { onLibrarySubViewChange("FAVORITES") },
+                                        onClick = {
+                                            lastOpenedSubView = "FAVORITES"
+                                            onLibrarySubViewChange("FAVORITES")
+                                        },
                                         shape = RoundedCornerShape(12.dp),
                                         focusScale = 1.08f,
-                                        isLeftBoundary = true
+                                        isLeftBoundary = true,
+                                        focusRequester = likedCardFocusRequester
                                     )
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
@@ -564,9 +581,13 @@ fun TvLibraryView(
                                 modifier = Modifier
                                     .width(160.dp)
                                     .tvRemoteFocusable(
-                                        onClick = { onLibrarySubViewChange("SAVED") },
+                                        onClick = {
+                                            lastOpenedSubView = "SAVED"
+                                            onLibrarySubViewChange("SAVED")
+                                        },
                                         shape = RoundedCornerShape(12.dp),
-                                        focusScale = 1.08f
+                                        focusScale = 1.08f,
+                                        focusRequester = savedCardFocusRequester
                                     )
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {

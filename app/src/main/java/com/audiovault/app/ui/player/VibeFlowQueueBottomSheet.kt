@@ -123,9 +123,24 @@ fun VibeFlowQueueBottomSheet(
     var showTimerMenu by remember { mutableStateOf(false) }
 
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val rowThresholdPx = with(density) { 56.dp.toPx() }
     var draggingItemId by remember { mutableStateOf<String?>(null) }
-    var draggingDeltaY by remember { mutableFloatStateOf(0f) }
+    var dragStartIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingOffsetY by remember { mutableFloatStateOf(0f) }
+    var lastHapticIndex by remember { mutableStateOf<Int?>(null) }
+
+    val currentTargetIndex: Int? = if (dragStartIndex != null && queueState.upcomingQueue.isNotEmpty()) {
+        val steps = (draggingOffsetY / rowThresholdPx).roundToInt()
+        (dragStartIndex!! + steps).coerceIn(0, queueState.upcomingQueue.size - 1)
+    } else null
+
+    androidx.compose.runtime.LaunchedEffect(currentTargetIndex) {
+        if (currentTargetIndex != null && currentTargetIndex != lastHapticIndex) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            lastHapticIndex = currentTargetIndex
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -398,6 +413,20 @@ fun VibeFlowQueueBottomSheet(
                             key = { it.second.id }
                         ) { (index, item) ->
                             val isItemDragging = draggingItemId == item.id
+                            val neighborOffsetY = if (draggingItemId != null && dragStartIndex != null && currentTargetIndex != null && !isItemDragging) {
+                                val start = dragStartIndex!!
+                                val target = currentTargetIndex!!
+                                if (target > start && index in (start + 1)..target) {
+                                    -rowThresholdPx
+                                } else if (target < start && index in target until start) {
+                                    rowThresholdPx
+                                } else {
+                                    0f
+                                }
+                            } else {
+                                0f
+                            }
+
                             SpotifyQueueTrackRow(
                                 item = item,
                                 index = index,
@@ -405,28 +434,27 @@ fun VibeFlowQueueBottomSheet(
                                 canSwipeRightToQueue = false,
                                 canSwipeLeftToDelete = true,
                                 isDragging = isItemDragging,
-                                draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
+                                draggingOffsetY = if (isItemDragging) draggingOffsetY else neighborOffsetY,
                                 onDragStart = {
                                     draggingItemId = item.id
-                                    draggingDeltaY = 0f
+                                    dragStartIndex = index
+                                    draggingOffsetY = 0f
+                                    lastHapticIndex = index
                                 },
                                 onDragEnd = {
+                                    val start = dragStartIndex
+                                    val target = currentTargetIndex
+                                    if (start != null && target != null && start != target) {
+                                        onMoveQueueItem?.invoke(start, target)
+                                    }
                                     draggingItemId = null
-                                    draggingDeltaY = 0f
+                                    dragStartIndex = null
+                                    draggingOffsetY = 0f
+                                    lastHapticIndex = null
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    draggingDeltaY += dragAmount.y
-                                    val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
-                                    if (currentIdx >= 0) {
-                                        if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
-                                            onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
-                                            draggingDeltaY -= rowThresholdPx
-                                        } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
-                                            onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
-                                            draggingDeltaY += rowThresholdPx
-                                        }
-                                    }
+                                    draggingOffsetY += dragAmount.y
                                 },
                                 isEditing = activeEditIndex == index,
                                 onToggleEdit = {
@@ -504,6 +532,20 @@ fun VibeFlowQueueBottomSheet(
                             key = { it.second.id }
                         ) { (index, item) ->
                             val isItemDragging = draggingItemId == item.id
+                            val neighborOffsetY = if (draggingItemId != null && dragStartIndex != null && currentTargetIndex != null && !isItemDragging) {
+                                val start = dragStartIndex!!
+                                val target = currentTargetIndex!!
+                                if (target > start && index in (start + 1)..target) {
+                                    -rowThresholdPx
+                                } else if (target < start && index in target until start) {
+                                    rowThresholdPx
+                                } else {
+                                    0f
+                                }
+                            } else {
+                                0f
+                            }
+
                             SpotifyQueueTrackRow(
                                 item = item,
                                 index = index,
@@ -514,28 +556,27 @@ fun VibeFlowQueueBottomSheet(
                                 },
                                 canSwipeLeftToDelete = true,
                                 isDragging = isItemDragging,
-                                draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
+                                draggingOffsetY = if (isItemDragging) draggingOffsetY else neighborOffsetY,
                                 onDragStart = {
                                     draggingItemId = item.id
-                                    draggingDeltaY = 0f
+                                    dragStartIndex = index
+                                    draggingOffsetY = 0f
+                                    lastHapticIndex = index
                                 },
                                 onDragEnd = {
+                                    val start = dragStartIndex
+                                    val target = currentTargetIndex
+                                    if (start != null && target != null && start != target) {
+                                        onMoveQueueItem?.invoke(start, target)
+                                    }
                                     draggingItemId = null
-                                    draggingDeltaY = 0f
+                                    dragStartIndex = null
+                                    draggingOffsetY = 0f
+                                    lastHapticIndex = null
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    draggingDeltaY += dragAmount.y
-                                    val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
-                                    if (currentIdx >= 0) {
-                                        if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
-                                            onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
-                                            draggingDeltaY -= rowThresholdPx
-                                        } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
-                                            onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
-                                            draggingDeltaY += rowThresholdPx
-                                        }
-                                    }
+                                    draggingOffsetY += dragAmount.y
                                 },
                                 isEditing = activeEditIndex == index,
                                 onToggleEdit = {
@@ -739,12 +780,20 @@ private fun SpotifyQueueTrackRow(
         label = "QueueTrackRowSwipeOffset"
     )
 
+    val animatedNeighborOffsetY by animateFloatAsState(
+        targetValue = if (isDragging) 0f else draggingOffsetY,
+        animationSpec = spring(dampingRatio = 0.8f, stiffness = 500f),
+        label = "NeighborRowOffset"
+    )
+
+    val finalTranslationY = if (isDragging) draggingOffsetY else animatedNeighborOffsetY
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(if (isDragging) 10f else 0f)
             .graphicsLayer {
-                translationY = draggingOffsetY
+                translationY = finalTranslationY
                 scaleX = if (isDragging) 1.04f else 1f
                 scaleY = if (isDragging) 1.04f else 1f
                 shadowElevation = if (isDragging) 28f else 0f

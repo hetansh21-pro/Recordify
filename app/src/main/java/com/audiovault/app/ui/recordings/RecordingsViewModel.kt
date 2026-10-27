@@ -521,7 +521,11 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         _selectedVersionFilter.value = version
     }
 
-    fun searchOnlineMusic(query: String) {
+    fun submitSearch(query: String = _searchQuery.value) {
+        searchOnlineMusic(query, immediate = true)
+    }
+
+    fun searchOnlineMusic(query: String, immediate: Boolean = false) {
         onlineSearchJob?.cancel()
         val trimmed = query.trim()
 
@@ -574,7 +578,13 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val settings = userSettings.value
-        val debounceMs = if (trimmed.length <= 2) 90L else 120L
+        // Balanced typing debounce: gives user ample time to write full words
+        // Immediate mode (keyboard Search/Enter button) bypasses debounce entirely (0ms)
+        val debounceMs = when {
+            immediate -> 0L
+            trimmed.length <= 1 -> 800L
+            else -> 600L
+        }
 
         // Check for matching pre-built curated albums (90s, Old Songs, Retro Classics)
         val curatedMatches = com.audiovault.app.core.catalog.CuratedAlbumCatalog.findMatchingAlbums(trimmed)

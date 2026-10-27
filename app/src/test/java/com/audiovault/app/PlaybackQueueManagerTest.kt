@@ -314,4 +314,29 @@ class PlaybackQueueManagerTest {
         assertThat(state.upcomingQueue[1].id).isEqualTo("album_1")
         assertThat(state.upcomingQueue[2].id).isEqualTo("album_2")
     }
+
+    @Test
+    fun `moveQueueItem allows multi-step reordering across any arbitrary positions`() = runTest(testDispatcher) {
+        val current = createDummyItem("curr", "Current Song", "Artist")
+        val tracks = (1..6).map { createDummyItem("track_$it", "Track $it", "Artist") }
+
+        queueManager.playTrackExplicitly(current, tracks, mode = QueueMode.ALBUM)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Drag track_5 (index 4) up 3 positions to index 1
+        queueManager.moveQueueItem(4, 1)
+
+        val state = queueManager.queueState.value
+        assertThat(state.upcomingQueue.map { it.id }).containsExactly(
+            "track_1", "track_5", "track_2", "track_3", "track_4", "track_6"
+        ).inOrder()
+
+        // Drag track_1 (index 0) down 4 positions to index 4
+        queueManager.moveQueueItem(0, 4)
+
+        val state2 = queueManager.queueState.value
+        assertThat(state2.upcomingQueue.map { it.id }).containsExactly(
+            "track_5", "track_2", "track_3", "track_4", "track_1", "track_6"
+        ).inOrder()
+    }
 }

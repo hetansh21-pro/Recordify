@@ -156,11 +156,12 @@ fun SwipeToQueueContainer(
             }
         }
 
-        // Swipable child content
+        // Swipable child content with solid dark background so green is only revealed on the left
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .background(Color(0xFF121212))
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragStart = {

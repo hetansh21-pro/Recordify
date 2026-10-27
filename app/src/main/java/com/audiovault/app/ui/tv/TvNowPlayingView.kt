@@ -128,6 +128,7 @@ fun TvNowPlayingView(
     var isDarkScreenActive by rememberSaveable { mutableStateOf(false) }
     var darkToastMessage by remember { mutableStateOf<String?>(null) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var wasAboutOpen by remember { mutableStateOf(false) }
     var showLyricsDialog by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
@@ -144,6 +145,16 @@ fun TvNowPlayingView(
     val lyricsFocusRequester = remember { FocusRequester() }
     val queueFocusRequester = remember { FocusRequester() }
     val aboutFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(showAboutDialog) {
+        if (wasAboutOpen && !showAboutDialog) {
+            delay(60)
+            try {
+                aboutFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+        wasAboutOpen = showAboutDialog
+    }
     val darkModeFocusRequester = remember { FocusRequester() }
 
     // Auto-focus on Play/Pause button on initial entry into full screen player
@@ -1071,6 +1082,7 @@ fun TvNowPlayingView(
                         detectTapGestures(
                             onTap = {
                                 showAboutDialog = false
+                                try { aboutFocusRequester.requestFocus() } catch (_: Exception) {}
                             }
                         )
                     }
@@ -1079,6 +1091,7 @@ fun TvNowPlayingView(
                             when (keyEvent.key) {
                                 Key.Back, Key.Escape -> {
                                     showAboutDialog = false
+                                    try { aboutFocusRequester.requestFocus() } catch (_: Exception) {}
                                     true
                                 }
                                 Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight -> {
@@ -1089,6 +1102,7 @@ fun TvNowPlayingView(
                                 }
                                 Key.Enter, Key.DirectionCenter, Key.NumPadEnter -> {
                                     showAboutDialog = false
+                                    try { aboutFocusRequester.requestFocus() } catch (_: Exception) {}
                                     true
                                 }
                                 else -> true // Consume all other keys to isolate background view
@@ -1206,7 +1220,10 @@ fun TvNowPlayingView(
                                     right = closeFocusRequester
                                 }
                                 .tvRemoteFocusable(
-                                    onClick = { showAboutDialog = false },
+                                    onClick = {
+                                        showAboutDialog = false
+                                        try { aboutFocusRequester.requestFocus() } catch (_: Exception) {}
+                                    },
                                     shape = RoundedCornerShape(24.dp),
                                     focusScale = 1.08f
                                 )

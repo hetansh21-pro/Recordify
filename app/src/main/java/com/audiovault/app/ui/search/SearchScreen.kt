@@ -3,6 +3,7 @@ package com.audiovault.app.ui.search
 import androidx.activity.compose.BackHandler
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.components.ProcessingTimelineBadge
+import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.search.OnlineSongItem
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -391,7 +392,11 @@ fun SearchScreen(
             onDeleteArtist = { artistToDelete = Pair(artistName, displayedSongs.size) },
             onRename = { recordingToRename = it },
             onDelete = { recordingToDelete = it },
-            onLyrics = { recordingForLyrics = it }
+            onLyrics = { recordingForLyrics = it },
+            onSwipeToQueue = { song ->
+                viewModel.addRecordingToQueue(song)
+                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+            }
         )
     } else if (activeCategoryFilter != null) {
         val cat = activeCategoryFilter!!
@@ -406,7 +411,11 @@ fun SearchScreen(
             currentPlayingId = playerState.currentRecording?.id,
             isPlaying = playerState.isPlaying,
             onBack = { activeCategoryFilter = null },
-            onSongClick = { viewModel.playPauseRecording(it) }
+            onSongClick = { viewModel.playPauseRecording(it) },
+            onSwipeToQueue = { song ->
+                viewModel.addRecordingToQueue(song)
+                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+            }
         )
     } else {
         val searchListState = rememberLazyListState()
@@ -564,6 +573,7 @@ fun SearchScreen(
                                         cursorBrush = SolidColor(SpotifyGreenBright),
                                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                         keyboardActions = KeyboardActions(onSearch = {
+                                            viewModel.submitSearch(searchQuery)
                                             keyboardController?.hide()
                                             focusManager.clearFocus()
                                         }),
@@ -1861,7 +1871,8 @@ fun CategoryDetailView(
     currentPlayingId: Long?,
     isPlaying: Boolean,
     onBack: () -> Unit,
-    onSongClick: (RecordingEntity) -> Unit
+    onSongClick: (RecordingEntity) -> Unit,
+    onSwipeToQueue: ((RecordingEntity) -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -1971,7 +1982,8 @@ fun CategoryDetailView(
                     SearchResultItem(
                         recording = song,
                         isPlaying = isPlayingTrack,
-                        onClick = { onSongClick(song) }
+                        onClick = { onSongClick(song) },
+                        onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(song) } }
                     )
                 }
             }
@@ -1983,16 +1995,21 @@ fun CategoryDetailView(
 fun SearchResultItem(
     recording: RecordingEntity,
     isPlaying: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onSwipeToQueue: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .clickable { onClick() }
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SwipeToQueueContainer(
+        onSwipeToQueue = { onSwipeToQueue?.invoke() },
+        enabled = onSwipeToQueue != null
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { onClick() }
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Box(
             modifier = Modifier.size(48.dp),
             contentAlignment = Alignment.Center
@@ -2066,6 +2083,7 @@ fun SearchResultItem(
                 }
             }
         }
+    }
     }
 }
 
