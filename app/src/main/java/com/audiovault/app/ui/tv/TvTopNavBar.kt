@@ -224,11 +224,6 @@ fun TvTopNavBar(
                                     onTabSelected(tab)
                                     onNavigateDown(tab)
                                 },
-                                onFocusChanged = { isFocused ->
-                                    if (isFocused && selectedTab != tab) {
-                                        onTabSelected(tab)
-                                    }
-                                },
                                 shape = RoundedCornerShape(50),
                                 focusScale = 1.05f,
                                 focusBorderWidth = 2.dp,

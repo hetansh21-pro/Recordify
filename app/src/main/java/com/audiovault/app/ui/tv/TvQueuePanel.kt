@@ -179,7 +179,10 @@ fun TvQueuePanel(
                             .tvRemoteFocusable(
                                 onClick = onClose,
                                 shape = CircleShape,
-                                focusScale = 1.12f
+                                focusScale = 1.15f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -383,9 +386,10 @@ fun TvQueuePanel(
                                         .tvRemoteFocusable(
                                             onClick = { onMoveQueueItemUp?.invoke(index) },
                                             shape = CircleShape,
-                                            focusScale = 1.15f,
+                                            focusScale = 1.2f,
                                             focusBorderWidth = 2.dp,
-                                            focusBorderColor = Color.White
+                                            focusBorderColor = Color.White,
+                                            focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -405,9 +409,10 @@ fun TvQueuePanel(
                                         .tvRemoteFocusable(
                                             onClick = { onMoveQueueItemDown?.invoke(index) },
                                             shape = CircleShape,
-                                            focusScale = 1.15f,
+                                            focusScale = 1.2f,
                                             focusBorderWidth = 2.dp,
-                                            focusBorderColor = Color.White
+                                            focusBorderColor = Color.White,
+                                            focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -430,9 +435,10 @@ fun TvQueuePanel(
                                                 activeEditIndex = null
                                             },
                                             shape = CircleShape,
-                                            focusScale = 1.15f,
+                                            focusScale = 1.2f,
                                             focusBorderWidth = 2.dp,
-                                            focusBorderColor = Color.White
+                                            focusBorderColor = Color.White,
+                                            focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -452,16 +458,17 @@ fun TvQueuePanel(
                                         .tvRemoteFocusable(
                                             onClick = { activeEditIndex = index },
                                             shape = CircleShape,
-                                            focusScale = 1.15f,
+                                            focusScale = 1.2f,
                                             focusBorderWidth = 2.dp,
-                                            focusBorderColor = Color.White
+                                            focusBorderColor = Color.White,
+                                            focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
                                         contentDescription = "Edit Track in Queue",
-                                        tint = Color(0xFF888888),
+                                        tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }

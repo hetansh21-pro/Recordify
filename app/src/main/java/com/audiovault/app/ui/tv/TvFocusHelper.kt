@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -54,6 +55,8 @@ fun Modifier.tvRemoteFocusable(
     focusBorderWidth: Dp = 1.5.dp,
     focusBorderColor: Color = Color.White,
     unfocusedBorderColor: Color = Color.Transparent,
+    focusedBackgroundColor: Color = Color.Transparent,
+    unfocusedBackgroundColor: Color = Color.Transparent,
     elevationOnFocus: Dp = 0.dp,
     focusRequester: FocusRequester? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null
@@ -74,6 +77,11 @@ fun Modifier.tvRemoteFocusable(
         label = "tv_border_color"
     )
 
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) focusedBackgroundColor else unfocusedBackgroundColor,
+        label = "tv_bg_color"
+    )
+
     val currentElevation by animateFloatAsState(
         targetValue = if (isFocused) elevationOnFocus.value else 0f,
         label = "tv_elevation"
@@ -89,6 +97,7 @@ fun Modifier.tvRemoteFocusable(
         }
         .scale(scale)
         .then(if (currentElevation > 0f) Modifier.shadow(currentElevation.dp, shape = shape) else Modifier)
+        .then(if (focusedBackgroundColor != Color.Transparent || unfocusedBackgroundColor != Color.Transparent) Modifier.background(backgroundColor, shape = shape) else Modifier)
         .border(width = if (isFocused) focusBorderWidth else 1.dp, color = borderColor, shape = shape)
         .focusable(interactionSource = interactionSource)
         .onKeyEvent { keyEvent ->

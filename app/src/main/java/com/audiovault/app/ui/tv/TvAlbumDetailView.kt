@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
@@ -46,6 +47,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -81,6 +87,8 @@ fun TvAlbumDetailView(
     val likedSongIds by viewModel.likedSongIds.collectAsState()
 
     val masterPlayFocusRequester = remember { FocusRequester() }
+    val tracklistButtonFocusRequester = remember { FocusRequester() }
+    val firstTrackFocusRequester = remember { FocusRequester() }
 
     // Auto-focus on Master Play Button when entering Album Details
     LaunchedEffect(album.id) {
@@ -211,10 +219,10 @@ fun TvAlbumDetailView(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Buttons Row: Shuffle, Add, and Big Green Play Button
+                // Action Buttons Row: Shuffle, Add, Master Play Button, and Browse Tracklist
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Shuffle button
                     Surface(
@@ -233,7 +241,10 @@ fun TvAlbumDetailView(
                                     }
                                 },
                                 shape = CircleShape,
-                                focusScale = 1.12f
+                                focusScale = 1.15f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                             )
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -259,7 +270,10 @@ fun TvAlbumDetailView(
                                     }
                                 },
                                 shape = CircleShape,
-                                focusScale = 1.12f
+                                focusScale = 1.15f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                             )
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -277,7 +291,7 @@ fun TvAlbumDetailView(
                         shape = CircleShape,
                         color = SpotifyGreenBright,
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(52.dp)
                             .focusRequester(masterPlayFocusRequester)
                             .tvRemoteFocusable(
                                 onClick = {
@@ -288,7 +302,9 @@ fun TvAlbumDetailView(
                                     }
                                 },
                                 shape = CircleShape,
-                                focusScale = 1.12f
+                                focusScale = 1.12f,
+                                focusBorderWidth = 2.5.dp,
+                                focusBorderColor = Color.White
                             )
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -296,7 +312,54 @@ fun TvAlbumDetailView(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Play All",
                                 tint = Color.Black,
-                                modifier = Modifier.size(30.dp)
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    // Dedicated Browse Tracklist Button (Must click OK to focus songs; blocks D-pad Right leak)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF222222),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .focusRequester(tracklistButtonFocusRequester)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                                    true // Stop focus from leaking to songs on D-pad right
+                                } else false
+                            }
+                            .tvRemoteFocusable(
+                                onClick = {
+                                    try {
+                                        firstTrackFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                },
+                                shape = RoundedCornerShape(50),
+                                focusScale = 1.08f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
+                            )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                                contentDescription = "Tracklist",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Tracklist",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
                             )
                         }
                     }
@@ -328,7 +391,13 @@ fun TvAlbumDetailView(
                         },
                         onToggleLike = {
                             viewModel.toggleLikedSong(song.id.hashCode().toLong(), null)
-                        }
+                        },
+                        onNavigateLeft = {
+                            try {
+                                tracklistButtonFocusRequester.requestFocus()
+                            } catch (_: Exception) {}
+                        },
+                        focusRequester = if (index == 0) firstTrackFocusRequester else null
                     )
                 }
             }
@@ -338,7 +407,7 @@ fun TvAlbumDetailView(
 
 /**
  * Authentic Spotify TV Track Row (Reference: IMG20261026111634.jpg).
- * Features translucent pill highlight on remote focus, white thumbnail border, and quick actions.
+ * Features translucent pill highlight on remote focus, white thumbnail border, and interactive quick actions.
  */
 @Composable
 private fun TvSpotifyTrackRow(
@@ -347,7 +416,9 @@ private fun TvSpotifyTrackRow(
     isPlaying: Boolean,
     isLiked: Boolean,
     onPlay: () -> Unit,
-    onToggleLike: () -> Unit
+    onToggleLike: () -> Unit,
+    onNavigateLeft: () -> Unit = {},
+    focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -356,11 +427,18 @@ private fun TvSpotifyTrackRow(
         color = if (isFocused) Color.White.copy(alpha = 0.12f) else if (isPlaying) SpotifyGreenBright.copy(alpha = 0.08f) else Color.Transparent,
         border = androidx.compose.foundation.BorderStroke(
             width = if (isFocused) 1.5.dp else 0.dp,
-            color = if (isFocused) Color.White.copy(alpha = 0.6f) else Color.Transparent
+            color = if (isFocused) Color.White.copy(alpha = 0.8f) else Color.Transparent
         ),
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
+                    onNavigateLeft()
+                    true
+                } else false
+            }
             .tvRemoteFocusable(
                 onClick = onPlay,
                 shape = RoundedCornerShape(10.dp),
@@ -419,7 +497,7 @@ private fun TvSpotifyTrackRow(
                 )
             }
 
-            // Focused quick action buttons (+) and (•••)
+            // Focused quick action buttons (+) and (•••) with full TV remote focusability
             if (isFocused) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -430,7 +508,14 @@ private fun TvSpotifyTrackRow(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .clickable { onToggleLike() },
+                            .tvRemoteFocusable(
+                                onClick = onToggleLike,
+                                shape = CircleShape,
+                                focusScale = 1.2f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -444,7 +529,15 @@ private fun TvSpotifyTrackRow(
                     Box(
                         modifier = Modifier
                             .size(32.dp)
-                            .clip(CircleShape),
+                            .clip(CircleShape)
+                            .tvRemoteFocusable(
+                                onClick = onPlay,
+                                shape = CircleShape,
+                                focusScale = 1.2f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White,
+                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

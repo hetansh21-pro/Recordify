@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -560,14 +561,21 @@ private fun SpotifyQueueTrackRow(
     onRemove: () -> Unit
 ) {
     val density = LocalDensity.current
-    val rowThresholdPx = with(density) { 48.dp.toPx() }
-    var dragAccumulatorY by remember { mutableFloatStateOf(0f) }
+    val rowThresholdPx = with(density) { 54.dp.toPx() }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (isEditing) Color(0xFF222222) else Color.Transparent)
+            .graphicsLayer {
+                translationY = dragOffsetY
+                scaleX = if (isDragging) 1.03f else 1f
+                scaleY = if (isDragging) 1.03f else 1f
+                shadowElevation = if (isDragging) 24f else 0f
+            }
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isDragging) Color(0xFF282828) else if (isEditing) Color(0xFF222222) else Color.Transparent)
             .combinedClickable(
                 onClick = onPlay,
                 onLongClick = onToggleEdit
@@ -586,7 +594,7 @@ private fun SpotifyQueueTrackRow(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Title and Artist Subtitle
+        // Title and Artist Subtitle (Clean Spotify-Style without green badges)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title,
@@ -610,30 +618,6 @@ private fun SpotifyQueueTrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
-            // Transparent Recommendation Reason Badge
-            if (!item.recommendationReason.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(SpotifyGreenBright)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = item.recommendationReason,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = SpotifyGreenBright,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
 
         Spacer(modifier = Modifier.width(8.dp))
@@ -687,24 +671,33 @@ private fun SpotifyQueueTrackRow(
             }
         } else {
             // Authentic 3-Bar Drag Handle (`≡`)
-            // Supports touch & drag gestures + tap to open quick reorder buttons
+            // Fluid vertical drag tracking + visual lift effect
             Box(
                 modifier = Modifier
                     .size(38.dp)
                     .pointerInput(index) {
                         detectDragGestures(
-                            onDragStart = { dragAccumulatorY = 0f },
-                            onDragEnd = { dragAccumulatorY = 0f },
-                            onDragCancel = { dragAccumulatorY = 0f },
+                            onDragStart = {
+                                isDragging = true
+                                dragOffsetY = 0f
+                            },
+                            onDragEnd = {
+                                isDragging = false
+                                dragOffsetY = 0f
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                dragOffsetY = 0f
+                            },
                             onDrag = { change, dragAmount ->
                                 change.consume()
-                                dragAccumulatorY += dragAmount.y
-                                if (dragAccumulatorY > rowThresholdPx && index < totalCount - 1) {
+                                dragOffsetY += dragAmount.y
+                                if (dragOffsetY > rowThresholdPx && index < totalCount - 1) {
                                     onMoveDown()
-                                    dragAccumulatorY = 0f
-                                } else if (dragAccumulatorY < -rowThresholdPx && index > 0) {
+                                    dragOffsetY -= rowThresholdPx
+                                } else if (dragOffsetY < -rowThresholdPx && index > 0) {
                                     onMoveUp()
-                                    dragAccumulatorY = 0f
+                                    dragOffsetY += rowThresholdPx
                                 }
                             }
                         )
@@ -713,7 +706,7 @@ private fun SpotifyQueueTrackRow(
                     .clickable { onToggleEdit() },
                 contentAlignment = Alignment.Center
             ) {
-                SpotifyDragHandleIcon(color = Color(0xFF888888))
+                SpotifyDragHandleIcon(color = if (isDragging) Color.White else Color(0xFF888888))
             }
         }
     }

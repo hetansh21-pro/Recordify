@@ -115,7 +115,6 @@ fun TvSearchView(
 
     LaunchedEffect(isEditingText) {
         if (isEditingText) {
-            kotlinx.coroutines.delay(50)
             try {
                 textFieldFocusRequester.requestFocus()
                 keyboardController?.show()
@@ -158,15 +157,11 @@ fun TvSearchView(
                     }
                     .tvRemoteFocusable(
                         onClick = {
-                            if (isEditingText) {
-                                isEditingText = false
-                                keyboardController?.hide()
-                                if (searchQuery.isNotBlank()) {
-                                    viewModel.searchOnlineMusic(searchQuery)
-                                }
-                            } else {
-                                isEditingText = true
-                            }
+                            isEditingText = true
+                            try {
+                                textFieldFocusRequester.requestFocus()
+                                keyboardController?.show()
+                            } catch (_: Exception) {}
                         },
                         shape = RoundedCornerShape(50),
                         focusBorderWidth = 2.dp,
@@ -263,16 +258,22 @@ fun TvSearchView(
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .tvRemoteFocusable(
-                                    onClick = { onSearchQueryChange("") },
+                                    onClick = {
+                                        onSearchQueryChange("")
+                                        try { capsuleFocusRequester.requestFocus() } catch (_: Exception) {}
+                                    },
                                     shape = CircleShape,
-                                    focusScale = 1.15f
+                                    focusScale = 1.2f,
+                                    focusBorderWidth = 2.dp,
+                                    focusBorderColor = Color.White,
+                                    focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = "Clear Search",
-                                tint = Color(0xFFB3B3B3),
+                                tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
