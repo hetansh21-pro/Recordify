@@ -85,7 +85,9 @@ fun TvSearchView(
     isSearching: Boolean,
     onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onPlayAlbum: (OnlineAlbumModel) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    capsuleFocusRequester: FocusRequester = remember { FocusRequester() },
+    onNavigateUpToHeader: () -> Unit = {}
 ) {
     val recentSearches by viewModel.recentSearches.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
@@ -94,7 +96,6 @@ fun TvSearchView(
     var isEditingText by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
-    val capsuleFocusRequester = remember { FocusRequester() }
     val textFieldFocusRequester = remember { FocusRequester() }
 
     LazyColumn(
@@ -121,6 +122,12 @@ fun TvSearchView(
                     .focusRequester(capsuleFocusRequester)
                     .onFocusChanged { state ->
                         isCapsuleFocused = state.isFocused
+                    }
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionUp) {
+                            onNavigateUpToHeader()
+                            true
+                        } else false
                     }
                     .tvRemoteFocusable(
                         onClick = {

@@ -207,12 +207,19 @@ fun OnboardingScreen(
                     // STEP 1: COUNTRY SELECTION
                     CountrySelectionStep(
                         selectedCountry = selectedCountry,
-                        onCountrySelected = { selectedCountry = it }
+                        onCountrySelected = { country ->
+                            selectedCountry = country
+                            val countryLangs = MusicPreferenceCatalog.getLanguagesForCountry(country.code)
+                            val defaultPrimary = com.audiovault.app.core.catalog.CountryMusicCatalog.getProfile(country.code).defaultPrimaryLanguage
+                            primaryLanguage = defaultPrimary
+                            selectedLanguages = (countryLangs.map { it.name }.take(3) + defaultPrimary).toMutableSet()
+                        }
                     )
                 }
                 2 -> {
                     // STEP 2: LANGUAGE SELECTION
                     LanguageSelectionStep(
+                        selectedCountry = selectedCountry,
                         selectedLanguages = selectedLanguages,
                         primaryLanguage = primaryLanguage,
                         onToggleLanguage = { lang ->
@@ -235,6 +242,7 @@ fun OnboardingScreen(
                 3 -> {
                     // STEP 3: GENRES & ARTISTS
                     MusicTasteSelectionStep(
+                        selectedCountry = selectedCountry,
                         selectedGenres = selectedGenres,
                         selectedArtists = selectedArtists,
                         customArtistInput = customArtistInput,
@@ -445,11 +453,21 @@ private fun CountrySelectionStep(
 
 @Composable
 private fun LanguageSelectionStep(
+    selectedCountry: CountryInfo,
     selectedLanguages: Set<String>,
     primaryLanguage: String,
     onToggleLanguage: (String) -> Unit,
     onSelectPrimary: (String) -> Unit
 ) {
+    val countryLangs = remember(selectedCountry.code) {
+        MusicPreferenceCatalog.getLanguagesForCountry(selectedCountry.code)
+    }
+    val otherLangs = remember(selectedCountry.code) {
+        val countryLangCodes = countryLangs.map { it.code }.toSet()
+        MusicPreferenceCatalog.LANGUAGES.filterNot { countryLangCodes.contains(it.code) }
+    }
+    val allDisplayLangs = countryLangs + otherLangs
+
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             text = "What languages do you listen to?",
@@ -460,7 +478,7 @@ private fun LanguageSelectionStep(
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Select all the languages you enjoy. We will curate personalized mixes in your selected languages.",
+            text = "Curating songs for ${selectedCountry.name}. Select all languages you enjoy.",
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFB3B3B3))
         )
 
@@ -470,7 +488,7 @@ private fun LanguageSelectionStep(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(MusicPreferenceCatalog.LANGUAGES, key = { it.code }) { lang ->
+            items(allDisplayLangs, key = { it.code }) { lang ->
                 val isSelected = selectedLanguages.contains(lang.name)
                 val isPrimary = primaryLanguage == lang.name
 
@@ -552,6 +570,7 @@ private fun LanguageSelectionStep(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MusicTasteSelectionStep(
+    selectedCountry: CountryInfo,
     selectedGenres: Set<String>,
     selectedArtists: Set<String>,
     customArtistInput: String,
@@ -560,6 +579,9 @@ private fun MusicTasteSelectionStep(
     onToggleGenre: (String) -> Unit,
     onToggleArtist: (String) -> Unit
 ) {
+    val countryArtists = remember(selectedCountry.code) {
+        MusicPreferenceCatalog.getArtistsForCountry(selectedCountry.code)
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -694,8 +716,8 @@ private fun MusicTasteSelectionStep(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Pre-populated catalog artists + user added artists
-                val allArtistOptions = (selectedArtists.toList() + MusicPreferenceCatalog.POPULAR_ARTISTS.map { it.name }).distinct()
+                // Pre-populated catalog artists for selected country + user added artists + fallback
+                val allArtistOptions = (selectedArtists.toList() + countryArtists.map { it.name } + MusicPreferenceCatalog.POPULAR_ARTISTS.map { it.name }).distinct()
 
                 allArtistOptions.forEach { artistName ->
                     val isSelected = selectedArtists.contains(artistName)

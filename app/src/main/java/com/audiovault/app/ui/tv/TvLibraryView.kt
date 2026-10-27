@@ -48,6 +48,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,14 +79,15 @@ fun TvLibraryView(
     likedSongIds: Set<Long>,
     onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onOpenAlbum: (OnlineAlbumModel) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    firstPillFocusRequester: FocusRequester = remember { FocusRequester() },
+    onNavigateUpToHeader: () -> Unit = {}
 ) {
     val recordings by viewModel.recordings.collectAsState(initial = emptyList())
     val playlists by viewModel.playlists.collectAsState()
     val savedArtists by viewModel.savedArtists.collectAsState()
 
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
-    val firstPillFocusRequester = remember { FocusRequester() }
     val subviewBackFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(librarySubView) {
@@ -338,6 +344,12 @@ fun TvLibraryView(
                             ),
                             modifier = Modifier
                                 .height(34.dp)
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionUp) {
+                                        onNavigateUpToHeader()
+                                        true
+                                    } else false
+                                }
                                 .tvRemoteFocusable(
                                     onClick = { selectedFilterPill = pillLabel },
                                     shape = RoundedCornerShape(50),

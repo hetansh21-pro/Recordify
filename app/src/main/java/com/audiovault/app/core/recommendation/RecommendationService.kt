@@ -3,6 +3,7 @@ package com.audiovault.app.core.recommendation
 import android.content.Context
 import android.util.Log
 import android.util.LruCache
+import com.audiovault.app.core.catalog.CountryMusicCatalog
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineMusicSearchService
 import com.audiovault.app.core.online.OnlineSongModel
@@ -243,17 +244,21 @@ class RecommendationService(
         val preferredGenre = favoriteGenres.firstOrNull() ?: "Bollywood"
         val madeForYouArtist = a1
 
+        val countryProfile = CountryMusicCatalog.getProfile(countryCode)
+        val effectiveCountryName = countryProfile.countryName
+        val trendingShelf = countryProfile.shelves.firstOrNull { it.category == "trending" }
+
         val discoveryKeywords = listOf(
-            "new releases $primaryLang $countryName 2024",
-            "trending pop viral hits $countryName",
+            "new releases $primaryLang $effectiveCountryName 2024",
+            "trending pop viral hits $effectiveCountryName",
             "$primaryLang acoustic romantic unplugged",
-            "punjabi viral hits 2024",
+            "viral hits 2024",
             "indie folk acoustic chill $primaryLang",
             "lofi chillhop midnight study",
             "global viral top charts"
         ).shuffled()
         val freshKeyword = discoveryKeywords.getOrNull(0) ?: "new releases $primaryLang 2024"
-        val trendingKeyword = discoveryKeywords.getOrNull(1) ?: "trending viral hits $countryName"
+        val trendingKeyword = discoveryKeywords.getOrNull(1) ?: "trending viral hits $effectiveCountryName"
 
         coroutineScope {
             // 0. "Your Spotify Heavy Rotation" (Resolved in parallel in <400ms)
@@ -416,10 +421,10 @@ class RecommendationService(
             }
 
             // 10. "Trending in Your Country"
-            val trendingInCountryTitle = "Trending in $countryName"
+            val trendingInCountryTitle = trendingShelf?.title ?: "Trending in $effectiveCountryName"
             val trendingInCountryDeferred = async {
                 try {
-                    val query = "top trending $countryName $primaryLang hits 2024"
+                    val query = trendingShelf?.searchQuery ?: "top trending $effectiveCountryName $primaryLang hits 2024"
                     val songs = OnlineMusicSearchService.searchDirectCdnSongs(query, limit = 15)
                     DiversityFilter.filterAndDiversify(
                         candidates = songs,

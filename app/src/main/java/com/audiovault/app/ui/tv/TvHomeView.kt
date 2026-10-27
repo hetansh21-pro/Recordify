@@ -41,11 +41,17 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.audiovault.app.core.catalog.CountryMusicCatalog
 import com.audiovault.app.core.catalog.CuratedAlbumCatalog
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
@@ -81,16 +87,21 @@ fun TvHomeView(
     onPlaySong: (OnlineSongModel, List<OnlineSongModel>?) -> Unit = { _, _ -> },
     onPlayAlbum: (OnlineAlbumModel) -> Unit,
     onSearchMood: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    heroFocusRequester: FocusRequester = remember { FocusRequester() },
+    onNavigateUpToHeader: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     val userName by viewModel.userName.collectAsState()
     val userSettings by viewModel.userSettings.collectAsState()
     val currentVibe by viewModel.currentVibe.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
     val curatedAlbums = CuratedAlbumCatalog.curatedAlbums
+    val countryProfile = remember(userSettings.userCountryCode) {
+        CountryMusicCatalog.getProfile(userSettings.userCountryCode)
+    }
 
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
-    val heroFocusRequester = remember { FocusRequester() }
 
     LazyColumn(
         modifier = modifier
@@ -100,124 +111,127 @@ fun TvHomeView(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // -----------------------------------------------------------------
-        // 1. HERO FEATURED HEADER BANNER (Spotify TV Match: Bollywood Mush)
+        // 1. HERO FEATURED HEADER BANNER (Country-Specific Spotify Match)
         // -----------------------------------------------------------------
-        val featuredAlbum = curatedAlbums.find { it.id == "curated_bollywood_mush" }
-            ?: curatedAlbums.firstOrNull()
+        val featuredAlbum = countryProfile.heroAlbum
 
-        if (featuredAlbum != null) {
-            item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF141414),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
+        item {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF141414),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(heroFocusRequester)
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionUp) {
+                            onNavigateUpToHeader()
+                            true
+                        } else false
+                    }
+                    .tvRemoteFocusable(
+                        onClick = { onPlayAlbum(featuredAlbum) },
+                        shape = RoundedCornerShape(16.dp),
+                        focusScale = 1.02f
+                    )
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(heroFocusRequester)
-                        .tvRemoteFocusable(
-                            onClick = { onPlayAlbum(featuredAlbum) },
-                            shape = RoundedCornerShape(16.dp),
-                            focusScale = 1.02f
-                        )
+                        .padding(28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
+                    // Left Column: Big Bold Title, Recordify Subtitle & Description
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(28.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .weight(1.3f)
+                            .padding(end = 24.dp)
                     ) {
-                        // Left Column: Big Bold Title, Recordify Subtitle & Description
-                        Column(
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .padding(end = 24.dp)
-                        ) {
+                        Text(
+                            text = featuredAlbum.title,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                fontSize = 34.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SpotifyGreenBright,
+                                modifier = Modifier.size(14.dp)
+                            ) {}
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = featuredAlbum.title,
-                                style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White,
-                                    fontSize = 34.sp
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = SpotifyGreenBright,
-                                    modifier = Modifier.size(14.dp)
-                                ) {}
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Playlist • Recordify",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Text(
-                                text = "Let these songs be the background score to your love story. Cover - Saiyaara",
+                                text = "Featured Playlist • ${countryProfile.flagEmoji} ${countryProfile.countryName}",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFFB3B3B3),
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                ),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
                             )
                         }
 
-                        // Right Column: Stylized Artwork Card with Waveform Graphic
-                        Box(
-                            modifier = Modifier
-                                .weight(0.7f),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                // Subtle equalizer / waveform lines
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val barHeights = listOf(14.dp, 28.dp, 44.dp, 22.dp, 36.dp, 18.dp)
-                                    barHeights.forEach { h ->
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .height(h)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(Color(0xFF333333))
-                                        )
-                                    }
-                                }
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = Color(0xFF1E1E1E),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
-                                    modifier = Modifier.size(160.dp)
-                                ) {
-                                    TrackCoverArt(
-                                        albumArtPath = featuredAlbum.coverArtUrl,
-                                        title = featuredAlbum.title,
-                                        artist = featuredAlbum.primaryArtists ?: "Recordify",
-                                        size = 160.dp,
-                                        shape = RoundedCornerShape(14.dp)
+                        Text(
+                            text = "Top chartbusters, viral records, and essential soundtracks streaming in ${countryProfile.countryName} • Recordify",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFFB3B3B3),
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Right Column: Stylized Artwork Card with Waveform Graphic
+                    Box(
+                        modifier = Modifier
+                            .weight(0.7f),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Subtle equalizer / waveform lines
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val barHeights = listOf(14.dp, 28.dp, 44.dp, 22.dp, 36.dp, 18.dp)
+                                barHeights.forEach { h ->
+                                    Box(
+                                        modifier = Modifier
+                                            .width(4.dp)
+                                            .height(h)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(Color(0xFF333333))
                                     )
                                 }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFF1E1E1E),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
+                                modifier = Modifier.size(160.dp)
+                            ) {
+                                TrackCoverArt(
+                                    albumArtPath = featuredAlbum.coverArtUrl,
+                                    title = featuredAlbum.title,
+                                    artist = featuredAlbum.primaryArtists ?: countryProfile.countryName,
+                                    size = 160.dp,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
                             }
                         }
                     }
@@ -226,27 +240,35 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows])
+        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows], [Country])
         // -----------------------------------------------------------------
         item {
-            val filterOptions = listOf("All", "Music", "Podcasts & Shows")
+            val countryPill = "${countryProfile.flagEmoji} ${countryProfile.countryName}"
+            val filterOptions = listOf("All", "Music", "Podcasts & Shows", countryPill)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 filterOptions.forEach { filterLabel ->
+                    val isCountry = filterLabel == countryPill
                     val isSelected = selectedFilterPill == filterLabel
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = if (isSelected) Color.White else Color(0xFF202020),
+                        color = if (isSelected) Color.White else if (isCountry) SpotifyGreenBright.copy(alpha = 0.15f) else Color(0xFF202020),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (isSelected) Color.White else Color(0xFF333333)
+                            if (isSelected) Color.White else if (isCountry) SpotifyGreenBright.copy(alpha = 0.5f) else Color(0xFF333333)
                         ),
                         modifier = Modifier
                             .height(34.dp)
                             .tvRemoteFocusable(
-                                onClick = { selectedFilterPill = filterLabel },
+                                onClick = {
+                                    if (isCountry) {
+                                        onOpenSettings()
+                                    } else {
+                                        selectedFilterPill = filterLabel
+                                    }
+                                },
                                 shape = RoundedCornerShape(50),
                                 focusScale = 1.08f
                             )
@@ -259,7 +281,7 @@ fun TvHomeView(
                                 text = filterLabel,
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else Color.White,
+                                    color = if (isSelected) Color.Black else if (isCountry) SpotifyGreenBright else Color.White,
                                     fontSize = 12.sp
                                 )
                             )
@@ -271,21 +293,12 @@ fun TvHomeView(
 
         // -----------------------------------------------------------------
         // 3. SIGNATURE 8 QUICK-ACCESS RECTANGULAR TILES (2 Rows x 4 Columns)
-        // Authentically matches Spotify TV Home (IMG20261026111711.jpg):
-        // Bollywood Mush, My songs, Aditya Gadhvi, Kumar Sanu All Time Hits,
-        // Padmaavat, Love song, Michael Jackson, Golden 90s Hits.
+        // Dynamically configured for the active country profile
         // -----------------------------------------------------------------
         item {
-            val quickTiles = listOf(
-                curatedAlbums.find { it.id == "curated_bollywood_mush" } ?: curatedAlbums.getOrNull(0),
-                curatedAlbums.find { it.id == "curated_my_songs" } ?: curatedAlbums.getOrNull(1),
-                curatedAlbums.find { it.id == "curated_aditya_gadhvi" } ?: curatedAlbums.getOrNull(2),
-                curatedAlbums.find { it.id == "curated_kumar_sanu_all_time_hits" } ?: curatedAlbums.getOrNull(3),
-                curatedAlbums.find { it.id == "curated_padmaavat" } ?: curatedAlbums.getOrNull(4),
-                curatedAlbums.find { it.id == "curated_love_songs_emoji" } ?: curatedAlbums.getOrNull(5),
-                curatedAlbums.find { it.id == "curated_90s_pop_rock" } ?: curatedAlbums.getOrNull(6),
-                curatedAlbums.find { it.id == "curated_90s_bollywood" } ?: curatedAlbums.getOrNull(7)
-            ).filterNotNull()
+            val quickTiles = countryProfile.quickAccessTiles.ifEmpty {
+                curatedAlbums.take(8)
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // First Row (4 items)
@@ -412,8 +425,8 @@ fun TvHomeView(
             item {
                 Column {
                     TvShelfHeader(
-                        title = "Popular in ${userSettings.userCountryCode}",
-                        subtitle = "Top streamed music across India and your region"
+                        title = "Popular in ${countryProfile.countryName}",
+                        subtitle = "Top streamed music across ${countryProfile.countryName} and your region"
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(countryHits) { song ->

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,6 +81,14 @@ fun RecordifyTvScreen(
 
     val currentRecording = playerState.currentRecording
     val hasActiveTrack = currentRecording != null
+
+    val homeNavFocusRequester = remember { FocusRequester() }
+    val searchNavFocusRequester = remember { FocusRequester() }
+    val libraryNavFocusRequester = remember { FocusRequester() }
+
+    val homeHeroFocusRequester = remember { FocusRequester() }
+    val searchCapsuleFocusRequester = remember { FocusRequester() }
+    val libraryPillFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         viewModel.loadHomeContent(forceRefresh = false)
@@ -159,6 +168,23 @@ fun RecordifyTvScreen(
                         viewModel.closeAlbumDetails()
                     }
                 },
+                onNavigateDown = { tab ->
+                    when (tab) {
+                        TvNavTab.HOME -> {
+                            try { homeHeroFocusRequester.requestFocus() } catch (_: Exception) {}
+                        }
+                        TvNavTab.SEARCH -> {
+                            try { searchCapsuleFocusRequester.requestFocus() } catch (_: Exception) {}
+                        }
+                        TvNavTab.LIBRARY -> {
+                            try { libraryPillFocusRequester.requestFocus() } catch (_: Exception) {}
+                        }
+                        else -> {}
+                    }
+                },
+                homeFocusRequester = homeNavFocusRequester,
+                searchFocusRequester = searchNavFocusRequester,
+                libraryFocusRequester = libraryNavFocusRequester,
                 activeTrackTitle = currentRecording?.title,
                 activeTrackArtist = currentRecording?.artist,
                 activeTrackArtUrl = currentRecording?.albumArtPath,
@@ -198,7 +224,12 @@ fun RecordifyTvScreen(
                                     searchQuery = query
                                     viewModel.onSearchQueryChange(query)
                                     viewModel.searchOnlineMusic(query)
-                                }
+                                },
+                                heroFocusRequester = homeHeroFocusRequester,
+                                onNavigateUpToHeader = {
+                                    try { homeNavFocusRequester.requestFocus() } catch (_: Exception) {}
+                                },
+                                onOpenSettings = { selectedTab = TvNavTab.SETTINGS }
                             )
                         }
                         TvNavTab.SEARCH -> {
@@ -216,7 +247,11 @@ fun RecordifyTvScreen(
                                 onPlaySong = { song, upcoming ->
                                     viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
-                                onPlayAlbum = { album -> viewModel.openAlbumDetails(album) }
+                                onPlayAlbum = { album -> viewModel.openAlbumDetails(album) },
+                                capsuleFocusRequester = searchCapsuleFocusRequester,
+                                onNavigateUpToHeader = {
+                                    try { searchNavFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
                             )
                         }
                         TvNavTab.LIBRARY -> {
@@ -228,7 +263,11 @@ fun RecordifyTvScreen(
                                 onPlaySong = { song, upcoming ->
                                     viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
-                                onOpenAlbum = { album -> viewModel.openAlbumDetails(album) }
+                                onOpenAlbum = { album -> viewModel.openAlbumDetails(album) },
+                                firstPillFocusRequester = libraryPillFocusRequester,
+                                onNavigateUpToHeader = {
+                                    try { libraryNavFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
                             )
                         }
                         TvNavTab.PLAYLISTS -> {

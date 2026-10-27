@@ -35,6 +35,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.audiovault.app.ui.components.TrackCoverArt
@@ -57,7 +64,11 @@ fun TvTopNavBar(
     isPlaying: Boolean,
     onOpenNowPlaying: () -> Unit,
     onOpenSettings: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateDown: (TvNavTab) -> Unit = {},
+    homeFocusRequester: FocusRequester? = null,
+    searchFocusRequester: FocusRequester? = null,
+    libraryFocusRequester: FocusRequester? = null
 ) {
     Row(
         modifier = modifier
@@ -182,13 +193,13 @@ fun TvTopNavBar(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val navTabs = listOf(
-                TvNavTab.HOME to "Home" to Icons.Default.Home,
-                TvNavTab.SEARCH to "Search" to Icons.Default.Search,
-                TvNavTab.LIBRARY to "Your Library" to Icons.Default.LibraryMusic
+                Triple(TvNavTab.HOME, "Home", Icons.Default.Home to homeFocusRequester),
+                Triple(TvNavTab.SEARCH, "Search", Icons.Default.Search to searchFocusRequester),
+                Triple(TvNavTab.LIBRARY, "Your Library", Icons.Default.LibraryMusic to libraryFocusRequester)
             )
 
-            navTabs.forEach { (pair, icon) ->
-                val (tab, label) = pair
+            navTabs.forEach { (tab, label, iconAndRequester) ->
+                val (icon, tabRequester) = iconAndRequester
                 val isSelected = selectedTab == tab
 
                 Column(
@@ -200,10 +211,26 @@ fun TvTopNavBar(
                         color = Color.Transparent,
                         modifier = Modifier
                             .height(38.dp)
+                            .then(if (tabRequester != null) Modifier.focusRequester(tabRequester) else Modifier)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown) {
+                                    onTabSelected(tab)
+                                    onNavigateDown(tab)
+                                    true
+                                } else false
+                            }
                             .tvRemoteFocusable(
-                                onClick = { onTabSelected(tab) },
+                                onClick = {
+                                    onTabSelected(tab)
+                                    onNavigateDown(tab)
+                                },
+                                onFocusChanged = { isFocused ->
+                                    if (isFocused && selectedTab != tab) {
+                                        onTabSelected(tab)
+                                    }
+                                },
                                 shape = RoundedCornerShape(50),
-                                focusScale = 1.08f,
+                                focusScale = 1.05f,
                                 focusBorderWidth = 2.dp,
                                 focusBorderColor = Color.White
                             )

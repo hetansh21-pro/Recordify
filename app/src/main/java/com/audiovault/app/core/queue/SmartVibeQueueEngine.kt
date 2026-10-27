@@ -285,10 +285,18 @@ object SmartVibeQueueEngine {
             lower.contains("badshah") -> listOf("Honey Singh", "Raftaar", "Ikka", "Guru Randhawa", "Divine")
             lower.contains("divine") -> listOf("Naezy", "Seedhe Maut", "KR\$NA", "Raftaar", "MC Stan")
             lower.contains("seedhe maut") -> listOf("KR\$NA", "Prabh Deep", "Rawal", "Divine")
-            // Global pop / western clusters
+            // Global pop / western / K-Pop / J-Pop / Latin / Arabic clusters
             lower.contains("taylor") -> listOf("Olivia Rodrigo", "Gracie Abrams", "Sabrina Carpenter", "Billie Eilish")
             lower.contains("weeknd") -> listOf("Post Malone", "Drake", "Kendrick Lamar", "Bruno Mars")
+            lower.contains("drake") -> listOf("Kendrick Lamar", "Post Malone", "Travis Scott", "21 Savage")
+            lower.contains("billie") -> listOf("Olivia Rodrigo", "Finneas", "Lorde", "Lana Del Rey")
             lower.contains("sheeran") -> listOf("Shawn Mendes", "Charlie Puth", "James Arthur", "Lewis Capaldi")
+            lower.contains("bts") || lower.contains("jungkook") -> listOf("Jimin", "V", "SEVENTEEN", "Stray Kids", "TXT")
+            lower.contains("blackpink") -> listOf("NewJeans", "aespa", "TWICE", "LE SSERAFIM", "(G)I-DLE")
+            lower.contains("yoasobi") || lower.contains("ado") -> listOf("Kenshi Yonezu", "Eve", "Official HIGE DANdism", "LiSA")
+            lower.contains("rosalia") -> listOf("C. Tangana", "Rauw Alejandro", "Bad Bunny", "Quevedo")
+            lower.contains("jassmi") || lower.contains("amr diab") -> listOf("Nancy Ajram", "Mohamed Hamaki", "Tamer Hosny", "Balqees")
+            lower.contains("anitta") || lower.contains("alok") -> listOf("Ludmilla", "Pedro Sampaio", "Luísa Sonza", "Marília Mendonça")
             // Fallback by vibe
             vibe == SongVibeType.ROMANTIC -> listOf("KK", "Atif Aslam", "Mohit Chauhan", "Jasleen Royal", "Mustafa Zahid", "Mohammed Irfan", "Ankit Tiwari")
             vibe == SongVibeType.CLASSIC_RETRO -> listOf("Kishore Kumar", "Mohd Rafi", "Lata Mangeshkar", "Mukesh", "Kumar Sanu", "Udit Narayan")

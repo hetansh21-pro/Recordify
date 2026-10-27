@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,12 +93,97 @@ fun HomeScreen(
 
     var selectedFilter by remember { mutableStateOf("All") }
     var showDebugDialog by remember { mutableStateOf(false) }
+    var showCountryDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         recordingsViewModel.loadHomeContent(forceRefresh = true)
     }
 
     val scrollState = rememberScrollState()
+
+    if (showCountryDialog) {
+        val countries = listOf(
+            Triple("IN", "India", "🇮🇳"),
+            Triple("US", "United States", "🇺🇸"),
+            Triple("GB", "United Kingdom", "🇬🇧"),
+            Triple("KR", "South Korea", "🇰🇷"),
+            Triple("JP", "Japan", "🇯🇵"),
+            Triple("BR", "Brazil", "🇧🇷"),
+            Triple("AE", "United Arab Emirates", "🇦🇪"),
+            Triple("ES", "Spain", "🇪🇸"),
+            Triple("CA", "Canada", "🇨🇦"),
+            Triple("AU", "Australia", "🇦🇺"),
+            Triple("DE", "Germany", "🇩🇪"),
+            Triple("FR", "France", "🇫🇷")
+        )
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCountryDialog = false },
+            title = {
+                Text(
+                    text = "Explore the World 🌍",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Select a country to discover local charts, trending hits, and regional vibes:",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(countries) { (code, name, flag) ->
+                            val isSelected = homeFeed.userCountryCode.equals(code, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) SpotifyGreenBright.copy(alpha = 0.2f) else Color(0xFF242424),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) SpotifyGreenBright else Color(0xFF333333)
+                                ),
+                                modifier = Modifier.clickable {
+                                    recordingsViewModel.setUserCountry(code, name)
+                                    showCountryDialog = false
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = flag, fontSize = 20.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = if (isSelected) SpotifyGreenBright else Color.White,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showCountryDialog = false }) {
+                    Text("Close", color = SpotifyGreenBright)
+                }
+            },
+            containerColor = Color(0xFF181818),
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
 
     if (showDebugDialog) {
         RecommendationDebugDialog(
@@ -201,16 +287,19 @@ fun HomeScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(top = 2.dp)
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showCountryDialog = true }
+                                .padding(vertical = 2.dp, horizontal = 4.dp)
                         ) {
                             val flag = com.audiovault.app.data.model.MusicPreferenceCatalog.COUNTRIES.firstOrNull {
                                 it.code.equals(homeFeed.userCountryCode, ignoreCase = true)
                             }?.flagEmoji ?: "🇮🇳"
                             Text(
-                                text = "$flag ${homeFeed.userCountryName} • ${recordingsViewModel.userSettings.value.primaryLanguage}",
+                                text = "$flag ${homeFeed.userCountryName} ▾",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF888888),
-                                    fontWeight = FontWeight.Medium
+                                    color = SpotifyGreenBright,
+                                    fontWeight = FontWeight.Bold
                                 )
                             )
                         }

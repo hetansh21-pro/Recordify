@@ -59,6 +59,14 @@ object MusicPreferenceCatalog {
             ?: CountryInfo("IN", "India", "🇮🇳")
     }
 
+    fun getLanguagesForCountry(countryCode: String?): List<LanguageInfo> {
+        return com.audiovault.app.core.catalog.CountryMusicCatalog.getSupportedLanguages(countryCode)
+    }
+
+    fun getArtistsForCountry(countryCode: String?): List<ArtistRecommendationInfo> {
+        return com.audiovault.app.core.catalog.CountryMusicCatalog.getPopularArtists(countryCode)
+    }
+
     val LANGUAGES = listOf(
         LanguageInfo("hi", "Hindi", "हिन्दी"),
         LanguageInfo("gu", "Gujarati", "ગુજરાતી"),
