@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Headphones
@@ -96,6 +97,8 @@ fun SpotifyFullScreenPlayer(
     onMoveQueueItemUp: (Int) -> Unit = {},
     onMoveQueueItemDown: (Int) -> Unit = {},
     onMoveQueueItem: ((Int, Int) -> Unit)? = null,
+    onPromoteToUserQueue: ((Int) -> Unit)? = null,
+    onClearUserQueue: (() -> Unit)? = null,
     onClearQueue: () -> Unit = {},
     onRefreshQueue: () -> Unit = {},
     onToggleAutoQueue: () -> Unit = {},
@@ -530,7 +533,7 @@ fun SpotifyFullScreenPlayer(
                     // VibeFlow Queue Button
                     IconButton(onClick = { showQueueSheet = true }) {
                         Icon(
-                            imageVector = Icons.Default.QueueMusic,
+                            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                             contentDescription = "Queue",
                             tint = if (queueState?.upcomingQueue?.isNotEmpty() == true) SpotifyGreenBright else Color(0xFFB3B3B3),
                             modifier = Modifier.size(22.dp)
@@ -550,6 +553,8 @@ fun SpotifyFullScreenPlayer(
                 onMoveQueueItemUp = onMoveQueueItemUp,
                 onMoveQueueItemDown = onMoveQueueItemDown,
                 onMoveQueueItem = onMoveQueueItem,
+                onPromoteToUserQueue = onPromoteToUserQueue,
+                onClearUserQueue = onClearUserQueue,
                 onClearUpcoming = onClearQueue,
                 onRefreshQueue = onRefreshQueue,
                 onToggleRepeat = onToggleRepeat,

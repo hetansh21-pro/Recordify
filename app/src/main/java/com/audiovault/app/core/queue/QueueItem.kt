@@ -43,6 +43,7 @@ data class QueueItem(
     val moodProfile: SongMoodProfile? = null,
     val language: String? = null,
     val canonicalTrackId: String = TrackVersionResolver.generateCanonicalId(title, artist),
+    val isUserQueued: Boolean = false,
     val addedAt: Long = System.currentTimeMillis()
 ) {
     fun toRecordingEntity(): RecordingEntity {

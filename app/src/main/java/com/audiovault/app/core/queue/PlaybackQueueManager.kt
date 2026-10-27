@@ -732,7 +732,27 @@ class PlaybackQueueManager(
     // Queue mutations
     fun addToQueue(item: QueueItem) {
         val current = _queueState.value.upcomingQueue.toMutableList()
-        current.add(item)
+        val userItem = item.copy(isUserQueued = true)
+        // First swiped song inserts right after current song;
+        // Subsequent swiped songs stack directly underneath existing user-queued songs,
+        // and all user-queued songs sit ahead of album/playlist context tracks.
+        val insertIndex = current.indexOfFirst { !it.isUserQueued }.let { if (it == -1) current.size else it }
+        current.add(insertIndex, userItem)
+        _queueState.update { it.copy(upcomingQueue = current) }
+    }
+
+    fun promoteToUserQueue(index: Int) {
+        val current = _queueState.value.upcomingQueue.toMutableList()
+        if (index in current.indices) {
+            val item = current.removeAt(index).copy(isUserQueued = true)
+            val insertIndex = current.indexOfFirst { !it.isUserQueued }.let { if (it == -1) current.size else it }
+            current.add(insertIndex, item)
+            _queueState.update { it.copy(upcomingQueue = current) }
+        }
+    }
+
+    fun clearUserQueue() {
+        val current = _queueState.value.upcomingQueue.filter { !it.isUserQueued }
         _queueState.update { it.copy(upcomingQueue = current) }
     }
 

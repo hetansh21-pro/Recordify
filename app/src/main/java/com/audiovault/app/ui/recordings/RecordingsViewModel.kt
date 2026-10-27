@@ -442,6 +442,14 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         playbackQueueManager.addToQueue(item)
     }
 
+    fun promoteToUserQueue(index: Int) {
+        playbackQueueManager.promoteToUserQueue(index)
+    }
+
+    fun clearUserQueue() {
+        playbackQueueManager.clearUserQueue()
+    }
+
     fun removeFromQueue(index: Int) {
         playbackQueueManager.removeAt(index)
     }

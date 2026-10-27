@@ -2,6 +2,7 @@ package com.audiovault.app.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,8 +68,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -78,6 +82,7 @@ import kotlin.math.roundToInt
 import com.audiovault.app.core.queue.PlaybackQueueState
 import com.audiovault.app.core.queue.PlaybackRepeatMode
 import com.audiovault.app.core.queue.QueueItem
+import com.audiovault.app.ui.components.SpotifyAddToQueueIcon
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.theme.SpotifyBlack
 import com.audiovault.app.ui.theme.SpotifyCardSurface
@@ -103,6 +108,8 @@ fun VibeFlowQueueBottomSheet(
     onMoveQueueItemUp: ((Int) -> Unit)? = null,
     onMoveQueueItemDown: ((Int) -> Unit)? = null,
     onMoveQueueItem: ((Int, Int) -> Unit)? = null,
+    onPromoteToUserQueue: ((Int) -> Unit)? = null,
+    onClearUserQueue: (() -> Unit)? = null,
     onClearUpcoming: () -> Unit,
     onRefreshQueue: () -> Unit,
     onToggleRepeat: () -> Unit,
@@ -316,49 +323,9 @@ fun VibeFlowQueueBottomSheet(
                     }
                 }
 
-                // 2B. NEXT IN QUEUE HEADER
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val headerLabel = if (queueState.isShuffleEnabled) {
-                            "Shuffling from: ${queueState.currentTrack?.album ?: "Playlist"}"
-                        } else {
-                            "Next in queue"
-                        }
-                        Text(
-                            text = headerLabel,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 15.sp
-                            )
-                        )
-
-                        if (queueState.upcomingQueue.isNotEmpty()) {
-                            Text(
-                                text = "Clear all",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFFB3B3B3),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .clickable { onClearUpcoming() }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                // 2C. UPCOMING TRACKS LIST
+                // 2B. UPCOMING QUEUE SECTIONS (Two-tier: "Next in queue" user items & "Shuffling / Next from" context items)
                 if (queueState.upcomingQueue.isEmpty()) {
-                    item {
+                    item(key = "empty_queue_state") {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -389,55 +356,204 @@ fun VibeFlowQueueBottomSheet(
                         }
                     }
                 } else {
-                    itemsIndexed(
-                        queueState.upcomingQueue,
-                        key = { _, item -> item.id }
-                    ) { index, item ->
-                        val isItemDragging = draggingItemId == item.id
-                        SpotifyQueueTrackRow(
-                            item = item,
-                            index = index,
-                            totalCount = queueState.upcomingQueue.size,
-                            isDragging = isItemDragging,
-                            draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
-                            onDragStart = {
-                                draggingItemId = item.id
-                                draggingDeltaY = 0f
-                            },
-                            onDragEnd = {
-                                draggingItemId = null
-                                draggingDeltaY = 0f
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                draggingDeltaY += dragAmount.y
-                                val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
-                                if (currentIdx >= 0) {
-                                    if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
-                                        onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
-                                        draggingDeltaY -= rowThresholdPx
-                                    } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
-                                        onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
-                                        draggingDeltaY += rowThresholdPx
-                                    }
-                                }
-                            },
-                            isEditing = activeEditIndex == index,
-                            onToggleEdit = {
-                                activeEditIndex = if (activeEditIndex == index) null else index
-                            },
-                            onPlay = { onPlayTrackAt(index) },
-                            onMoveUp = {
-                                onMoveQueueItem?.invoke(index, index - 1) ?: onMoveQueueItemUp?.invoke(index)
-                            },
-                            onMoveDown = {
-                                onMoveQueueItem?.invoke(index, index + 1) ?: onMoveQueueItemDown?.invoke(index)
-                            },
-                            onRemove = {
-                                onRemoveTrackAt(index)
-                                if (activeEditIndex == index) activeEditIndex = null
+                    val userItemsWithIndex = queueState.upcomingQueue.mapIndexed { idx, item -> Pair(idx, item) }.filter { it.second.isUserQueued }
+                    val contextItemsWithIndex = queueState.upcomingQueue.mapIndexed { idx, item -> Pair(idx, item) }.filter { !it.second.isUserQueued }
+
+                    // SECTION 1: USER-QUEUED TRACKS ("Next in queue")
+                    if (userItemsWithIndex.isNotEmpty()) {
+                        item(key = "header_user_queue") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Next in queue",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 15.sp
+                                    )
+                                )
+
+                                Text(
+                                    text = "Clear",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFFB3B3B3),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    ),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable { onClearUserQueue?.invoke() ?: onClearUpcoming() }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                        )
+                        }
+
+                        items(
+                            items = userItemsWithIndex,
+                            key = { it.second.id }
+                        ) { (index, item) ->
+                            val isItemDragging = draggingItemId == item.id
+                            SpotifyQueueTrackRow(
+                                item = item,
+                                index = index,
+                                totalCount = queueState.upcomingQueue.size,
+                                canSwipeRightToQueue = false,
+                                canSwipeLeftToDelete = true,
+                                isDragging = isItemDragging,
+                                draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
+                                onDragStart = {
+                                    draggingItemId = item.id
+                                    draggingDeltaY = 0f
+                                },
+                                onDragEnd = {
+                                    draggingItemId = null
+                                    draggingDeltaY = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    draggingDeltaY += dragAmount.y
+                                    val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
+                                    if (currentIdx >= 0) {
+                                        if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
+                                            onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
+                                            draggingDeltaY -= rowThresholdPx
+                                        } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
+                                            onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
+                                            draggingDeltaY += rowThresholdPx
+                                        }
+                                    }
+                                },
+                                isEditing = activeEditIndex == index,
+                                onToggleEdit = {
+                                    activeEditIndex = if (activeEditIndex == index) null else index
+                                },
+                                onPlay = { onPlayTrackAt(index) },
+                                onMoveUp = {
+                                    onMoveQueueItem?.invoke(index, index - 1) ?: onMoveQueueItemUp?.invoke(index)
+                                },
+                                onMoveDown = {
+                                    onMoveQueueItem?.invoke(index, index + 1) ?: onMoveQueueItemDown?.invoke(index)
+                                },
+                                onRemove = {
+                                    onRemoveTrackAt(index)
+                                    if (activeEditIndex == index) activeEditIndex = null
+                                }
+                            )
+                        }
+                    }
+
+                    // SECTION 2: CONTEXT TRACKS ("Shuffling from: ..." / "Next from: ...")
+                    if (contextItemsWithIndex.isNotEmpty()) {
+                        item(key = "header_context_queue") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = if (userItemsWithIndex.isNotEmpty()) 12.dp else 4.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val contextHeader = if (queueState.isShuffleEnabled) {
+                                    "Shuffling from: ${queueState.currentTrack?.album ?: "Playlist"}"
+                                } else {
+                                    "Next from: ${queueState.currentTrack?.album ?: "Playlist"}"
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (queueState.isShuffleEnabled) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shuffle,
+                                            contentDescription = null,
+                                            tint = SpotifyGreenBright,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = contextHeader,
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 15.sp
+                                        )
+                                    )
+                                }
+
+                                if (userItemsWithIndex.isEmpty()) {
+                                    Text(
+                                        text = "Clear all",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color(0xFFB3B3B3),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        ),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .clickable { onClearUpcoming() }
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        items(
+                            items = contextItemsWithIndex,
+                            key = { it.second.id }
+                        ) { (index, item) ->
+                            val isItemDragging = draggingItemId == item.id
+                            SpotifyQueueTrackRow(
+                                item = item,
+                                index = index,
+                                totalCount = queueState.upcomingQueue.size,
+                                canSwipeRightToQueue = true,
+                                onSwipeRightToQueue = {
+                                    onPromoteToUserQueue?.invoke(index)
+                                },
+                                canSwipeLeftToDelete = true,
+                                isDragging = isItemDragging,
+                                draggingOffsetY = if (isItemDragging) draggingDeltaY else 0f,
+                                onDragStart = {
+                                    draggingItemId = item.id
+                                    draggingDeltaY = 0f
+                                },
+                                onDragEnd = {
+                                    draggingItemId = null
+                                    draggingDeltaY = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    draggingDeltaY += dragAmount.y
+                                    val currentIdx = queueState.upcomingQueue.indexOfFirst { it.id == draggingItemId }
+                                    if (currentIdx >= 0) {
+                                        if (draggingDeltaY > rowThresholdPx && currentIdx < queueState.upcomingQueue.size - 1) {
+                                            onMoveQueueItem?.invoke(currentIdx, currentIdx + 1) ?: onMoveQueueItemDown?.invoke(currentIdx)
+                                            draggingDeltaY -= rowThresholdPx
+                                        } else if (draggingDeltaY < -rowThresholdPx && currentIdx > 0) {
+                                            onMoveQueueItem?.invoke(currentIdx, currentIdx - 1) ?: onMoveQueueItemUp?.invoke(currentIdx)
+                                            draggingDeltaY += rowThresholdPx
+                                        }
+                                    }
+                                },
+                                isEditing = activeEditIndex == index,
+                                onToggleEdit = {
+                                    activeEditIndex = if (activeEditIndex == index) null else index
+                                },
+                                onPlay = { onPlayTrackAt(index) },
+                                onMoveUp = {
+                                    onMoveQueueItem?.invoke(index, index - 1) ?: onMoveQueueItemUp?.invoke(index)
+                                },
+                                onMoveDown = {
+                                    onMoveQueueItem?.invoke(index, index + 1) ?: onMoveQueueItemDown?.invoke(index)
+                                },
+                                onRemove = {
+                                    onRemoveTrackAt(index)
+                                    if (activeEditIndex == index) activeEditIndex = null
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -595,6 +711,9 @@ private fun SpotifyQueueTrackRow(
     item: QueueItem,
     index: Int,
     totalCount: Int,
+    canSwipeRightToQueue: Boolean = false,
+    onSwipeRightToQueue: () -> Unit = {},
+    canSwipeLeftToDelete: Boolean = true,
     isDragging: Boolean = false,
     draggingOffsetY: Float = 0f,
     onDragStart: () -> Unit = {},
@@ -608,9 +727,17 @@ private fun SpotifyQueueTrackRow(
     onRemove: () -> Unit
 ) {
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val queueThresholdPx = with(density) { 68.dp.toPx() }
     val deleteThresholdPx = with(density) { 72.dp.toPx() }
     var swipeOffsetX by remember { mutableFloatStateOf(0f) }
-    val animatedSwipeOffsetX by animateFloatAsState(targetValue = swipeOffsetX)
+    var hasHapticTriggered by remember { mutableStateOf(false) }
+
+    val animatedSwipeOffsetX by animateFloatAsState(
+        targetValue = swipeOffsetX,
+        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+        label = "QueueTrackRowSwipeOffset"
+    )
 
     Box(
         modifier = Modifier
@@ -624,6 +751,26 @@ private fun SpotifyQueueTrackRow(
             }
             .clip(RoundedCornerShape(8.dp))
     ) {
+        // Vibrant Spotify green swipe-right-to-queue background (Matches Spotify screenshot)
+        if (animatedSwipeOffsetX > 0f) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(SpotifyGreenBright),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier.padding(start = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SpotifyAddToQueueIcon(
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Black
+                    )
+                }
+            }
+        }
+
         // Red swipe-left-to-delete background
         if (animatedSwipeOffsetX < 0f) {
             Box(
@@ -658,23 +805,40 @@ private fun SpotifyQueueTrackRow(
                 .fillMaxWidth()
                 .offset { IntOffset(animatedSwipeOffsetX.roundToInt(), 0) }
                 .background(if (isDragging) Color(0xFF282828) else if (isEditing) Color(0xFF222222) else Color(0xFF141414))
-                .pointerInput(item.id) {
+                .pointerInput(item.id, canSwipeRightToQueue, canSwipeLeftToDelete) {
                     detectHorizontalDragGestures(
-                        onDragStart = {},
+                        onDragStart = {
+                            hasHapticTriggered = false
+                        },
                         onDragEnd = {
-                            if (swipeOffsetX < -deleteThresholdPx) {
+                            if (swipeOffsetX > queueThresholdPx && canSwipeRightToQueue) {
+                                onSwipeRightToQueue()
+                            } else if (swipeOffsetX < -deleteThresholdPx && canSwipeLeftToDelete) {
                                 onRemove()
                             }
                             swipeOffsetX = 0f
+                            hasHapticTriggered = false
                         },
                         onDragCancel = {
                             swipeOffsetX = 0f
+                            hasHapticTriggered = false
                         },
                         onHorizontalDrag = { change, dragAmount ->
                             val newOffset = swipeOffsetX + dragAmount
-                            if (newOffset <= 0f) {
+                            if (newOffset > 0f && canSwipeRightToQueue) {
+                                change.consume()
+                                swipeOffsetX = newOffset.coerceAtMost(queueThresholdPx * 1.5f)
+                                if (swipeOffsetX > queueThresholdPx && !hasHapticTriggered) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    hasHapticTriggered = true
+                                }
+                            } else if (newOffset < 0f && canSwipeLeftToDelete) {
                                 change.consume()
                                 swipeOffsetX = newOffset.coerceAtLeast(-deleteThresholdPx * 1.5f)
+                                if (swipeOffsetX < -deleteThresholdPx && !hasHapticTriggered) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    hasHapticTriggered = true
+                                }
                             }
                         }
                     )

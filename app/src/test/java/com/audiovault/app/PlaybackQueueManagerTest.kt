@@ -246,4 +246,72 @@ class PlaybackQueueManagerTest {
         assertThat(state.recentCanonicalIds.last()).isEqualTo("canon_11")
         assertThat(state.recentCanonicalIds).doesNotContain("canon_10")
     }
+
+    @Test
+    fun `addToQueue inserts tracks sequentially into user queue ahead of context tracks`() = runTest(testDispatcher) {
+        val current = createDummyItem("curr", "Current Song", "Artist")
+        val albumTrack1 = createDummyItem("album_1", "Album Song 1", "Artist")
+        val albumTrack2 = createDummyItem("album_2", "Album Song 2", "Artist")
+
+        // Start playing current track with two album tracks
+        queueManager.playTrackExplicitly(current, listOf(albumTrack1, albumTrack2), mode = QueueMode.ALBUM)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // User swipes Song X to add to queue -> Should insert at index 0 (right after current)
+        val userSong1 = createDummyItem("user_1", "User Queued 1", "Artist")
+        queueManager.addToQueue(userSong1)
+
+        var state = queueManager.queueState.value
+        assertThat(state.upcomingQueue).hasSize(3)
+        assertThat(state.upcomingQueue[0].id).isEqualTo("user_1")
+        assertThat(state.upcomingQueue[0].isUserQueued).isTrue()
+        assertThat(state.upcomingQueue[1].id).isEqualTo("album_1")
+        assertThat(state.upcomingQueue[2].id).isEqualTo("album_2")
+
+        // User swipes Song Y to add to queue -> Should insert at index 1 (directly below userSong1)
+        val userSong2 = createDummyItem("user_2", "User Queued 2", "Artist")
+        queueManager.addToQueue(userSong2)
+
+        state = queueManager.queueState.value
+        assertThat(state.upcomingQueue).hasSize(4)
+        assertThat(state.upcomingQueue[0].id).isEqualTo("user_1")
+        assertThat(state.upcomingQueue[1].id).isEqualTo("user_2")
+        assertThat(state.upcomingQueue[1].isUserQueued).isTrue()
+        assertThat(state.upcomingQueue[2].id).isEqualTo("album_1")
+        assertThat(state.upcomingQueue[3].id).isEqualTo("album_2")
+
+        // User swipes Song Z -> Should insert at index 2 (directly below userSong2)
+        val userSong3 = createDummyItem("user_3", "User Queued 3", "Artist")
+        queueManager.addToQueue(userSong3)
+
+        state = queueManager.queueState.value
+        assertThat(state.upcomingQueue).hasSize(5)
+        assertThat(state.upcomingQueue[0].id).isEqualTo("user_1")
+        assertThat(state.upcomingQueue[1].id).isEqualTo("user_2")
+        assertThat(state.upcomingQueue[2].id).isEqualTo("user_3")
+        assertThat(state.upcomingQueue[3].id).isEqualTo("album_1")
+        assertThat(state.upcomingQueue[4].id).isEqualTo("album_2")
+    }
+
+    @Test
+    fun `promoteToUserQueue moves context track to user queue stacked sequentially`() = runTest(testDispatcher) {
+        val current = createDummyItem("curr", "Current Song", "Artist")
+        val albumTrack1 = createDummyItem("album_1", "Album Song 1", "Artist")
+        val albumTrack2 = createDummyItem("album_2", "Album Song 2", "Artist")
+        val albumTrack3 = createDummyItem("album_3", "Album Song 3", "Artist")
+
+        queueManager.playTrackExplicitly(current, listOf(albumTrack1, albumTrack2, albumTrack3), mode = QueueMode.ALBUM)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // User swipes albumTrack3 (index 2) to add to user queue
+        queueManager.promoteToUserQueue(2)
+
+        val state = queueManager.queueState.value
+        assertThat(state.upcomingQueue).hasSize(3)
+        // albumTrack3 should now be at the head as user-queued track!
+        assertThat(state.upcomingQueue[0].id).isEqualTo("album_3")
+        assertThat(state.upcomingQueue[0].isUserQueued).isTrue()
+        assertThat(state.upcomingQueue[1].id).isEqualTo("album_1")
+        assertThat(state.upcomingQueue[2].id).isEqualTo("album_2")
+    }
 }
