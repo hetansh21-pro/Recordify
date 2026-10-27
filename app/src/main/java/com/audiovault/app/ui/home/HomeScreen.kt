@@ -92,11 +92,19 @@ fun HomeScreen(
     val smartQueue by recordingsViewModel.smartQueue.collectAsState()
 
     var selectedFilter by remember { mutableStateOf("All") }
+    val homePodcasts by recordingsViewModel.homePodcasts.collectAsState()
+    val isPodcastsLoading by recordingsViewModel.isPodcastsLoading.collectAsState()
     var showDebugDialog by remember { mutableStateOf(false) }
     var showCountryDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         recordingsViewModel.loadHomeContent(forceRefresh = true)
+    }
+
+    LaunchedEffect(selectedFilter) {
+        if (selectedFilter == "Podcasts") {
+            recordingsViewModel.loadPodcasts(homeFeed.userCountryCode)
+        }
     }
 
     val scrollState = rememberScrollState()
@@ -335,6 +343,84 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                if (selectedFilter == "Podcasts") {
+                    if (isPodcastsLoading && homePodcasts.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = SpotifyGreenBright)
+                        }
+                    } else {
+                        val trendingPodcasts = homePodcasts.take(8)
+                        if (trendingPodcasts.isNotEmpty()) {
+                            HomeSectionHeader(
+                                title = "🔥 Trending YouTube Podcasts",
+                                subtitle = "Popular talk shows and video podcasts"
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(trendingPodcasts, key = { "pod_${it.id}" }) { podcast ->
+                                    SpotifySongCard(
+                                        song = podcast,
+                                        isPlaying = playerState.isPlaying && playerState.currentRecording?.filePath == podcast.streamUrl,
+                                        isSaved = recordingsViewModel.isOnlineSongSavedInLibrary(podcast),
+                                        onClick = { recordingsViewModel.playOnlineSong(podcast) }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(28.dp))
+                        }
+
+                        val conversations = homePodcasts.drop(8).take(8)
+                        if (conversations.isNotEmpty()) {
+                            HomeSectionHeader(
+                                title = "🧠 Deep Conversations & Interviews",
+                                subtitle = "Long-form interviews and life lessons"
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(conversations, key = { "pod_conv_${it.id}" }) { podcast ->
+                                    SpotifySongCard(
+                                        song = podcast,
+                                        isPlaying = playerState.isPlaying && playerState.currentRecording?.filePath == podcast.streamUrl,
+                                        isSaved = recordingsViewModel.isOnlineSongSavedInLibrary(podcast),
+                                        onClick = { recordingsViewModel.playOnlineSong(podcast) }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(28.dp))
+                        }
+
+                        val tech = homePodcasts.drop(16).take(8)
+                        if (tech.isNotEmpty()) {
+                            HomeSectionHeader(
+                                title = "💡 Tech, Science & Curiosity",
+                                subtitle = "Technology, business and science deep-dives"
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(tech, key = { "pod_tech_${it.id}" }) { podcast ->
+                                    SpotifySongCard(
+                                        song = podcast,
+                                        isPlaying = playerState.isPlaying && playerState.currentRecording?.filePath == podcast.streamUrl,
+                                        isSaved = recordingsViewModel.isOnlineSongSavedInLibrary(podcast),
+                                        onClick = { recordingsViewModel.playOnlineSong(podcast) }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(28.dp))
+                        }
+                    }
+                } else {
                 // 2x3 "Recently Played" Quick Grid (Prioritizes actual recently played tracks)
                 val quickTiles = remember(recentSearches, allRecordings, homeFeed.quickTiles) {
                     val list = mutableListOf<QuickTileItem>()
@@ -934,7 +1020,27 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(28.dp))
                 }
 
-
+                if (selectedFilter == "All" && homePodcasts.isNotEmpty()) {
+                    HomeSectionHeader(
+                        title = "🎙️ Top Podcasts from YouTube",
+                        subtitle = "Trending episodes and interviews"
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(homePodcasts.take(10), key = { "all_pod_${it.id}" }) { podcast ->
+                            SpotifySongCard(
+                                song = podcast,
+                                isPlaying = playerState.isPlaying && playerState.currentRecording?.filePath == podcast.streamUrl,
+                                isSaved = recordingsViewModel.isOnlineSongSavedInLibrary(podcast),
+                                onClick = { recordingsViewModel.playOnlineSong(podcast) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
+                }
+                } // End of else block (selectedFilter != "Podcasts")
 
                 Spacer(modifier = Modifier.height(100.dp))
             }

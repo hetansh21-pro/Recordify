@@ -32,8 +32,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.audiovault.app.core.catalog.CountryMusicCatalog
 import com.audiovault.app.core.catalog.CuratedAlbumCatalog
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
@@ -92,11 +95,35 @@ fun TvSearchView(
     val recentSearches by viewModel.recentSearches.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val searchContainer by viewModel.searchResultContainer.collectAsState()
+    val userSettings by viewModel.userSettings.collectAsState()
+    val countryProfile = remember(userSettings.userCountryCode) {
+        CountryMusicCatalog.getProfile(userSettings.userCountryCode)
+    }
     var isCapsuleFocused by remember { mutableStateOf(false) }
     var isEditingText by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val textFieldFocusRequester = remember { FocusRequester() }
+
+    BackHandler(enabled = isEditingText) {
+        isEditingText = false
+        keyboardController?.hide()
+        try {
+            capsuleFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    LaunchedEffect(isEditingText) {
+        if (isEditingText) {
+            kotlinx.coroutines.delay(50)
+            try {
+                textFieldFocusRequester.requestFocus()
+                keyboardController?.show()
+            } catch (_: Exception) {}
+        } else {
+            keyboardController?.hide()
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -131,11 +158,15 @@ fun TvSearchView(
                     }
                     .tvRemoteFocusable(
                         onClick = {
-                            isEditingText = true
-                            try {
-                                textFieldFocusRequester.requestFocus()
-                            } catch (_: Exception) {}
-                            keyboardController?.show()
+                            if (isEditingText) {
+                                isEditingText = false
+                                keyboardController?.hide()
+                                if (searchQuery.isNotBlank()) {
+                                    viewModel.searchOnlineMusic(searchQuery)
+                                }
+                            } else {
+                                isEditingText = true
+                            }
                         },
                         shape = RoundedCornerShape(50),
                         focusBorderWidth = 2.dp,
@@ -169,7 +200,7 @@ fun TvSearchView(
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = onSearchQueryChange,
-                            enabled = isEditingText,
+                            enabled = true,
                             readOnly = !isEditingText,
                             singleLine = true,
                             cursorBrush = SolidColor(Color.White),
@@ -327,22 +358,25 @@ fun TvSearchView(
                 }
             }
 
-            // Popular Playlists & Curated Albums Shelf (Verified Full HD 500x500 Cover Art)
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Popular Playlists & Curated Albums",
-                        subtitle = "High definition official soundtracks and artist essentials"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(CuratedAlbumCatalog.curatedAlbums) { album ->
-                            TvAlbumCard(
-                                album = album,
-                                onClick = { onPlayAlbum(album) }
-                            )
+            // Dynamic Regional Albums & Playlists (Country-Aware Full HD 600x600 Cover Art)
+            val discoveryAlbums = ((searchContainer?.albums ?: emptyList()) + countryProfile.quickAccessTiles).distinctBy { it.id }.take(12)
+            if (discoveryAlbums.isNotEmpty()) {
+                item {
+                    Column {
+                        TvShelfHeader(
+                            title = "Popular Playlists & Trending Albums",
+                            subtitle = "Official soundtracks, chart-toppers and artist essentials in ${countryProfile.countryName}"
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(discoveryAlbums) { album ->
+                                TvAlbumCard(
+                                    album = album,
+                                    onClick = { onPlayAlbum(album) }
+                                )
+                            }
                         }
                     }
                 }

@@ -234,30 +234,32 @@ class RecommendationService(
         val topArtistsTuples = listeningHistoryDao.getTopArtists(12)
         val topAlbumsTuples = listeningHistoryDao.getTopAlbums(8)
 
-        val allUserArtists = getUserArtistUniverse()
-        val shuffledPool = (favoriteArtists.toList() + allUserArtists).distinct()
-
-        val a1 = favoriteArtists.firstOrNull() ?: shuffledPool.getOrNull(0) ?: topArtistsTuples.firstOrNull()?.artist ?: "Arijit Singh"
-        val a2 = favoriteArtists.drop(1).firstOrNull() ?: shuffledPool.getOrNull(1) ?: topArtistsTuples.getOrNull(1)?.artist ?: "Pritam"
-        val a3 = shuffledPool.getOrNull(2) ?: topArtistsTuples.getOrNull(2)?.artist ?: "Atif Aslam"
-        val a4 = shuffledPool.getOrNull(3) ?: topArtistsTuples.getOrNull(3)?.artist ?: "Shreya Ghoshal"
-        val preferredGenre = favoriteGenres.firstOrNull() ?: "Bollywood"
-        val madeForYouArtist = a1
-
         val countryProfile = CountryMusicCatalog.getProfile(countryCode)
         val effectiveCountryName = countryProfile.countryName
+        val effectivePrimaryLang = if (countryCode.equals("IN", ignoreCase = true)) primaryLang else countryProfile.defaultPrimaryLanguage
         val trendingShelf = countryProfile.shelves.firstOrNull { it.category == "trending" }
 
+        val allUserArtists = getUserArtistUniverse()
+        val shuffledPool = (favoriteArtists.toList() + allUserArtists).distinct()
+        val countryPopular = countryProfile.popularArtists.map { it.name }
+
+        val a1 = favoriteArtists.firstOrNull() ?: shuffledPool.getOrNull(0) ?: topArtistsTuples.firstOrNull()?.artist ?: countryPopular.getOrNull(0) ?: "Taylor Swift"
+        val a2 = favoriteArtists.drop(1).firstOrNull() ?: shuffledPool.getOrNull(1) ?: topArtistsTuples.getOrNull(1)?.artist ?: countryPopular.getOrNull(1) ?: "The Weeknd"
+        val a3 = shuffledPool.getOrNull(2) ?: topArtistsTuples.getOrNull(2)?.artist ?: countryPopular.getOrNull(2) ?: "Drake"
+        val a4 = shuffledPool.getOrNull(3) ?: topArtistsTuples.getOrNull(3)?.artist ?: countryPopular.getOrNull(3) ?: "Billie Eilish"
+        val preferredGenre = favoriteGenres.firstOrNull() ?: if (countryCode.equals("IN", ignoreCase = true)) "Bollywood" else "Pop"
+        val madeForYouArtist = a1
+
         val discoveryKeywords = listOf(
-            "new releases $primaryLang $effectiveCountryName 2024",
+            "new releases $effectivePrimaryLang $effectiveCountryName 2024",
             "trending pop viral hits $effectiveCountryName",
-            "$primaryLang acoustic romantic unplugged",
+            "$effectivePrimaryLang acoustic romantic unplugged",
             "viral hits 2024",
-            "indie folk acoustic chill $primaryLang",
+            "indie folk acoustic chill $effectivePrimaryLang",
             "lofi chillhop midnight study",
             "global viral top charts"
         ).shuffled()
-        val freshKeyword = discoveryKeywords.getOrNull(0) ?: "new releases $primaryLang 2024"
+        val freshKeyword = discoveryKeywords.getOrNull(0) ?: "new releases $effectivePrimaryLang 2024"
         val trendingKeyword = discoveryKeywords.getOrNull(1) ?: "trending viral hits $effectiveCountryName"
 
         coroutineScope {
@@ -440,12 +442,12 @@ class RecommendationService(
             }
 
             // 11. "Your Language Mix"
-            val secondaryLang = preferredLangs.firstOrNull { !it.equals(primaryLang, ignoreCase = true) }
-            val languageMixTitle = if (secondaryLang != null) "$primaryLang & $secondaryLang Mix" else "Your $primaryLang Mix"
+            val secondaryLang = preferredLangs.firstOrNull { !it.equals(effectivePrimaryLang, ignoreCase = true) }
+            val languageMixTitle = if (secondaryLang != null) "$effectivePrimaryLang & $secondaryLang Mix" else "Your $effectivePrimaryLang Mix"
             val languageMixSubtitle = "Top hits in your preferred languages"
             val languageMixDeferred = async {
                 try {
-                    val query = if (secondaryLang != null) "$primaryLang $secondaryLang top hits songs" else "$primaryLang top songs hits"
+                    val query = if (secondaryLang != null) "$effectivePrimaryLang $secondaryLang top hits songs" else "$effectivePrimaryLang top songs hits"
                     val songs = OnlineMusicSearchService.searchDirectCdnSongs(query, limit = 15)
                     DiversityFilter.filterAndDiversify(
                         candidates = songs,

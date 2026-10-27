@@ -161,6 +161,25 @@ fun rememberAsyncCoverArt(
                                 if (cachedFile.exists() && cachedFile.length() > 500) {
                                     resolvedPath = cachedFile.absolutePath
                                 }
+                            } else if (cleanArtUrl.contains("maxresdefault.jpg")) {
+                                conn.disconnect()
+                                val fallbackUrl = URL(cleanArtUrl.replace("maxresdefault.jpg", "hqdefault.jpg"))
+                                val fallbackConn = (fallbackUrl.openConnection() as HttpURLConnection).apply {
+                                    connectTimeout = 5000
+                                    readTimeout = 5000
+                                    setRequestProperty("User-Agent", "Mozilla/5.0")
+                                }
+                                if (fallbackConn.responseCode == 200) {
+                                    fallbackConn.inputStream.use { input ->
+                                        cachedFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                    if (cachedFile.exists() && cachedFile.length() > 500) {
+                                        resolvedPath = cachedFile.absolutePath
+                                    }
+                                }
+                                fallbackConn.disconnect()
                             }
                             conn.disconnect()
                         } catch (_: Throwable) {}

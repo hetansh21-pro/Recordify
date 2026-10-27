@@ -155,6 +155,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
     private val _homeTrendingSoundtracks = MutableStateFlow<List<com.audiovault.app.core.online.OnlineAlbumModel>>(emptyList())
     val homeTrendingSoundtracks: StateFlow<List<com.audiovault.app.core.online.OnlineAlbumModel>> = _homeTrendingSoundtracks.asStateFlow()
 
+    private val _homePodcasts = MutableStateFlow<List<OnlineSongModel>>(emptyList())
+    val homePodcasts: StateFlow<List<OnlineSongModel>> = _homePodcasts.asStateFlow()
+
+    private val _isPodcastsLoading = MutableStateFlow(false)
+    val isPodcastsLoading: StateFlow<Boolean> = _isPodcastsLoading.asStateFlow()
+
     private val _isHomeLoading = MutableStateFlow(false)
     val isHomeLoading: StateFlow<Boolean> = _isHomeLoading.asStateFlow()
 
@@ -592,10 +598,10 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             try {
+                val currentSettings = userSettings.value
                 // 1. Dynamic Spotify & Taste recommendation feed in parallel
                 val feedJob = launch {
                     try {
-                        val currentSettings = userSettings.value
                         recommendationService.loadHomeFeed(
                             userName = userName.value,
                             forceRefresh = forceRefresh,
@@ -615,7 +621,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 val featuredJob = launch {
                     if (_homeContent.value.popularAlbumsAndSingles.isEmpty() || forceRefresh) {
                         try {
-                            val content = com.audiovault.app.core.online.OnlineMusicSearchService.fetchHomeFeaturedContent()
+                            val content = com.audiovault.app.core.online.OnlineMusicSearchService.fetchHomeFeaturedContent(currentSettings.userCountryCode)
                             _homeContent.value = content
                             _homeLatestReleases.value = content.latestReleases
                             _homeTrendingSoundtracks.value = content.popularAlbumsAndSingles
@@ -851,10 +857,27 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun loadPodcasts(countryCode: String? = null, forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            if (_homePodcasts.value.isNotEmpty() && !forceRefresh) return@launch
+            _isPodcastsLoading.value = true
+            try {
+                val code = countryCode ?: userSettings.value.userCountryCode
+                val podcasts = com.audiovault.app.core.online.OnlineMusicSearchService.fetchYouTubePodcasts(code)
+                _homePodcasts.value = podcasts
+            } catch (e: Exception) {
+                android.util.Log.e("Recordify/Podcasts", "Failed to fetch podcasts", e)
+            } finally {
+                _isPodcastsLoading.value = false
+            }
+        }
+    }
+
     fun setUserCountry(code: String, name: String) {
         viewModelScope.launch {
             userPreferencesRepository.setUserCountry(code, name)
             loadHomeContent(forceRefresh = true)
+            loadPodcasts(countryCode = code, forceRefresh = true)
         }
     }
 

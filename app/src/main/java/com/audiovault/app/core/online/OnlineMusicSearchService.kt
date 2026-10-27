@@ -553,6 +553,54 @@ object OnlineMusicSearchService {
         null
     }
 
+    suspend fun searchAlbumsITunes(query: String, limit: Int = 6, country: String = "IN"): List<OnlineAlbumModel> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+        try {
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            val endpoint = "https://itunes.apple.com/search?term=$encoded&entity=album&country=$country&limit=$limit"
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 4000
+                readTimeout = 4000
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "Recordify/1.0")
+            }
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val root = JSONObject(text)
+                val results = root.optJSONArray("results") ?: return@withContext emptyList()
+                val list = mutableListOf<OnlineAlbumModel>()
+                for (i in 0 until results.length()) {
+                    val item = results.getJSONObject(i)
+                    val collectionId = item.optLong("collectionId", 0L).toString()
+                    val collectionName = cleanText(item.optString("collectionName", ""))
+                    val artistName = cleanText(item.optString("artistName", "Various Artists"))
+                    val releaseDate = item.optString("releaseDate", "")
+                    val year = if (releaseDate.length >= 4) releaseDate.substring(0, 4) else null
+                    val rawArtwork = item.optString("artworkUrl100", "")
+                    val highResArt = rawArtwork.replace("100x100bb.jpg", "600x600bb.jpg")
+                    val trackCount = item.optInt("trackCount", 0)
+
+                    if (collectionName.isNotBlank()) {
+                        list.add(
+                            OnlineAlbumModel(
+                                id = "itunes_alb_$collectionId",
+                                title = collectionName,
+                                year = year,
+                                artist = artistName,
+                                coverArtUrl = highResArt.takeIf { it.isNotBlank() },
+                                type = "Album",
+                                source = "itunes",
+                                songCount = trackCount
+                            )
+                        )
+                    }
+                }
+                return@withContext list
+            }
+        } catch (_: Exception) {}
+        emptyList()
+    }
+
     suspend fun searchAlbumsAndSoundtracks(query: String, limit: Int = 4): List<OnlineAlbumModel> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
         try {
@@ -598,10 +646,19 @@ object OnlineMusicSearchService {
                 }
             }
             val playlists = searchPlaylists(query, limit = limit)
-            (albums + playlists).distinctBy { it.id }
+            val combined = (albums + playlists).distinctBy { it.id }.toMutableList()
+            if (combined.size < limit) {
+                val itunes = searchAlbumsITunes(query, limit = limit, country = "US")
+                for (alb in itunes) {
+                    if (combined.none { it.title.equals(alb.title, ignoreCase = true) }) {
+                        combined.add(alb)
+                    }
+                }
+            }
+            combined.take(limit)
         } catch (e: Exception) {
             Log.e(TAG, "Error searching albums/soundtracks", e)
-            emptyList()
+            searchAlbumsITunes(query, limit = limit, country = "US")
         }
     }
 
@@ -894,38 +951,146 @@ object OnlineMusicSearchService {
         cleanList.ifEmpty { results }
     }
 
-    suspend fun fetchHomeFeaturedContent(): SpotifyHomeContent = withContext(Dispatchers.IO) {
+    suspend fun fetchYouTubePodcasts(countryCode: String = "IN"): List<OnlineSongModel> = withContext(Dispatchers.IO) {
+        val podcastQueries = when (countryCode.uppercase()) {
+            "IN" -> listOf(
+                "The Ranveer Show podcast episode",
+                "Raj Shamani Figuring Out podcast",
+                "Finshots Daily podcast",
+                "Prakhar ke Pravachan podcast",
+                "WTF is with Nikhil Kamath podcast"
+            )
+            "US", "GB" -> listOf(
+                "The Joe Rogan Experience podcast episode",
+                "Huberman Lab podcast full episode",
+                "Lex Fridman podcast episode",
+                "The Diary Of A CEO podcast",
+                "SmartLess podcast"
+            )
+            "KR" -> listOf(
+                "Korean podcast full episode",
+                "K-pop Daebak show Eric Nam",
+                "Talk To Me In Korean podcast"
+            )
+            "JP" -> listOf(
+                "Japanese podcast episode",
+                "Learn Japanese podcast",
+                "NHK Radio News podcast"
+            )
+            "BR" -> listOf(
+                "Podpah podcast",
+                "Flow Podcast Brasil",
+                "Inteligencia Ltda podcast"
+            )
+            "ES" -> listOf(
+                "The Wild Project podcast",
+                "Nadie Sabe Nada podcast",
+                "Entiende Tu Mente podcast"
+            )
+            "AE" -> listOf(
+                "Kerning Cultures podcast",
+                "Dukkan Show podcast Dubai",
+                "AbTalks Anas Bukhash podcast"
+            )
+            else -> listOf(
+                "The Joe Rogan Experience podcast",
+                "Huberman Lab podcast",
+                "Lex Fridman podcast",
+                "The Diary Of A CEO podcast"
+            )
+        }
+
+        val results = mutableListOf<OnlineSongModel>()
+        val seenIds = mutableSetOf<String>()
+
+        coroutineScope {
+            val jobs = podcastQueries.map { q ->
+                async {
+                    try {
+                        searchYouTubeAndInvidious(q, limit = 4)
+                    } catch (_: Exception) {
+                        emptyList<OnlineSongModel>()
+                    }
+                }
+            }
+            for (job in jobs) {
+                val episodes = job.await()
+                for (ep in episodes) {
+                    val hdThumb = ep.highResArtUrl?.replace("hqdefault.jpg", "maxresdefault.jpg") ?: ep.highResArtUrl
+                    val cleanEp = ep.copy(
+                        highResArtUrl = hdThumb,
+                        album = "Podcast Episode"
+                    )
+                    if (seenIds.add(cleanEp.id)) {
+                        results.add(cleanEp)
+                    }
+                }
+            }
+        }
+
+        results
+    }
+
+    suspend fun fetchHomeFeaturedContent(countryCode: String = "IN"): SpotifyHomeContent = withContext(Dispatchers.IO) {
+        val isIndia = countryCode.equals("IN", ignoreCase = true)
+        val profile = com.audiovault.app.core.catalog.CountryMusicCatalog.getProfile(countryCode)
+        val countryUpper = countryCode.uppercase()
+
         coroutineScope {
             // Day-based rotation offset so home content changes dynamically every day
             val dayOfYear = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
 
-            val recommendedQueriesPool = listOf(
-                listOf("Ramaiya Vastavaiya", "Best Of Arijit Singh - Revisited", "Khiladi 786", "Yeh Jawaani Hai Deewani", "Dilwale"),
-                listOf("Brahmastra", "Kalank", "Kesari", "Ae Dil Hai Mushkil", "Kabir Singh"),
-                listOf("Aashiqui 2", "Saiyaara", "Sanam Teri Kasam", "Raabta", "Rockstar"),
-                listOf("Jawan", "Pathaan", "Dunki", "Chhaava", "Stree 2"),
-                listOf("Shershaah", "Luka Chuppi", "Sonu Ke Titu Ki Sweety", "Badlapur", "Cocktail")
-            )
+            val recommendedQueriesPool = if (isIndia) {
+                listOf(
+                    listOf("Ramaiya Vastavaiya", "Best Of Arijit Singh - Revisited", "Khiladi 786", "Yeh Jawaani Hai Deewani", "Dilwale"),
+                    listOf("Brahmastra", "Kalank", "Kesari", "Ae Dil Hai Mushkil", "Kabir Singh"),
+                    listOf("Aashiqui 2", "Saiyaara", "Sanam Teri Kasam", "Raabta", "Rockstar"),
+                    listOf("Jawan", "Pathaan", "Dunki", "Chhaava", "Stree 2"),
+                    listOf("Shershaah", "Luka Chuppi", "Sonu Ke Titu Ki Sweety", "Badlapur", "Cocktail")
+                )
+            } else {
+                listOf(
+                    profile.quickAccessTiles.map { it.title }.take(5),
+                    profile.shelves.map { it.title }.take(5),
+                    profile.popularArtists.map { "${it.name} album" }.take(5)
+                )
+            }
             val recommendedQueries = recommendedQueriesPool[dayOfYear % recommendedQueriesPool.size]
 
-            val popularQueriesPool = listOf(
-                listOf("Saiyaara", "Aashiqui 2", "Sanam Teri Kasam", "Animal", "Pushpa 2"),
-                listOf("Animal", "Kabir Singh", "Rockstar", "Saiyaara", "Aashiqui 2"),
-                listOf("Pushpa 2", "Devara", "Stree 2", "Kalki 2898 AD", "Saiyaara"),
-                listOf("Sanam Teri Kasam", "Aashiqui 2", "Hamari Adhuri Kahani", "Ek Villain", "Saiyaara"),
-                listOf("Rockstar", "Tamasha", "Barfi", "Jab We Met", "Love Aaj Kal")
-            )
+            val popularQueriesPool = if (isIndia) {
+                listOf(
+                    listOf("Saiyaara", "Aashiqui 2", "Sanam Teri Kasam", "Animal", "Pushpa 2"),
+                    listOf("Animal", "Kabir Singh", "Rockstar", "Saiyaara", "Aashiqui 2"),
+                    listOf("Pushpa 2", "Devara", "Stree 2", "Kalki 2898 AD", "Saiyaara"),
+                    listOf("Sanam Teri Kasam", "Aashiqui 2", "Hamari Adhuri Kahani", "Ek Villain", "Saiyaara"),
+                    listOf("Rockstar", "Tamasha", "Barfi", "Jab We Met", "Love Aaj Kal")
+                )
+            } else {
+                listOf(
+                    profile.popularArtists.shuffled().take(5).map { "${it.name} hits" },
+                    profile.shelves.map { it.searchQuery }.take(5)
+                )
+            }
             val popularQueries = popularQueriesPool[dayOfYear % popularQueriesPool.size]
 
             val recommendedDeferred = async {
                 val list = mutableListOf<OnlineAlbumModel>()
+                if (!isIndia) {
+                    list.addAll(profile.quickAccessTiles)
+                }
                 for (q in recommendedQueries) {
                     try {
-                        val found = searchAlbumsAndSoundtracks(q, limit = 1)
+                        val found = if (!isIndia) {
+                            searchAlbumsITunes(q, limit = 1, country = countryUpper).ifEmpty { searchAlbumsAndSoundtracks(q, limit = 1) }
+                        } else {
+                            searchAlbumsAndSoundtracks(q, limit = 1)
+                        }
                         if (found.isNotEmpty()) {
                             val album = found[0]
                             val type = if (q.contains("Best Of", ignoreCase = true) || q.contains("Hits", ignoreCase = true)) "Compilation" else "Album"
-                            list.add(album.copy(type = type))
+                            if (list.none { it.id == album.id }) {
+                                list.add(album.copy(type = type))
+                            }
                         }
                     } catch (_: Exception) {}
                 }
@@ -936,8 +1101,12 @@ object OnlineMusicSearchService {
                 val list = mutableListOf<OnlineAlbumModel>()
                 for (q in popularQueries) {
                     try {
-                        val found = searchAlbumsAndSoundtracks(q, limit = 1)
-                        if (found.isNotEmpty()) {
+                        val found = if (!isIndia) {
+                            searchAlbumsITunes(q, limit = 1, country = countryUpper).ifEmpty { searchAlbumsAndSoundtracks(q, limit = 1) }
+                        } else {
+                            searchAlbumsAndSoundtracks(q, limit = 1)
+                        }
+                        if (found.isNotEmpty() && list.none { it.id == found[0].id }) {
                             list.add(found[0])
                         }
                     } catch (_: Exception) {}
@@ -947,114 +1116,149 @@ object OnlineMusicSearchService {
 
             val releasesDeferred = async {
                 try {
-                    val hindi = searchSongs("Latest Hindi Songs", limit = 8)
-                    val trending = searchSongs("Trending Songs", limit = 8)
-                    (hindi + trending).distinctBy { normalizeKey(it.title, it.artist) }
+                    if (isIndia) {
+                        val hindi = searchSongs("Latest Hindi Songs", limit = 8)
+                        val trending = searchSongs("Trending Songs", limit = 8)
+                        (hindi + trending).distinctBy { normalizeKey(it.title, it.artist) }
+                    } else {
+                        val trendingShelf = profile.shelves.firstOrNull { it.category == "trending" }
+                        val query = trendingShelf?.searchQuery ?: "top hits ${profile.countryName} 2024"
+                        searchDirectCdnSongs(query, limit = 12)
+                    }
                 } catch (_: Exception) {
                     emptyList<OnlineSongModel>()
                 }
             }
 
-            val radioList = listOf(
-                RadioMixModel(
-                    id = "radio_diljit",
-                    title = "Diljit Dosanjh",
-                    subtitle = "RADIO",
-                    artists = "Shashwat Sachdev, Diljit Dosanjh, AP Dhillon, Harrdy Sandhu",
-                    bgHexColor = 0xFF589EA6,
-                    artistImages = listOf(
-                        "https://c.saavncdn.com/artists/Diljit_Dosanjh_004_20221014075535_500x500.jpg",
-                        "https://c.saavncdn.com/artists/AP_Dhillon_000_20220610091338_500x500.jpg"
-                    )
-                ),
-                RadioMixModel(
-                    id = "radio_kishore",
-                    title = "Kishore Kumar",
-                    subtitle = "RADIO",
-                    artists = "Lata Mangeshkar, Kishore Kumar, Asha Bhosle, Kalyanji-Anandji",
-                    bgHexColor = 0xFFE06A55,
-                    artistImages = listOf(
-                        "https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg",
-                        "https://c.saavncdn.com/artists/Lata_Mangeshkar_500x500.jpg"
-                    )
-                ),
-                RadioMixModel(
-                    id = "radio_ar_rahman",
-                    title = "A.R. Rahman",
-                    subtitle = "RADIO",
-                    artists = "A.R. Rahman, Shankar Mahadevan, Shreya Ghoshal, Javed Ali",
-                    bgHexColor = 0xFFE5B54E,
-                    artistImages = listOf(
-                        "https://c.saavncdn.com/artists/A_R_Rahman_500x500.jpg",
-                        "https://c.saavncdn.com/artists/Shreya_Ghoshal_500x500.jpg"
-                    )
-                ),
-                RadioMixModel(
-                    id = "radio_arijit",
-                    title = "Arijit Singh",
-                    subtitle = "RADIO",
-                    artists = "Arijit Singh, Pritam, Vishal Mishra, Jasleen Royal",
-                    bgHexColor = 0xFF439A86,
-                    artistImages = listOf(
-                        "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
-                        "https://c.saavncdn.com/artists/Pritam_500x500.jpg"
-                    )
-                ),
-                RadioMixModel(
-                    id = "radio_srk",
-                    title = "Shah Rukh Khan Hits",
-                    subtitle = "RADIO",
-                    artists = "Pritam, Anirudh Ravichander, Vishal-Shekhar, Udit Narayan",
-                    bgHexColor = 0xFF4A6FA5,
-                    artistImages = listOf(
-                        "https://c.saavncdn.com/artists/Shah_Rukh_Khan_500x500.jpg",
-                        "https://c.saavncdn.com/artists/Anirudh_Ravichander_500x500.jpg"
+            val radioList = if (isIndia) {
+                listOf(
+                    RadioMixModel(
+                        id = "radio_diljit",
+                        title = "Diljit Dosanjh",
+                        subtitle = "RADIO",
+                        artists = "Shashwat Sachdev, Diljit Dosanjh, AP Dhillon, Harrdy Sandhu",
+                        bgHexColor = 0xFF589EA6,
+                        artistImages = listOf(
+                            "https://c.saavncdn.com/artists/Diljit_Dosanjh_004_20221014075535_500x500.jpg",
+                            "https://c.saavncdn.com/artists/AP_Dhillon_000_20220610091338_500x500.jpg"
+                        )
+                    ),
+                    RadioMixModel(
+                        id = "radio_kishore",
+                        title = "Kishore Kumar",
+                        subtitle = "RADIO",
+                        artists = "Lata Mangeshkar, Kishore Kumar, Asha Bhosle, Kalyanji-Anandji",
+                        bgHexColor = 0xFFE06A55,
+                        artistImages = listOf(
+                            "https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg",
+                            "https://c.saavncdn.com/artists/Lata_Mangeshkar_500x500.jpg"
+                        )
+                    ),
+                    RadioMixModel(
+                        id = "radio_ar_rahman",
+                        title = "A.R. Rahman",
+                        subtitle = "RADIO",
+                        artists = "A.R. Rahman, Shankar Mahadevan, Shreya Ghoshal, Javed Ali",
+                        bgHexColor = 0xFFE5B54E,
+                        artistImages = listOf(
+                            "https://c.saavncdn.com/artists/A_R_Rahman_500x500.jpg",
+                            "https://c.saavncdn.com/artists/Shreya_Ghoshal_500x500.jpg"
+                        )
+                    ),
+                    RadioMixModel(
+                        id = "radio_arijit",
+                        title = "Arijit Singh",
+                        subtitle = "RADIO",
+                        artists = "Arijit Singh, Pritam, Vishal Mishra, Jasleen Royal",
+                        bgHexColor = 0xFF439A86,
+                        artistImages = listOf(
+                            "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
+                            "https://c.saavncdn.com/artists/Pritam_500x500.jpg"
+                        )
+                    ),
+                    RadioMixModel(
+                        id = "radio_srk",
+                        title = "Shah Rukh Khan Hits",
+                        subtitle = "RADIO",
+                        artists = "Pritam, Anirudh Ravichander, Vishal-Shekhar, Udit Narayan",
+                        bgHexColor = 0xFF4A6FA5,
+                        artistImages = listOf(
+                            "https://c.saavncdn.com/artists/Shah_Rukh_Khan_500x500.jpg",
+                            "https://c.saavncdn.com/artists/Anirudh_Ravichander_500x500.jpg"
+                        )
                     )
                 )
-            )
+            } else {
+                profile.popularArtists.take(5).mapIndexed { idx, art ->
+                    RadioMixModel(
+                        id = "radio_${art.name.hashCode()}",
+                        title = art.name,
+                        subtitle = "RADIO",
+                        artists = "${art.name}, ${profile.popularArtists.getOrNull(idx + 1)?.name ?: "Recordify Top Hits"}",
+                        bgHexColor = when (idx % 4) {
+                            0 -> 0xFF589EA6
+                            1 -> 0xFFE06A55
+                            2 -> 0xFFE5B54E
+                            else -> 0xFF439A86
+                        },
+                        artistImages = emptyList()
+                    )
+                }
+            }
 
-            val artistList = listOf(
-                ArtistItemModel(
-                    id = "art_arijit",
-                    name = "Arijit Singh",
-                    imageUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_aditya",
-                    name = "Aditya Gadhvi",
-                    imageUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_000_20231019075727_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_diljit",
-                    name = "Diljit Dosanjh",
-                    imageUrl = "https://c.saavncdn.com/artists/Diljit_Dosanjh_004_20221014075535_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_neeti",
-                    name = "Neeti Mohan",
-                    imageUrl = "https://c.saavncdn.com/artists/Neeti_Mohan_004_20220610091410_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_honey",
-                    name = "Yo Yo Honey Singh",
-                    imageUrl = "https://c.saavncdn.com/artists/Yo_Yo_Honey_Singh_002_20221208075308_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_shreya",
-                    name = "Shreya Ghoshal",
-                    imageUrl = "https://c.saavncdn.com/artists/Shreya_Ghoshal_004_20221104100347_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_anirudh",
-                    name = "Anirudh Ravichander",
-                    imageUrl = "https://c.saavncdn.com/artists/Anirudh_Ravichander_003_20231113063556_500x500.jpg"
-                ),
-                ArtistItemModel(
-                    id = "art_vishal",
-                    name = "Vishal Mishra",
-                    imageUrl = "https://c.saavncdn.com/artists/Vishal_Mishra_004_20230626071415_500x500.jpg"
+            val artistList = if (isIndia) {
+                listOf(
+                    ArtistItemModel(
+                        id = "art_arijit",
+                        name = "Arijit Singh",
+                        imageUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_aditya",
+                        name = "Aditya Gadhvi",
+                        imageUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_000_20231019075727_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_diljit",
+                        name = "Diljit Dosanjh",
+                        imageUrl = "https://c.saavncdn.com/artists/Diljit_Dosanjh_004_20221014075535_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_neeti",
+                        name = "Neeti Mohan",
+                        imageUrl = "https://c.saavncdn.com/artists/Neeti_Mohan_004_20220610091410_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_honey",
+                        name = "Yo Yo Honey Singh",
+                        imageUrl = "https://c.saavncdn.com/artists/Yo_Yo_Honey_Singh_002_20221208075308_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_shreya",
+                        name = "Shreya Ghoshal",
+                        imageUrl = "https://c.saavncdn.com/artists/Shreya_Ghoshal_004_20221104100347_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_anirudh",
+                        name = "Anirudh Ravichander",
+                        imageUrl = "https://c.saavncdn.com/artists/Anirudh_Ravichander_003_20231113063556_500x500.jpg"
+                    ),
+                    ArtistItemModel(
+                        id = "art_vishal",
+                        name = "Vishal Mishra",
+                        imageUrl = "https://c.saavncdn.com/artists/Vishal_Mishra_004_20230626071415_500x500.jpg"
+                    )
                 )
-            )
+            } else {
+                profile.popularArtists.take(8).map { art ->
+                    ArtistItemModel(
+                        id = "art_${art.name.hashCode()}",
+                        name = art.name,
+                        imageUrl = "",
+                        role = art.primaryGenre
+                    )
+                }
+            }
 
             val rec = recommendedDeferred.await()
             val pop = popularAlbumsDeferred.await()
@@ -1346,7 +1550,7 @@ object OnlineMusicSearchService {
                         val title = cleanText(item.optString("title", ""))
                         val author = cleanText(item.optString("author", "YouTube Music"))
                         val lengthSeconds = item.optLong("lengthSeconds", 0L)
-                        val thumbUrl = "https://i.ytimg.com/vi/$vidId/hqdefault.jpg"
+                        val thumbUrl = "https://i.ytimg.com/vi/$vidId/maxresdefault.jpg"
 
                         if (vidId.length == 11 && title.isNotBlank()) {
                             list.add(
@@ -1432,7 +1636,7 @@ object OnlineMusicSearchService {
                                             album = "YouTube Music",
                                             durationMs = durationMs,
                                             streamUrl = "",
-                                            highResArtUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+                                            highResArtUrl = "https://i.ytimg.com/vi/$videoId/maxresdefault.jpg",
                                             bitrate = "320kbps",
                                             source = "youtube",
                                             youtubeVideoId = videoId

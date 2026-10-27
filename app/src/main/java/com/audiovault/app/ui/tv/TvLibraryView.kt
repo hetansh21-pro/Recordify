@@ -519,7 +519,7 @@ fun TvLibraryView(
                         item {
                             TvCircularArtistCard(
                                 name = "Aditya Gadhvi",
-                                imageUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80",
+                                imageUrl = "https://c.saavncdn.com/artists/Aditya_Gadhvi_000_20231019075727_500x500.jpg",
                                 onClick = {
                                     val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_aditya_gadhvi" }
                                     if (album != null) onOpenAlbum(album)
@@ -553,7 +553,7 @@ fun TvLibraryView(
                         item {
                             TvCircularArtistCard(
                                 name = "Pritam",
-                                imageUrl = "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80",
+                                imageUrl = "https://c.saavncdn.com/artists/Pritam_500x500.jpg",
                                 onClick = {
                                     val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_pritam" }
                                     if (album != null) onOpenAlbum(album)
@@ -567,7 +567,7 @@ fun TvLibraryView(
                         item {
                             TvCircularArtistCard(
                                 name = "Arijit Singh",
-                                imageUrl = "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=600&auto=format&fit=crop&q=80",
+                                imageUrl = "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
                                 onClick = {
                                     val album = CuratedAlbumCatalog.curatedAlbums.find { it.id == "curated_arijit_singh" }
                                     if (album != null) onOpenAlbum(album)

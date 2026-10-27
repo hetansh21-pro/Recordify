@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -102,6 +103,14 @@ fun TvHomeView(
     }
 
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
+    val homePodcasts by viewModel.homePodcasts.collectAsState()
+    val isPodcastsLoading by viewModel.isPodcastsLoading.collectAsState()
+
+    androidx.compose.runtime.LaunchedEffect(selectedFilterPill) {
+        if (selectedFilterPill == "Podcasts & Shows") {
+            viewModel.loadPodcasts(countryProfile.countryCode)
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -240,34 +249,28 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows], [Country])
+        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows])
         // -----------------------------------------------------------------
         item {
-            val countryPill = "${countryProfile.flagEmoji} ${countryProfile.countryName}"
-            val filterOptions = listOf("All", "Music", "Podcasts & Shows", countryPill)
+            val filterOptions = listOf("All", "Music", "Podcasts & Shows")
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 filterOptions.forEach { filterLabel ->
-                    val isCountry = filterLabel == countryPill
                     val isSelected = selectedFilterPill == filterLabel
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = if (isSelected) Color.White else if (isCountry) SpotifyGreenBright.copy(alpha = 0.15f) else Color(0xFF202020),
+                        color = if (isSelected) Color.White else Color(0xFF202020),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (isSelected) Color.White else if (isCountry) SpotifyGreenBright.copy(alpha = 0.5f) else Color(0xFF333333)
+                            if (isSelected) Color.White else Color(0xFF333333)
                         ),
                         modifier = Modifier
                             .height(34.dp)
                             .tvRemoteFocusable(
                                 onClick = {
-                                    if (isCountry) {
-                                        onOpenSettings()
-                                    } else {
-                                        selectedFilterPill = filterLabel
-                                    }
+                                    selectedFilterPill = filterLabel
                                 },
                                 shape = RoundedCornerShape(50),
                                 focusScale = 1.08f
@@ -281,7 +284,7 @@ fun TvHomeView(
                                 text = filterLabel,
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else if (isCountry) SpotifyGreenBright else Color.White,
+                                    color = if (isSelected) Color.Black else Color.White,
                                     fontSize = 12.sp
                                 )
                             )
@@ -291,43 +294,134 @@ fun TvHomeView(
             }
         }
 
-        // -----------------------------------------------------------------
-        // 3. SIGNATURE 8 QUICK-ACCESS RECTANGULAR TILES (2 Rows x 4 Columns)
-        // Dynamically configured for the active country profile
-        // -----------------------------------------------------------------
-        item {
-            val quickTiles = countryProfile.quickAccessTiles.ifEmpty {
-                curatedAlbums.take(8)
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // First Row (4 items)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    quickTiles.take(4).forEach { item ->
-                        TvQuickAccessTile(
-                            title = item.title,
-                            artUrl = item.coverArtUrl,
-                            onClick = { onPlayAlbum(item) },
-                            modifier = Modifier.weight(1f)
+        if (selectedFilterPill == "Podcasts & Shows") {
+            // -------------------------------------------------------------
+            // YOUTUBE PODCASTS HUB (Episodes streamed direct from YouTube)
+            // -------------------------------------------------------------
+            if (isPodcastsLoading && homePodcasts.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = SpotifyGreenBright,
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp
                         )
                     }
                 }
+            } else {
+                val trendingPodcasts = homePodcasts.take(8)
+                if (trendingPodcasts.isNotEmpty()) {
+                    item {
+                        Column {
+                            TvShelfHeader(
+                                title = "🔥 Trending YouTube Podcasts",
+                                subtitle = "Top video podcasts and talk shows streaming now"
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                items(trendingPodcasts) { podcast ->
+                                    TvSongCard(
+                                        song = podcast,
+                                        onClick = {
+                                            val upcoming = trendingPodcasts.drop(trendingPodcasts.indexOf(podcast) + 1)
+                                            onPlaySong(podcast, upcoming)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
-                // Second Row (4 items)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    quickTiles.drop(4).take(4).forEach { item ->
-                        TvQuickAccessTile(
-                            title = item.title,
-                            artUrl = item.coverArtUrl,
-                            onClick = { onPlayAlbum(item) },
-                            modifier = Modifier.weight(1f)
-                        )
+                val conversationPodcasts = homePodcasts.drop(8).take(8)
+                if (conversationPodcasts.isNotEmpty()) {
+                    item {
+                        Column {
+                            TvShelfHeader(
+                                title = "🧠 Deep Conversations & Interviews",
+                                subtitle = "Long-form discussions, life lessons, and inspiring journeys"
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                items(conversationPodcasts) { podcast ->
+                                    TvSongCard(
+                                        song = podcast,
+                                        onClick = {
+                                            val upcoming = conversationPodcasts.drop(conversationPodcasts.indexOf(podcast) + 1)
+                                            onPlaySong(podcast, upcoming)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val techPodcasts = homePodcasts.drop(16).take(8)
+                if (techPodcasts.isNotEmpty()) {
+                    item {
+                        Column {
+                            TvShelfHeader(
+                                title = "💡 Tech, Knowledge & Storytelling",
+                                subtitle = "Fascinating science, business breakdowns, and deep dives"
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                items(techPodcasts) { podcast ->
+                                    TvSongCard(
+                                        song = podcast,
+                                        onClick = {
+                                            val upcoming = techPodcasts.drop(techPodcasts.indexOf(podcast) + 1)
+                                            onPlaySong(podcast, upcoming)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // -----------------------------------------------------------------
+            // 3. SIGNATURE 8 QUICK-ACCESS RECTANGULAR TILES (2 Rows x 4 Columns)
+            // Dynamically configured for the active country profile
+            // -----------------------------------------------------------------
+            item {
+                val quickTiles = countryProfile.quickAccessTiles.ifEmpty {
+                    curatedAlbums.take(8)
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // First Row (4 items)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        quickTiles.take(4).forEach { item ->
+                            TvQuickAccessTile(
+                                title = item.title,
+                                artUrl = item.coverArtUrl,
+                                onClick = { onPlayAlbum(item) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    // Second Row (4 items)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        quickTiles.drop(4).take(4).forEach { item ->
+                            TvQuickAccessTile(
+                                title = item.title,
+                                artUrl = item.coverArtUrl,
+                                onClick = { onPlayAlbum(item) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
@@ -534,20 +628,26 @@ fun TvHomeView(
             }
         }
 
+        val isIndia = countryProfile.countryCode.equals("IN", ignoreCase = true)
+        val regionalShelf1 = countryProfile.shelves.getOrNull(1)
+        val regionalShelf2 = countryProfile.shelves.getOrNull(2)
+
         // -----------------------------------------------------------------
-        // 9. EVERGREEN 90S & BOLLYWOOD CLASSICS
+        // 9. REGIONAL ESSENTIALS / 90S BOLLYWOOD
         // -----------------------------------------------------------------
+        val shelf9Title = if (isIndia) "Evergreen 90s & Bollywood Classics" else (regionalShelf1?.title ?: "Popular Hits")
+        val shelf9Subtitle = if (isIndia) "Kumar Sanu, Alka Yagnik, Udit Narayan, and golden era soundtracks" else (regionalShelf1?.subtitle ?: "Top regional hits and chart-toppers")
         val bollywoodList = homeFeed.languageMixSongs
             .ifEmpty { homeFeed.becauseYouListenedTo }
-            .ifEmpty { TvCatalogFallbacks.golden90sBollywood }
+            .ifEmpty { if (isIndia) TvCatalogFallbacks.golden90sBollywood else emptyList() }
             .take(12)
 
         if (bollywoodList.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = "Evergreen 90s & Bollywood Classics",
-                        subtitle = "Kumar Sanu, Alka Yagnik, Udit Narayan, and golden era soundtracks"
+                        title = shelf9Title,
+                        subtitle = shelf9Subtitle
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(bollywoodList) { song ->
@@ -565,19 +665,21 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 10. PUNJABI & HIGH-ENERGY HITS
+        // 10. HIGH-ENERGY & PARTY HITS / REGIONAL SHELF 2
         // -----------------------------------------------------------------
+        val shelf10Title = if (isIndia) "Punjabi Top 50 & High-Energy Hits" else (regionalShelf2?.title ?: "Regional Essentials")
+        val shelf10Subtitle = if (isIndia) "Diljit Dosanjh, Sidhu Moose Wala, Karan Aujla, and party anthems" else (regionalShelf2?.subtitle ?: "Genre favorites and trending tracks")
         val partyList = homeFeed.heavyRotationSongs
             .ifEmpty { homeFeed.trendingNow }
-            .ifEmpty { TvCatalogFallbacks.punjabiParty }
+            .ifEmpty { if (isIndia) TvCatalogFallbacks.punjabiParty else emptyList() }
             .take(12)
 
         if (partyList.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = "Punjabi Top 50 & High-Energy Hits",
-                        subtitle = "Diljit Dosanjh, Sidhu Moose Wala, Karan Aujla, and party anthems"
+                        title = shelf10Title,
+                        subtitle = shelf10Subtitle
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(partyList) { song ->
@@ -597,7 +699,7 @@ fun TvHomeView(
         // -----------------------------------------------------------------
         // 11. FEATURED ALBUMS & SOUNDTRACKS
         // -----------------------------------------------------------------
-        val albumsList = (homeContent.popularAlbumsAndSingles + curatedAlbums).distinctBy { it.id }.take(10)
+        val albumsList = (homeContent.popularAlbumsAndSingles + countryProfile.quickAccessTiles).distinctBy { it.id }.take(10)
         if (albumsList.isNotEmpty()) {
             item {
                 Column {
@@ -618,17 +720,18 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 12. LEGENDARY COLLECTIONS & GOLDEN ERAS
+        // 12. LEGENDARY COLLECTIONS & DISCOVERY TILES
         // -----------------------------------------------------------------
-        if (curatedAlbums.isNotEmpty()) {
+        val displayAlbums = if (isIndia) curatedAlbums else countryProfile.quickAccessTiles
+        if (displayAlbums.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = "Legendary Eras & Vault Classics",
-                        subtitle = "Full discographies from 70s, 80s, 90s, and retro Ghazals"
+                        title = if (isIndia) "Legendary Eras & Vault Classics" else "Trending Collections & Artists",
+                        subtitle = if (isIndia) "Full discographies from 70s, 80s, 90s, and retro Ghazals" else "Top streaming playlists across ${countryProfile.countryName}"
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(curatedAlbums) { album ->
+                        items(displayAlbums) { album ->
                             TvAlbumCard(
                                 album = album,
                                 onClick = { onPlayAlbum(album) }
@@ -638,8 +741,33 @@ fun TvHomeView(
                 }
             }
         }
+
+        // -----------------------------------------------------------------
+        // 13. TOP PODCASTS FROM YOUTUBE (When browsing "All")
+        // -----------------------------------------------------------------
+        if (selectedFilterPill == "All" && homePodcasts.isNotEmpty()) {
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "🎙️ Top Podcasts from YouTube",
+                        subtitle = "Trending episodes and long-form conversations"
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(homePodcasts.take(10)) { podcast ->
+                            TvSongCard(
+                                song = podcast,
+                                onClick = {
+                                    val upcoming = homePodcasts.drop(homePodcasts.indexOf(podcast) + 1)
+                                    onPlaySong(podcast, upcoming)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        }
     }
-}
 
 /**
  * Pre-compiled fallback songs for Android TV Home Screen.
@@ -654,7 +782,7 @@ object TvCatalogFallbacks {
             artist = "Sachin-Jigar, Madhubanti Bagchi",
             album = "Stree 2",
             durationMs = 228000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/188/Aaj-Ki-Raat-From-Stree-2-Hindi-2024-20240724141012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_2",
@@ -662,7 +790,7 @@ object TvCatalogFallbacks {
             artist = "Shreya Ghoshal",
             album = "Pushpa 2 The Rule",
             durationMs = 260000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/978/Pushpa-2-The-Rule-Hindi-Hindi-2024-20241205093510-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_3",
@@ -670,7 +798,7 @@ object TvCatalogFallbacks {
             artist = "Karan Aujla",
             album = "Bad Newz",
             durationMs = 208000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/187/Tauba-Tauba-From-Bad-Newz-Hindi-2024-20240702131012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_4",
@@ -678,7 +806,7 @@ object TvCatalogFallbacks {
             artist = "Sushin Shyam",
             album = "Aavesham",
             durationMs = 193000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/102/Aavesham-Malayalam-2024-20240410181512-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_5",
@@ -686,7 +814,7 @@ object TvCatalogFallbacks {
             artist = "Bhupinder Babbal",
             album = "Animal",
             durationMs = 182000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_6",
@@ -694,7 +822,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Dunki",
             durationMs = 233000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/978/O-Maahi-From-Dunki-Hindi-2023-20231211171008-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_7",
@@ -702,7 +830,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh, Shilpa Rao",
             album = "Jawan",
             durationMs = 200000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/026/Chaleya-From-Jawan-Hindi-2023-20230814014339-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_new_8",
@@ -710,7 +838,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Animal",
             durationMs = 271000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
         )
     )
 
@@ -721,7 +849,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Aashiqui 2",
             durationMs = 262000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/430/Aashiqui-2-Hindi-2013-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_2",
@@ -729,7 +857,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Brahmastra",
             durationMs = 268000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/191/Kesariya-From-Brahmastra-Hindi-2022-20220717092820-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_3",
@@ -737,7 +865,7 @@ object TvCatalogFallbacks {
             artist = "Jasleen Royal, Arijit Singh",
             album = "Heeriye",
             durationMs = 194000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/022/Heeriye-feat-Arijit-Singh-Hindi-2023-20230928050405-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_4",
@@ -745,7 +873,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Bhediya",
             durationMs = 261000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/835/Bhediya-Hindi-2022-20230414164348-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_5",
@@ -753,7 +881,7 @@ object TvCatalogFallbacks {
             artist = "Vishal Mishra",
             album = "Animal",
             durationMs = 250000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_6",
@@ -761,7 +889,7 @@ object TvCatalogFallbacks {
             artist = "King",
             album = "Champagne Talk",
             durationMs = 194000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/871/Champagne-Talk-Hindi-2022-20221008011951-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_7",
@@ -769,7 +897,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Agent Vinod",
             durationMs = 243000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/391/Agent-Vinod-Hindi-2012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_top_8",
@@ -777,7 +905,7 @@ object TvCatalogFallbacks {
             artist = "B Praak, Jasleen Royal",
             album = "Shershaah",
             durationMs = 228000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/600/Shershaah-Original-Motion-Picture-Soundtrack-Hindi-2021-20210815181610-500x500.jpg"
         )
     )
 
@@ -788,7 +916,7 @@ object TvCatalogFallbacks {
             artist = "Mohit Chauhan, Taraannum Mallik",
             album = "Ek Tha Tiger",
             durationMs = 253000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/598/Saiyaara-Hindi-2025-20250703061754-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_mfy_2",
@@ -796,7 +924,7 @@ object TvCatalogFallbacks {
             artist = "Alka Yagnik, Arijit Singh",
             album = "Tamasha",
             durationMs = 341000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/092/Tamasha-Hindi-2015-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_mfy_3",
@@ -804,7 +932,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Jab Harry Met Sejal",
             durationMs = 290000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/409/Jab-Harry-Met-Sejal-Hindi-2017-20170803133606-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_mfy_4",
@@ -812,7 +940,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Kalank",
             durationMs = 311000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/849/Kalank-Hindi-2019-20190412140411-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_mfy_5",
@@ -820,7 +948,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh, Shilpa Rao",
             album = "Laal Singh Chaddha",
             durationMs = 346000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/598/Laal-Singh-Chaddha-Hindi-2022-20220805141012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_mfy_6",
@@ -828,7 +956,7 @@ object TvCatalogFallbacks {
             artist = "Atif Aslam",
             album = "Tiger Zinda Hai",
             durationMs = 260000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/445/Tiger-Zinda-Hai-Hindi-2017-20171212-500x500.jpg"
         )
     )
 
@@ -839,7 +967,7 @@ object TvCatalogFallbacks {
             artist = "Atif Aslam, Shreya Ghoshal",
             album = "Ramaiya Vastavaiya",
             durationMs = 237000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/264/Ramaiya-Vastavaiya-Hindi-2013-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_rom_2",
@@ -847,7 +975,7 @@ object TvCatalogFallbacks {
             artist = "Priya Saraiya, Divya Kumar",
             album = "ABCD 2",
             durationMs = 220000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/849/ABCD-2-Any-Body-Can-Dance-2-Hindi-2015-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_rom_3",
@@ -855,7 +983,7 @@ object TvCatalogFallbacks {
             artist = "Palak Muchhal",
             album = "M.S. Dhoni",
             durationMs = 241000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/024/M-S-Dhoni-The-Untold-Story-Hindi-2016-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_rom_4",
@@ -863,7 +991,7 @@ object TvCatalogFallbacks {
             artist = "Shreya Ghoshal",
             album = "Hamari Adhuri Kahani",
             durationMs = 192000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/565/Hamari-Adhuri-Kahani-Hindi-2015-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_rom_5",
@@ -871,7 +999,7 @@ object TvCatalogFallbacks {
             artist = "Akhil Sachdeva, Tulsi Kumar",
             album = "Kabir Singh",
             durationMs = 236000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/807/Kabir-Singh-Hindi-2019-20240130053603-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_rom_6",
@@ -879,7 +1007,7 @@ object TvCatalogFallbacks {
             artist = "Jubin Nautiyal, Asees Kaur",
             album = "Shershaah",
             durationMs = 230000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/600/Shershaah-Original-Motion-Picture-Soundtrack-Hindi-2021-20210815181610-500x500.jpg"
         )
     )
 
@@ -890,7 +1018,7 @@ object TvCatalogFallbacks {
             artist = "Kavita Seth, Amitabh Bhattacharya",
             album = "Wake Up Sid",
             durationMs = 253000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/177/Wake-Up-Sid-Hindi-2009-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_lofi_2",
@@ -898,7 +1026,7 @@ object TvCatalogFallbacks {
             artist = "Tochi Raina, Rekha Bhardwaj",
             album = "Yeh Jawaani Hai Deewani",
             durationMs = 223000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/264/Yeh-Jawaani-Hai-Deewani-Hindi-2013-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_lofi_3",
@@ -906,7 +1034,7 @@ object TvCatalogFallbacks {
             artist = "A.R. Rahman, Mohit Chauhan",
             album = "Rockstar",
             durationMs = 473000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/565/Rockstar-Hindi-2011-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_lofi_4",
@@ -914,7 +1042,7 @@ object TvCatalogFallbacks {
             artist = "Arijit Singh",
             album = "Barfi",
             durationMs = 304000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/835/Barfi-Hindi-2012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_lofi_5",
@@ -922,7 +1050,7 @@ object TvCatalogFallbacks {
             artist = "Jasleen Royal, Prateek Kuhad",
             album = "Baar Baar Dekho",
             durationMs = 213000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/023/Baar-Baar-Dekho-Hindi-2016-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_lofi_6",
@@ -930,7 +1058,7 @@ object TvCatalogFallbacks {
             artist = "Lucky Ali",
             album = "Tamasha",
             durationMs = 251000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/092/Tamasha-Hindi-2015-500x500.jpg"
         )
     )
 
@@ -941,7 +1069,7 @@ object TvCatalogFallbacks {
             artist = "Kumar Sanu, Lata Mangeshkar",
             album = "Dilwale Dulhania Le Jayenge",
             durationMs = 304000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/177/Dilwale-Dulhania-Le-Jayenge-Hindi-1995-20201026115918-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_2",
@@ -949,7 +1077,7 @@ object TvCatalogFallbacks {
             artist = "Udit Narayan, Sadhana Sargam",
             album = "Jo Jeeta Wohi Sikandar",
             durationMs = 292000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/026/Jo-Jeeta-Wohi-Sikandar-Hindi-1992-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_3",
@@ -957,7 +1085,7 @@ object TvCatalogFallbacks {
             artist = "Kumar Sanu, Anuradha Paudwal",
             album = "Aashiqui",
             durationMs = 331000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/492/Aashiqui-Hindi-1990-20200901083424-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_4",
@@ -965,7 +1093,7 @@ object TvCatalogFallbacks {
             artist = "Alka Yagnik, Udit Narayan",
             album = "Mohra",
             durationMs = 356000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/279/Mohra-Hindi-1994-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_5",
@@ -973,7 +1101,7 @@ object TvCatalogFallbacks {
             artist = "Kumar Sanu, Alka Yagnik",
             album = "Main Khiladi Tu Anari",
             durationMs = 472000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/445/Main-Khiladi-Tu-Anari-Hindi-1994-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_6",
@@ -981,7 +1109,7 @@ object TvCatalogFallbacks {
             artist = "Kumar Sanu, Alka Yagnik",
             album = "Saajan",
             durationMs = 328000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/565/Saajan-Hindi-1991-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_7",
@@ -989,7 +1117,7 @@ object TvCatalogFallbacks {
             artist = "Hariharan, Alka Yagnik",
             album = "Khamoshi",
             durationMs = 371000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/142/Khamoshi-The-Musical-Hindi-1996-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_90s_8",
@@ -997,7 +1125,7 @@ object TvCatalogFallbacks {
             artist = "Kishore Kumar",
             album = "Blackmail",
             durationMs = 328000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/598/Blackmail-Hindi-1973-500x500.jpg"
         )
     )
 
@@ -1008,7 +1136,7 @@ object TvCatalogFallbacks {
             artist = "Karan Aujla",
             album = "Making Memories",
             durationMs = 155000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/187/Making-Memories-Punjabi-2023-20230818131012-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_punj_2",
@@ -1016,7 +1144,7 @@ object TvCatalogFallbacks {
             artist = "Diljit Dosanjh",
             album = "G.O.A.T.",
             durationMs = 214000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/391/G-O-A-T-Punjabi-2020-20200729175713-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_punj_3",
@@ -1024,7 +1152,7 @@ object TvCatalogFallbacks {
             artist = "Diljit Dosanjh",
             album = "MoonChild Era",
             durationMs = 186000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/264/MoonChild-Era-Punjabi-2021-20210822181610-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_punj_4",
@@ -1032,7 +1160,7 @@ object TvCatalogFallbacks {
             artist = "Sidhu Moose Wala",
             album = "Moosetape",
             durationMs = 270000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/565/Moosetape-Punjabi-2021-20210515181610-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_punj_5",
@@ -1040,7 +1168,7 @@ object TvCatalogFallbacks {
             artist = "Sidhu Moose Wala",
             album = "PBX 1",
             durationMs = 237000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/142/PBX-1-Punjabi-2018-500x500.jpg"
         ),
         OnlineSongModel(
             id = "tv_punj_6",
@@ -1048,7 +1176,7 @@ object TvCatalogFallbacks {
             artist = "Karan Aujla, Avvy Sra",
             album = "Single",
             durationMs = 179000L,
-            highResArtUrl = "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80"
+            highResArtUrl = "https://c.saavncdn.com/023/White-Brown-Black-Punjabi-2022-20221208131012-500x500.jpg"
         )
     )
 }

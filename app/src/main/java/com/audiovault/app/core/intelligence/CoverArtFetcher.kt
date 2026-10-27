@@ -37,7 +37,8 @@ object CoverArtFetcher {
     suspend fun fetchAndCacheCoverArt(
         context: Context,
         title: String,
-        artist: String?
+        artist: String?,
+        country: String = "IN"
     ): String? = withContext(Dispatchers.IO) {
         val cleanTitle = title.trim()
         if (cleanTitle.isBlank() || cleanTitle.startsWith("Recording ", ignoreCase = true)) {
@@ -61,13 +62,13 @@ object CoverArtFetcher {
             val searchQuery = if (!artist.isNullOrBlank()) "${artist.trim()} $cleanTitle" else cleanTitle
             val encodedQuery = URLEncoder.encode(searchQuery, "UTF-8")
 
-            // 1. Primary: iTunes Search API with Indian Storefront & Strict Match Validation (600x600 HD artwork)
+            // 1. Primary: iTunes Search API with Country Storefront & Strict Match Validation (600x600 HD artwork)
             try {
-                // First try with country=IN for Indian / Bollywood / Regional soundtracks
                 val itunesUrls = listOf(
-                    "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=IN&limit=5",
+                    "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=$country&limit=5",
+                    "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=US&limit=5",
                     "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=5"
-                )
+                ).distinct()
 
                 for (itunesUrl in itunesUrls) {
                     val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {
@@ -237,9 +238,9 @@ object CoverArtFetcher {
                     val encodedQuery = URLEncoder.encode(query, "UTF-8")
                     val isSongSearch = !cleanedSong.isNullOrBlank() && query.contains(cleanedSong)
                     val itunesUrl = if (isSongSearch) {
-                        "https://itunes.apple.com/search?term=$encodedQuery&entity=song&country=IN&limit=5"
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=song&limit=5"
                     } else {
-                        "https://itunes.apple.com/search?term=$encodedQuery&entity=musicArtist&country=IN&limit=5"
+                        "https://itunes.apple.com/search?term=$encodedQuery&entity=musicArtist&limit=5"
                     }
 
                     val connection = (URL(itunesUrl).openConnection() as HttpURLConnection).apply {
