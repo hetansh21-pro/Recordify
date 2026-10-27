@@ -860,7 +860,7 @@ fun SearchScreen(
                                             keyboardController?.hide()
                                             focusManager.clearFocus()
                                             viewModel.onSearchQueryChange(suggestionText)
-                                            viewModel.searchOnlineMusic(suggestionText)
+                                            viewModel.submitSearch(suggestionText)
                                         }
                                         .padding(horizontal = 4.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -884,7 +884,7 @@ fun SearchScreen(
                                     IconButton(
                                         onClick = {
                                             viewModel.onSearchQueryChange(suggestionText)
-                                            viewModel.searchOnlineMusic(suggestionText)
+                                            viewModel.submitSearch(suggestionText)
                                         },
                                         modifier = Modifier.size(28.dp)
                                     ) {
@@ -1621,7 +1621,7 @@ fun SearchScreen(
                                                         if (category.queryKeyword != null) {
                                                             isSearchActive = true
                                                             viewModel.onSearchQueryChange(category.queryKeyword)
-                                                            viewModel.searchOnlineMusic(category.queryKeyword)
+                                                            viewModel.submitSearch(category.queryKeyword)
                                                         } else if (category.filterPredicate != null) {
                                                             activeCategoryFilter = category
                                                         }

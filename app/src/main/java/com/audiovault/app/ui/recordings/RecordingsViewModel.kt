@@ -493,7 +493,13 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        searchOnlineMusic(query)
+        if (query.isBlank()) {
+            onlineSearchJob?.cancel()
+            _onlineSearchResults.value = emptyList()
+            _matchingAlbums.value = emptyList()
+            _searchResultContainer.value = null
+            _isOnlineSearching.value = false
+        }
     }
 
     fun onSortOptionChange(sort: SortOption) {

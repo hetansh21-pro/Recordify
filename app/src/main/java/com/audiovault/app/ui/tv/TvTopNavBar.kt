@@ -3,6 +3,7 @@ package com.audiovault.app.ui.tv
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import com.audiovault.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.focus.FocusRequester
@@ -178,22 +181,13 @@ fun TvTopNavBar(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(start = 4.dp)
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = SpotifyGreenBright,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "R",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.Black,
-                                    fontSize = 16.sp
-                                )
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_recordify_logo_circle),
+                        contentDescription = "Recordify",
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Recordify",

@@ -62,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -443,9 +444,12 @@ fun VibeFlowQueueBottomSheet(
                                 },
                                 onDragEnd = {
                                     val start = dragStartIndex
-                                    val target = currentTargetIndex
-                                    if (start != null && target != null && start != target) {
-                                        onMoveQueueItem?.invoke(start, target)
+                                    if (start != null && queueState.upcomingQueue.isNotEmpty()) {
+                                        val steps = (draggingOffsetY / rowThresholdPx).roundToInt()
+                                        val target = (start + steps).coerceIn(0, queueState.upcomingQueue.size - 1)
+                                        if (start != target) {
+                                            onMoveQueueItem?.invoke(start, target)
+                                        }
                                     }
                                     draggingItemId = null
                                     dragStartIndex = null
@@ -565,9 +569,12 @@ fun VibeFlowQueueBottomSheet(
                                 },
                                 onDragEnd = {
                                     val start = dragStartIndex
-                                    val target = currentTargetIndex
-                                    if (start != null && target != null && start != target) {
-                                        onMoveQueueItem?.invoke(start, target)
+                                    if (start != null && queueState.upcomingQueue.isNotEmpty()) {
+                                        val steps = (draggingOffsetY / rowThresholdPx).roundToInt()
+                                        val target = (start + steps).coerceIn(0, queueState.upcomingQueue.size - 1)
+                                        if (start != target) {
+                                            onMoveQueueItem?.invoke(start, target)
+                                        }
                                     }
                                     draggingItemId = null
                                     dragStartIndex = null
@@ -767,6 +774,10 @@ private fun SpotifyQueueTrackRow(
     onMoveDown: () -> Unit,
     onRemove: () -> Unit
 ) {
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val queueThresholdPx = with(density) { 68.dp.toPx() }
@@ -992,10 +1003,10 @@ private fun SpotifyQueueTrackRow(
                         .size(38.dp)
                         .pointerInput(item.id) {
                             detectDragGestures(
-                                onDragStart = { onDragStart() },
-                                onDragEnd = { onDragEnd() },
-                                onDragCancel = { onDragEnd() },
-                                onDrag = { change, dragAmount -> onDrag(change, dragAmount) }
+                                onDragStart = { currentOnDragStart() },
+                                onDragEnd = { currentOnDragEnd() },
+                                onDragCancel = { currentOnDragEnd() },
+                                onDrag = { change, dragAmount -> currentOnDrag(change, dragAmount) }
                             )
                         }
                         .clip(CircleShape)

@@ -146,22 +146,24 @@ fun TvSearchView(
     }
 
     LaunchedEffect(isSearching) {
-        if (isSearching) {
-            try {
-                capsuleFocusRequester.requestFocus()
-            } catch (_: Exception) {}
-        } else if (searchQuery.isNotBlank()) {
-            kotlinx.coroutines.delay(100L)
-            if (searchResults.isNotEmpty() || matchingAlbums.isNotEmpty()) {
-                try {
-                    firstContentFocusRequester.requestFocus()
-                } catch (_: Exception) {
-                    try { capsuleFocusRequester.requestFocus() } catch (_: Exception) {}
-                }
-            } else {
+        if (!isEditingText) {
+            if (isSearching) {
                 try {
                     capsuleFocusRequester.requestFocus()
                 } catch (_: Exception) {}
+            } else if (searchQuery.isNotBlank()) {
+                kotlinx.coroutines.delay(100L)
+                if (searchResults.isNotEmpty() || matchingAlbums.isNotEmpty()) {
+                    try {
+                        firstContentFocusRequester.requestFocus()
+                    } catch (_: Exception) {
+                        try { capsuleFocusRequester.requestFocus() } catch (_: Exception) {}
+                    }
+                } else {
+                    try {
+                        capsuleFocusRequester.requestFocus()
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
@@ -276,7 +278,7 @@ fun TvSearchView(
                                     capsuleFocusRequester.requestFocus()
                                 } catch (_: Exception) {}
                                 if (searchQuery.isNotBlank()) {
-                                    viewModel.searchOnlineMusic(searchQuery)
+                                    viewModel.submitSearch(searchQuery)
                                 }
                             }),
                             modifier = Modifier
@@ -298,14 +300,14 @@ fun TvSearchView(
                                                 } catch (_: Exception) {}
                                                 true
                                             }
-                                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                            Key.Enter, Key.NumPadEnter -> {
                                                 isEditingText = false
                                                 keyboardController?.hide()
                                                 try {
                                                     capsuleFocusRequester.requestFocus()
                                                 } catch (_: Exception) {}
                                                 if (searchQuery.isNotBlank()) {
-                                                    viewModel.searchOnlineMusic(searchQuery)
+                                                    viewModel.submitSearch(searchQuery)
                                                 }
                                                 true
                                             }
@@ -424,7 +426,10 @@ fun TvSearchView(
                                             } else false
                                         }
                                         .tvRemoteFocusable(
-                                            onClick = { onSearchQueryChange(item.title) },
+                                            onClick = {
+                                                onSearchQueryChange(item.title)
+                                                viewModel.submitSearch(item.title)
+                                            },
                                             shape = RoundedCornerShape(12.dp),
                                             focusScale = 1.04f,
                                             focusBorderWidth = 2.dp,

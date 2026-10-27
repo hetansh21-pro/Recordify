@@ -249,7 +249,7 @@ fun RecordifyTvScreen(
                                     selectedTab = TvNavTab.SEARCH
                                     searchQuery = query
                                     viewModel.onSearchQueryChange(query)
-                                    viewModel.searchOnlineMusic(query)
+                                    viewModel.submitSearch(query)
                                 },
                                 heroFocusRequester = homeHeroFocusRequester,
                                 onNavigateUpToHeader = onNavigateUpFromLeft,
@@ -263,7 +263,6 @@ fun RecordifyTvScreen(
                                 onSearchQueryChange = { q ->
                                     searchQuery = q
                                     viewModel.onSearchQueryChange(q)
-                                    viewModel.searchOnlineMusic(q)
                                 },
                                 searchResults = onlineSearchResults,
                                 matchingAlbums = matchingAlbums,
