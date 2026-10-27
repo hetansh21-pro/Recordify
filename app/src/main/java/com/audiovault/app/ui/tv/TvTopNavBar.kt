@@ -179,7 +179,7 @@ fun TvTopNavBar(
         // -----------------------------------------------------------------
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val navTabs = listOf(
                 TvNavTab.HOME to "Home" to Icons.Default.Home,
@@ -191,38 +191,55 @@ fun TvTopNavBar(
                 val (tab, label) = pair
                 val isSelected = selectedTab == tab
 
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = if (isSelected) Color(0xFF242424) else Color.Transparent,
-                    modifier = Modifier
-                        .height(42.dp)
-                        .tvRemoteFocusable(
-                            onClick = { onTabSelected(tab) },
-                            shape = RoundedCornerShape(50),
-                            focusScale = 1.08f,
-                            focusBorderWidth = 2.dp,
-                            focusBorderColor = Color.White
-                        )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = if (isSelected) Color.White else Color(0xFFB3B3B3),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else Color(0xFFB3B3B3),
-                                fontSize = 14.sp
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color.Transparent,
+                        modifier = Modifier
+                            .height(38.dp)
+                            .tvRemoteFocusable(
+                                onClick = { onTabSelected(tab) },
+                                shape = RoundedCornerShape(50),
+                                focusScale = 1.08f,
+                                focusBorderWidth = 2.dp,
+                                focusBorderColor = Color.White
                             )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                tint = if (isSelected) Color.White else Color(0xFFB3B3B3),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else Color(0xFFB3B3B3),
+                                    fontSize = 14.sp
+                                )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .width(32.dp)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White)
                         )
+                    } else {
+                        Spacer(modifier = Modifier.height(3.dp))
                     }
                 }
             }

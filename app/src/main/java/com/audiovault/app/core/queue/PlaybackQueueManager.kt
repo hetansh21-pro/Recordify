@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.audiovault.app.core.identity.TrackQualityFilter
 import com.audiovault.app.core.identity.TrackVersionResolver
+import com.audiovault.app.core.intelligence.TrackMatcher
 import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineMusicSearchService
 import com.audiovault.app.core.online.OnlineSongModel
@@ -559,15 +560,39 @@ class PlaybackQueueManager(
             // 4. Strict language lock (Hindi -> Hindi only, Gujarati -> Gujarati only)
             // 5. Hard exclusion of English if user did not select English in preferences
             // 6. Strict ERA consistency: Old songs only queue old/retro tracks; New songs only queue modern/trending tracks!
+            // 7. Strict TITLE DEDUPLICATION: catches songs uploaded under composer vs lyricist or duplicate recordings
             val seedCanonical = seed.canonicalTrackId
             val recentCanonical = _queueState.value.recentCanonicalIds.toSet()
             val upcomingCanonical = _queueState.value.upcomingQueue.map { it.canonicalTrackId }.toSet()
+
+            val seenNormalizedTitles = mutableSetOf<String>()
+            val seedNormTitle = TrackMatcher.normalize(seed.title)
+            if (seedNormTitle.isNotBlank()) seenNormalizedTitles.add(seedNormTitle)
+            _queueState.value.upcomingQueue.forEach { item ->
+                val t = TrackMatcher.normalize(item.title)
+                if (t.isNotBlank()) seenNormalizedTitles.add(t)
+            }
 
             val filtered = canonicalCandidates.filter { cand ->
                 if (cand.canonicalTrackId == seedCanonical ||
                     recentCanonical.contains(cand.canonicalTrackId) ||
                     upcomingCanonical.contains(cand.canonicalTrackId) ||
                     cooldownIds.contains(cand.providerTrackId)) {
+                    return@filter false
+                }
+
+                // Strict title root deduplication (e.g. Apna Bana Le or Gehra Hua across different artist credits)
+                val candNormTitle = TrackMatcher.normalize(cand.normalizedTitle)
+                if (candNormTitle.isBlank()) return@filter false
+                val isDuplicateTitle = seenNormalizedTitles.any { existing ->
+                    existing == candNormTitle ||
+                    (existing.length >= 4 && candNormTitle.length >= 4 && (
+                        existing.contains(candNormTitle) ||
+                        candNormTitle.contains(existing) ||
+                        TrackMatcher.similarity(existing, candNormTitle) >= 0.80
+                    ))
+                }
+                if (isDuplicateTitle) {
                     return@filter false
                 }
 
@@ -627,24 +652,74 @@ class PlaybackQueueManager(
                 Pair(QueueItem.fromCanonicalTrack(candidate, scoreResult.explanation), scoreResult.score)
             }.sortedByDescending { it.second }
 
-            // Apply artist diversity: allow at most 2 consecutive tracks by the same primary artist
+            // Apply Spotify-style diversity rules:
+            // 1. Title root uniqueness across chosen candidates (strictly NO duplicates)
+            // 2. Max 2 tracks per primary artist in the 12-track queue
+            // 3. ZERO consecutive tracks by the same artist
             val diversified = mutableListOf<QueueItem>()
-            var lastArtist = seedArtist
-            var consecutiveCount = 1
+            val artistTrackCount = mutableMapOf<String, Int>()
+            var lastArtist = seedArtist.lowercase().trim()
 
             for ((cand, _) in scored) {
-                val primaryCandArtist = cand.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
-                if (primaryCandArtist.equals(lastArtist, ignoreCase = true)) {
-                    if (consecutiveCount < 2) {
-                        diversified.add(cand)
-                        consecutiveCount++
-                    }
-                } else {
-                    diversified.add(cand)
-                    lastArtist = primaryCandArtist
-                    consecutiveCount = 1
+                val candNormTitle = TrackMatcher.normalize(cand.title)
+                if (seenNormalizedTitles.any { existing ->
+                    existing == candNormTitle ||
+                    (existing.length >= 4 && candNormTitle.length >= 4 && (
+                        existing.contains(candNormTitle) ||
+                        candNormTitle.contains(existing) ||
+                        TrackMatcher.similarity(existing, candNormTitle) >= 0.80
+                    ))
+                }) {
+                    continue
                 }
+
+                val primaryCandArtist = cand.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
+                val lowerCandArtist = primaryCandArtist.lowercase()
+
+                // Rule A: Zero consecutive tracks by the same artist
+                if (lowerCandArtist.isNotBlank() && lowerCandArtist == lastArtist) {
+                    continue
+                }
+
+                // Rule B: Max 2 tracks per artist across the 12-track queue
+                val currentCount = artistTrackCount.getOrDefault(lowerCandArtist, 0)
+                if (currentCount >= 2 && lowerCandArtist.isNotBlank()) {
+                    continue
+                }
+
+                diversified.add(cand)
+                seenNormalizedTitles.add(candNormTitle)
+                if (lowerCandArtist.isNotBlank()) {
+                    artistTrackCount[lowerCandArtist] = currentCount + 1
+                    lastArtist = lowerCandArtist
+                }
+
                 if (diversified.size >= TARGET_QUEUE_SIZE) break
+            }
+
+            // Fallback pass if queue size is under target without violating title uniqueness
+            if (diversified.size < TARGET_QUEUE_SIZE) {
+                for ((cand, _) in scored) {
+                    val candNormTitle = TrackMatcher.normalize(cand.title)
+                    if (seenNormalizedTitles.any { existing ->
+                        existing == candNormTitle ||
+                        (existing.length >= 4 && candNormTitle.length >= 4 && (
+                            existing.contains(candNormTitle) ||
+                            candNormTitle.contains(existing) ||
+                            TrackMatcher.similarity(existing, candNormTitle) >= 0.80
+                        ))
+                    }) {
+                        continue
+                    }
+                    val primaryCandArtist = cand.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
+                    val lowerCandArtist = primaryCandArtist.lowercase()
+                    if (lowerCandArtist.isNotBlank() && lowerCandArtist == lastArtist) continue
+
+                    diversified.add(cand)
+                    seenNormalizedTitles.add(candNormTitle)
+                    if (lowerCandArtist.isNotBlank()) lastArtist = lowerCandArtist
+                    if (diversified.size >= TARGET_QUEUE_SIZE) break
+                }
             }
 
             diversified

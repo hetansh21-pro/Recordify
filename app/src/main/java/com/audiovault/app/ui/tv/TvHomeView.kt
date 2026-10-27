@@ -92,16 +92,6 @@ fun TvHomeView(
     var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
     val heroFocusRequester = remember { FocusRequester() }
 
-    // Auto-focus on primary featured content when entering Home
-    LaunchedEffect(Unit) {
-        repeat(3) {
-            delay(50L)
-            try {
-                heroFocusRequester.requestFocus()
-            } catch (_: Exception) {}
-        }
-    }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()

@@ -541,6 +541,7 @@ fun AudioVaultNavGraph(
                     onRemoveQueueItem = { recordingsViewModel.removeFromQueue(it) },
                     onMoveQueueItemUp = { recordingsViewModel.moveQueueItemUp(it) },
                     onMoveQueueItemDown = { recordingsViewModel.moveQueueItemDown(it) },
+                    onMoveQueueItem = { from, to -> recordingsViewModel.moveQueueItem(from, to) },
                     onClearQueue = { recordingsViewModel.clearQueue() },
                     onRefreshQueue = { recordingsViewModel.refreshVibeFlowQueue() },
                     onToggleAutoQueue = { recordingsViewModel.toggleAutoQueue() },

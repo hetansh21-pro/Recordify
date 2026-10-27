@@ -422,9 +422,11 @@ fun TvNowPlayingView(
                             .height(46.dp)
                             .focusRequester(playingFromFocusRequester)
                             .focusProperties {
+                                canFocus = !showAboutDialog && !showLyricsDialog
                                 down = playPauseFocusRequester
                             }
                             .onKeyEvent { keyEvent ->
+                                if (showAboutDialog || showLyricsDialog) return@onKeyEvent true
                                 if (keyEvent.type == KeyEventType.KeyDown) {
                                     lastInteractionTime = System.currentTimeMillis()
                                     when (keyEvent.key) {
@@ -439,11 +441,13 @@ fun TvNowPlayingView(
                             }
                             .tvRemoteFocusable(
                                 onClick = {
-                                    if (currentAlbum != null) {
-                                        onOpenAlbumSource(currentAlbum)
-                                    } else {
-                                        val movieName = rec?.album ?: queueState.currentTrack?.album
-                                        onOpenMovieSource(movieName, rec?.artist, rec?.albumArtPath)
+                                    if (!showAboutDialog && !showLyricsDialog) {
+                                        if (currentAlbum != null) {
+                                            onOpenAlbumSource(currentAlbum)
+                                        } else {
+                                            val movieName = rec?.album ?: queueState.currentTrack?.album
+                                            onOpenMovieSource(movieName, rec?.artist, rec?.albumArtPath)
+                                        }
                                     }
                                 },
                                 shape = RoundedCornerShape(24.dp),
@@ -1073,7 +1077,7 @@ fun TvNowPlayingView(
                     .onPreviewKeyEvent { keyEvent ->
                         if (keyEvent.type == KeyEventType.KeyDown) {
                             when (keyEvent.key) {
-                                Key.Back -> {
+                                Key.Back, Key.Escape -> {
                                     showAboutDialog = false
                                     true
                                 }
@@ -1083,9 +1087,13 @@ fun TvNowPlayingView(
                                     } catch (_: Exception) {}
                                     true
                                 }
-                                else -> false
+                                Key.Enter, Key.DirectionCenter, Key.NumPadEnter -> {
+                                    showAboutDialog = false
+                                    true
+                                }
+                                else -> true // Consume all other keys to isolate background view
                             }
-                        } else false
+                        } else true
                     },
                 contentAlignment = Alignment.Center
             ) {

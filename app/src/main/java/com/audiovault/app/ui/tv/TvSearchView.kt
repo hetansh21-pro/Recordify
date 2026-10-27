@@ -97,14 +97,6 @@ fun TvSearchView(
     val capsuleFocusRequester = remember { FocusRequester() }
     val textFieldFocusRequester = remember { FocusRequester() }
 
-    // Auto-focus on Search Capsule (highlight only, do NOT auto-show keyboard)
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(100L)
-        try {
-            capsuleFocusRequester.requestFocus()
-        } catch (_: Exception) {}
-    }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()

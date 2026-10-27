@@ -191,33 +191,116 @@ object SmartVibeQueueEngine {
         }
 
         // Filter out the seed track itself, enforce era compatibility, and STRICTLY exclude English if not preferred
-        val seedTitleNorm = seed.title.lowercase().trim()
+        val seedTitleNorm = com.audiovault.app.core.intelligence.TrackMatcher.normalize(seed.title)
         val seedArtistNorm = seed.artist.lowercase().trim()
 
-        return sourceSongs
+        val filteredSongs = sourceSongs
             .filter { song ->
-                val sTitle = song.title.lowercase().trim()
+                val sTitleNorm = com.audiovault.app.core.intelligence.TrackMatcher.normalize(song.title)
                 val sArtist = song.artist.lowercase().trim()
-                if (song.id == seed.id || sTitle.contains(seedTitleNorm) || seedTitleNorm.contains(sTitle)) {
+                if (song.id == seed.id || sTitleNorm == seedTitleNorm ||
+                    (seedTitleNorm.length >= 4 && sTitleNorm.length >= 4 && com.audiovault.app.core.intelligence.TrackMatcher.similarity(sTitleNorm, seedTitleNorm) >= 0.80)) {
                     return@filter false
                 }
                 // If user did not select English, strictly filter out any English/Western songs
                 if (!isEnglishAllowed && preferredLanguages.isNotEmpty()) {
-                    val sLang = song.language ?: com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.inferLanguage("$sTitle $sArtist")
+                    val sLang = song.language ?: com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.inferLanguage("${song.title} ${song.artist}")
                     if (sLang?.equals("English", ignoreCase = true) == true ||
-                        com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(sTitle, sArtist)) {
+                        com.audiovault.app.core.vibeflow.VibeFlowMoodAnalyzer.isEnglishArtistOrTitle(song.title, song.artist)) {
                         return@filter false
                     }
                 }
                 true
             }
-            .distinctBy { it.title.lowercase().trim() }
-            .take(12)
-            .map { QueueItem.fromOnlineSong(it, "Smart Auto-Queue • ${vibe.name.replace("_", " ")}") }
+            .distinctBy { com.audiovault.app.core.intelligence.TrackMatcher.normalize(it.title) }
+
+        // Apply artist diversity: max 2 songs per artist, zero consecutive songs by the same artist
+        val diverseInstantList = mutableListOf<OnlineSongModel>()
+        val artistCount = mutableMapOf<String, Int>()
+        var lastArtist = seedArtistNorm.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
+
+        for (song in filteredSongs) {
+            val primaryArtist = song.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim()?.lowercase() ?: ""
+            if (primaryArtist.isNotBlank() && primaryArtist == lastArtist) continue
+            val count = artistCount.getOrDefault(primaryArtist, 0)
+            if (count >= 2 && primaryArtist.isNotBlank()) continue
+
+            diverseInstantList.add(song)
+            if (primaryArtist.isNotBlank()) {
+                artistCount[primaryArtist] = count + 1
+                lastArtist = primaryArtist
+            }
+            if (diverseInstantList.size >= 12) break
+        }
+
+        // Fallback to fill up to 12 if needed without duplicate titles
+        if (diverseInstantList.size < 12) {
+            for (song in filteredSongs) {
+                if (diverseInstantList.none { it.id == song.id }) {
+                    diverseInstantList.add(song)
+                    if (diverseInstantList.size >= 12) break
+                }
+            }
+        }
+
+        return diverseInstantList.map { QueueItem.fromOnlineSong(it, "Smart Auto-Queue • ${vibe.name.replace("_", " ")}") }
+    }
+
+    /**
+     * Resolves related artists matching the seed artist's vocal texture, genre, and emotional vibe.
+     * Modeled after Spotify's related-artist graph (e.g. Arijit Singh -> KK, Atif Aslam, Mustafa Zahid, Jasleen Royal).
+     */
+    fun getAffinityArtists(primaryArtist: String, vibe: SongVibeType): List<String> {
+        val lower = primaryArtist.lowercase()
+        return when {
+            // Arijit Singh cluster
+            lower.contains("arijit") -> listOf("KK", "Atif Aslam", "Mustafa Zahid", "Mohit Chauhan", "Jasleen Royal", "Mohammed Irfan", "Ankit Tiwari", "Mithoon", "Shreya Ghoshal")
+            // KK cluster
+            lower.contains("kk") || lower.contains("k.k.") -> listOf("Atif Aslam", "Mohit Chauhan", "Shaan", "Sonu Nigam", "Mustafa Zahid", "Lucky Ali", "Arijit Singh")
+            // Atif Aslam cluster
+            lower.contains("atif") -> listOf("KK", "Mustafa Zahid", "Rahat Fateh Ali Khan", "Arijit Singh", "Mohit Chauhan", "Bilal Saeed")
+            // Mohit Chauhan cluster
+            lower.contains("mohit") -> listOf("Lucky Ali", "Papon", "KK", "Atif Aslam", "Javed Ali", "Arijit Singh")
+            // Sonu Nigam cluster
+            lower.contains("sonu nigam") -> listOf("Shaan", "Udit Narayan", "Kumar Sanu", "Abhijeet", "Alka Yagnik", "KK")
+            // Shreya Ghoshal cluster
+            lower.contains("shreya") -> listOf("Sunidhi Chauhan", "Monali Thakur", "Palak Muchhal", "Alka Yagnik", "Shilpa Rao", "Jasleen Royal")
+            // Jubin Nautiyal cluster
+            lower.contains("jubin") -> listOf("Arijit Singh", "Rochak Kohli", "Stebin Ben", "Akhil Sachdeva", "B Praak")
+            // B Praak / Jaani cluster
+            lower.contains("praak") || lower.contains("jaani") -> listOf("Hardy Sandhu", "Ammy Virk", "Akhil Sachdeva", "Arijit Singh")
+            // Indie / Acoustic / Lo-fi cluster
+            lower.contains("prateek") || lower.contains("kuhad") -> listOf("Anuv Jain", "Jasleen Royal", "The Local Train", "When Chai Met Toast", "Zaeden")
+            lower.contains("anuv") || lower.contains("jain") -> listOf("Prateek Kuhad", "Zaeden", "The Local Train", "Osho Jain", "Jasleen Royal")
+            // Golden Retro clusters
+            lower.contains("kishore") -> listOf("Lata Mangeshkar", "Mohd Rafi", "Mukesh", "Asha Bhosle", "Manna Dey", "R.D. Burman")
+            lower.contains("lata") -> listOf("Mohd Rafi", "Kishore Kumar", "Asha Bhosle", "Mukesh", "Geeta Dutt", "Hemant Kumar")
+            lower.contains("rafi") -> listOf("Kishore Kumar", "Mukesh", "Manna Dey", "Lata Mangeshkar", "Asha Bhosle")
+            lower.contains("kumar sanu") -> listOf("Udit Narayan", "Alka Yagnik", "Anuradha Paudwal", "Abhijeet", "Sonu Nigam")
+            lower.contains("udit") -> listOf("Kumar Sanu", "Alka Yagnik", "Kavita Krishnamurthy", "Abhijeet", "Sonu Nigam")
+            // Punjabi / High Energy clusters
+            lower.contains("dhillon") -> listOf("Shubh", "Karan Aujla", "Diljit Dosanjh", "Sidhu Moose Wala", "Gurinder Gill")
+            lower.contains("diljit") -> listOf("Karan Aujla", "Sidhu Moose Wala", "AP Dhillon", "Ammy Virk", "Badshah", "Guru Randhawa")
+            lower.contains("karan aujla") -> listOf("Diljit Dosanjh", "Shubh", "Sidhu Moose Wala", "AP Dhillon")
+            lower.contains("badshah") -> listOf("Honey Singh", "Raftaar", "Ikka", "Guru Randhawa", "Divine")
+            lower.contains("divine") -> listOf("Naezy", "Seedhe Maut", "KR\$NA", "Raftaar", "MC Stan")
+            lower.contains("seedhe maut") -> listOf("KR\$NA", "Prabh Deep", "Rawal", "Divine")
+            // Global pop / western clusters
+            lower.contains("taylor") -> listOf("Olivia Rodrigo", "Gracie Abrams", "Sabrina Carpenter", "Billie Eilish")
+            lower.contains("weeknd") -> listOf("Post Malone", "Drake", "Kendrick Lamar", "Bruno Mars")
+            lower.contains("sheeran") -> listOf("Shawn Mendes", "Charlie Puth", "James Arthur", "Lewis Capaldi")
+            // Fallback by vibe
+            vibe == SongVibeType.ROMANTIC -> listOf("KK", "Atif Aslam", "Mohit Chauhan", "Jasleen Royal", "Mustafa Zahid", "Mohammed Irfan", "Ankit Tiwari")
+            vibe == SongVibeType.CLASSIC_RETRO -> listOf("Kishore Kumar", "Mohd Rafi", "Lata Mangeshkar", "Mukesh", "Kumar Sanu", "Udit Narayan")
+            vibe == SongVibeType.PARTY_PUNJABI -> listOf("Diljit Dosanjh", "Karan Aujla", "AP Dhillon", "Badshah", "Sidhu Moose Wala")
+            vibe == SongVibeType.CHILL_LOFI -> listOf("Anuv Jain", "Prateek Kuhad", "Jasleen Royal", "The Local Train", "Zaeden")
+            else -> listOf("Arijit Singh", "Sachin-Jigar", "Pritam", "Shreya Ghoshal", "Vishal Mishra")
+        }
     }
 
     /**
      * Generates intelligent, era-aware and language-connected search queries for background replenishment.
+     * Incorporates artist affinity and mood-matching clusters for maximum queue diversity.
      */
     fun generateIntelligentSearchQueries(seed: QueueItem, targetLanguage: String): List<String> {
         val primaryArtist = seed.artist.split(",", "&", "feat.", "/", "ft.").firstOrNull()?.trim() ?: ""
@@ -234,58 +317,44 @@ object SmartVibeQueueEngine {
             queries.add("$primaryArtist best songs")
         }
 
+        // Weave in 2-3 affinity artists matching the seed artist's vibe to guarantee recommendation diversity
+        val affinityArtists = getAffinityArtists(primaryArtist, vibe).shuffled().take(3)
+        for (affinity in affinityArtists) {
+            queries.add("$affinity $lang top songs")
+        }
+
         when {
             era == SongEra.OLD_RETRO || vibe == SongVibeType.CLASSIC_RETRO -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $lang 90s evergreen hits")
-                    queries.add("$primaryArtist $lang golden retro classics")
-                }
                 queries.add("90s $lang romantic evergreen hits")
                 queries.add("Golden 70s 80s Kishore Kumar Lata hits")
-                queries.add("Evergreen old $lang songs superhit")
             }
 
             vibe == SongVibeType.PARTY_PUNJABI -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist Punjabi party hits")
-                }
                 queries.add("Punjabi top hits dance superhit")
                 queries.add("High energy party bhangra songs")
             }
 
             vibe == SongVibeType.CHILL_LOFI -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $lang chill acoustic")
-                }
                 queries.add("Chill lofi acoustic $lang songs")
                 queries.add("Acoustic study relax beats $lang")
             }
 
             vibe == SongVibeType.ROMANTIC -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $lang romantic love songs")
-                }
                 queries.add("Romantic $lang love melodies superhit")
                 queries.add("Soulful romantic $lang songs")
             }
 
             era == SongEra.NEW_MODERN -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $lang latest trending songs")
-                }
                 queries.add("Latest $lang chartbusters 2024 2025")
                 queries.add("Trending new $lang songs viral")
             }
 
             else -> {
-                if (primaryArtist.isNotBlank()) {
-                    queries.add("$primaryArtist $lang top songs")
-                }
                 queries.add("$lang superhit songs")
             }
         }
 
-        return queries
+        return queries.distinct()
     }
 
     /**

@@ -85,14 +85,12 @@ fun TvLibraryView(
     val subviewBackFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(librarySubView) {
-        kotlinx.coroutines.delay(100L)
-        try {
-            if (librarySubView != null) {
+        if (librarySubView != null) {
+            kotlinx.coroutines.delay(100L)
+            try {
                 subviewBackFocusRequester.requestFocus()
-            } else {
-                firstPillFocusRequester.requestFocus()
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
     }
 
     if (librarySubView != null) {

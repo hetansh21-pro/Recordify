@@ -426,6 +426,10 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         playbackQueueManager.removeAt(index)
     }
 
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        playbackQueueManager.moveQueueItem(fromIndex, toIndex)
+    }
+
     fun moveQueueItemUp(index: Int) {
         if (index > 0) {
             playbackQueueManager.moveQueueItem(index, index - 1)
