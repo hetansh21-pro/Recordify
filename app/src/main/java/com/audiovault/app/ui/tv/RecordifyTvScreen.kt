@@ -53,6 +53,7 @@ fun RecordifyTvScreen(
     val activity = context as? Activity
 
     var selectedTab by remember { mutableStateOf(TvNavTab.HOME) }
+    var albumOriginTab by remember { mutableStateOf(TvNavTab.HOME) }
     var isNowPlayingFullScreen by remember { mutableStateOf(false) }
     var isNowPlayingControlsVisible by remember { mutableStateOf(true) }
     var isQueueOpen by remember { mutableStateOf(false) }
@@ -85,6 +86,7 @@ fun RecordifyTvScreen(
     val homeNavFocusRequester = remember { FocusRequester() }
     val searchNavFocusRequester = remember { FocusRequester() }
     val libraryNavFocusRequester = remember { FocusRequester() }
+    val nowPlayingNavFocusRequester = remember { FocusRequester() }
 
     val homeHeroFocusRequester = remember { FocusRequester() }
     val searchCapsuleFocusRequester = remember { FocusRequester() }
@@ -116,9 +118,10 @@ fun RecordifyTvScreen(
         }
     }
 
-    // Level 3: Album / Playlist Detail open -> Close album detail
+    // Level 3: Album / Playlist Detail open -> Close album detail and restore originating tab
     BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum != null) {
         viewModel.closeAlbumDetails()
+        selectedTab = albumOriginTab
     }
 
     // Level 2 (Library): Inside Library Subview -> Return to main library shelf
@@ -133,7 +136,7 @@ fun RecordifyTvScreen(
     }
 
     // Level 1: In any secondary tab -> Return to Home tab
-    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && (selectedTab != TvNavTab.SEARCH || searchQuery.isBlank()) && selectedTab != TvNavTab.HOME) {
+    BackHandler(enabled = !isQueueOpen && !isNowPlayingFullScreen && selectedAlbum == null && librarySubView == null && selectedTab != TvNavTab.HOME && (selectedTab != TvNavTab.SEARCH || searchQuery.isBlank())) {
         selectedTab = TvNavTab.HOME
     }
 
@@ -185,6 +188,7 @@ fun RecordifyTvScreen(
                 homeFocusRequester = homeNavFocusRequester,
                 searchFocusRequester = searchNavFocusRequester,
                 libraryFocusRequester = libraryNavFocusRequester,
+                nowPlayingFocusRequester = nowPlayingNavFocusRequester,
                 activeTrackTitle = currentRecording?.title,
                 activeTrackArtist = currentRecording?.artist,
                 activeTrackArtUrl = currentRecording?.albumArtPath,
@@ -196,6 +200,17 @@ fun RecordifyTvScreen(
             // -------------------------------------------------------------
             // 2. MAIN CONTENT CONTAINER (Full Width, Scrollable)
             // -------------------------------------------------------------
+            val hasActiveTrack = !currentRecording?.title.isNullOrBlank()
+            val onNavigateUpFromLeft = {
+                try {
+                    if (hasActiveTrack) {
+                        nowPlayingNavFocusRequester.requestFocus()
+                    } else {
+                        homeNavFocusRequester.requestFocus()
+                    }
+                } catch (_: Exception) {}
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -205,7 +220,10 @@ fun RecordifyTvScreen(
                     TvAlbumDetailView(
                         album = selectedAlbum!!,
                         viewModel = viewModel,
-                        onBack = { viewModel.closeAlbumDetails() },
+                        onBack = {
+                            viewModel.closeAlbumDetails()
+                            selectedTab = albumOriginTab
+                        },
                         onTrackPlayed = { /* Playback updates top-left mini widget without forcing full-screen */ }
                     )
                 } else {
@@ -218,7 +236,10 @@ fun RecordifyTvScreen(
                                 onPlaySong = { song, upcoming ->
                                     viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
-                                onPlayAlbum = { album -> viewModel.openAlbumDetails(album) },
+                                onPlayAlbum = { album ->
+                                    albumOriginTab = TvNavTab.HOME
+                                    viewModel.openAlbumDetails(album)
+                                },
                                 onSearchMood = { query ->
                                     selectedTab = TvNavTab.SEARCH
                                     searchQuery = query
@@ -226,9 +247,7 @@ fun RecordifyTvScreen(
                                     viewModel.searchOnlineMusic(query)
                                 },
                                 heroFocusRequester = homeHeroFocusRequester,
-                                onNavigateUpToHeader = {
-                                    try { homeNavFocusRequester.requestFocus() } catch (_: Exception) {}
-                                },
+                                onNavigateUpToHeader = onNavigateUpFromLeft,
                                 onOpenSettings = { selectedTab = TvNavTab.SETTINGS }
                             )
                         }
@@ -247,7 +266,10 @@ fun RecordifyTvScreen(
                                 onPlaySong = { song, upcoming ->
                                     viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
-                                onPlayAlbum = { album -> viewModel.openAlbumDetails(album) },
+                                onPlayAlbum = { album ->
+                                    albumOriginTab = TvNavTab.SEARCH
+                                    viewModel.openAlbumDetails(album)
+                                },
                                 capsuleFocusRequester = searchCapsuleFocusRequester,
                                 onNavigateUpToHeader = {
                                     try { searchNavFocusRequester.requestFocus() } catch (_: Exception) {}
@@ -263,7 +285,10 @@ fun RecordifyTvScreen(
                                 onPlaySong = { song, upcoming ->
                                     viewModel.playOnlineSong(song, upcomingSongs = upcoming)
                                 },
-                                onOpenAlbum = { album -> viewModel.openAlbumDetails(album) },
+                                onOpenAlbum = { album ->
+                                    albumOriginTab = TvNavTab.LIBRARY
+                                    viewModel.openAlbumDetails(album)
+                                },
                                 firstPillFocusRequester = libraryPillFocusRequester,
                                 onNavigateUpToHeader = {
                                     try { libraryNavFocusRequester.requestFocus() } catch (_: Exception) {}
@@ -273,7 +298,10 @@ fun RecordifyTvScreen(
                         TvNavTab.PLAYLISTS -> {
                             TvPlaylistsView(
                                 viewModel = viewModel,
-                                onOpenAlbum = { album -> viewModel.openAlbumDetails(album) }
+                                onOpenAlbum = { album ->
+                                    albumOriginTab = TvNavTab.PLAYLISTS
+                                    viewModel.openAlbumDetails(album)
+                                }
                             )
                         }
                         TvNavTab.RECENTLY_PLAYED -> {
@@ -346,11 +374,13 @@ fun RecordifyTvScreen(
                 onOpenAlbumSource = { album ->
                     isNowPlayingFullScreen = false
                     isNowPlayingControlsVisible = true
+                    albumOriginTab = selectedTab
                     viewModel.openAlbumDetails(album)
                 },
                 onOpenMovieSource = { albumName, artistName, artUrl ->
                     isNowPlayingFullScreen = false
                     isNowPlayingControlsVisible = true
+                    albumOriginTab = selectedTab
                     if (!albumName.isNullOrBlank()) {
                         viewModel.openAlbumByName(albumName, artistName, artUrl)
                     }

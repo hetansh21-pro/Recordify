@@ -68,7 +68,8 @@ fun TvTopNavBar(
     onNavigateDown: (TvNavTab) -> Unit = {},
     homeFocusRequester: FocusRequester? = null,
     searchFocusRequester: FocusRequester? = null,
-    libraryFocusRequester: FocusRequester? = null
+    libraryFocusRequester: FocusRequester? = null,
+    nowPlayingFocusRequester: FocusRequester? = null
 ) {
     Row(
         modifier = modifier
@@ -94,10 +95,31 @@ fun TvTopNavBar(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
                     modifier = Modifier
                         .height(48.dp)
+                        .then(if (nowPlayingFocusRequester != null) Modifier.focusRequester(nowPlayingFocusRequester) else Modifier)
+                        .onKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                when (keyEvent.key) {
+                                    Key.DirectionRight -> {
+                                        try {
+                                            homeFocusRequester?.requestFocus()
+                                            true
+                                        } catch (_: Exception) { false }
+                                    }
+                                    Key.DirectionDown -> {
+                                        onNavigateDown(selectedTab)
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
                         .tvRemoteFocusable(
                             onClick = onOpenNowPlaying,
                             shape = RoundedCornerShape(8.dp),
-                            focusScale = 1.05f
+                            focusScale = 1.05f,
+                            focusBorderWidth = 2.dp,
+                            focusBorderColor = Color.White,
+                            focusedBackgroundColor = Color.White.copy(alpha = 0.2f)
                         )
                 ) {
                     Row(
@@ -213,10 +235,23 @@ fun TvTopNavBar(
                             .height(38.dp)
                             .then(if (tabRequester != null) Modifier.focusRequester(tabRequester) else Modifier)
                             .onKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown) {
-                                    onTabSelected(tab)
-                                    onNavigateDown(tab)
-                                    true
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.DirectionDown -> {
+                                            onTabSelected(tab)
+                                            onNavigateDown(tab)
+                                            true
+                                        }
+                                        Key.DirectionLeft -> {
+                                            if (tab == TvNavTab.HOME && !activeTrackTitle.isNullOrBlank() && nowPlayingFocusRequester != null) {
+                                                try {
+                                                    nowPlayingFocusRequester.requestFocus()
+                                                    true
+                                                } catch (_: Exception) { false }
+                                            } else false
+                                        }
+                                        else -> false
+                                    }
                                 } else false
                             }
                             .tvRemoteFocusable(

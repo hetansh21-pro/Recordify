@@ -322,7 +322,10 @@ fun TvHomeView(
                                 title = "🔥 Trending YouTube Podcasts",
                                 subtitle = "Top video podcasts and talk shows streaming now"
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
                                 items(trendingPodcasts) { podcast ->
                                     TvSongCard(
                                         song = podcast,
@@ -345,7 +348,10 @@ fun TvHomeView(
                                 title = "🧠 Deep Conversations & Interviews",
                                 subtitle = "Long-form discussions, life lessons, and inspiring journeys"
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
                                 items(conversationPodcasts) { podcast ->
                                     TvSongCard(
                                         song = podcast,
@@ -368,7 +374,10 @@ fun TvHomeView(
                                 title = "💡 Tech, Knowledge & Storytelling",
                                 subtitle = "Fascinating science, business breakdowns, and deep dives"
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
                                 items(techPodcasts) { podcast ->
                                     TvSongCard(
                                         song = podcast,
@@ -436,7 +445,10 @@ fun TvHomeView(
                     title = "Albums featuring songs you like",
                     subtitle = "Complete studio records, curated playlists & legendary soundtracks"
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                     items(curatedAlbums) { album ->
                         TvAlbumCard(
                             album = album,
@@ -458,7 +470,10 @@ fun TvHomeView(
                         title = "Recently Played",
                         subtitle = "Jump straight back into your recent music"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(historyItems) { item ->
                             val songModel = OnlineSongModel(
                                 id = item.id,
@@ -492,7 +507,10 @@ fun TvHomeView(
                         title = "New Releases & Fresh Hits",
                         subtitle = "Today's newest tracks and viral chartbusters"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(newReleasesList) { song ->
                             TvSongCard(
                                 song = song,
@@ -522,7 +540,10 @@ fun TvHomeView(
                         title = "Popular in ${countryProfile.countryName}",
                         subtitle = "Top streamed music across ${countryProfile.countryName} and your region"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(countryHits) { song ->
                             TvSongCard(
                                 song = song,
@@ -553,7 +574,10 @@ fun TvHomeView(
                         title = "Made for You • Daily Mix",
                         subtitle = "Personalized selections inspired by your music taste"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(madeForYouList) { song ->
                             TvSongCard(
                                 song = song,
@@ -583,7 +607,10 @@ fun TvHomeView(
                         title = "Romantic & Soulful Melodies",
                         subtitle = "Timeless love songs, slow ballads, and acoustic warmth"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(romanticList) { song ->
                             TvSongCard(
                                 song = song,
@@ -613,7 +640,10 @@ fun TvHomeView(
                         title = "Relaxing Lo-Fi & Chill Lounge",
                         subtitle = "Soothing acoustic and ambient beats for evening unwinding"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(chillList) { song ->
                             TvSongCard(
                                 song = song,
@@ -649,7 +679,10 @@ fun TvHomeView(
                         title = shelf9Title,
                         subtitle = shelf9Subtitle
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(bollywoodList) { song ->
                             TvSongCard(
                                 song = song,
@@ -681,7 +714,10 @@ fun TvHomeView(
                         title = shelf10Title,
                         subtitle = shelf10Subtitle
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(partyList) { song ->
                             TvSongCard(
                                 song = song,
@@ -707,7 +743,10 @@ fun TvHomeView(
                         title = "Featured Albums & Soundtracks",
                         subtitle = "Complete collections and iconic soundtracks"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(albumsList) { album ->
                             TvAlbumCard(
                                 album = album,
@@ -730,7 +769,10 @@ fun TvHomeView(
                         title = if (isIndia) "Legendary Eras & Vault Classics" else "Trending Collections & Artists",
                         subtitle = if (isIndia) "Full discographies from 70s, 80s, 90s, and retro Ghazals" else "Top streaming playlists across ${countryProfile.countryName}"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(displayAlbums) { album ->
                             TvAlbumCard(
                                 album = album,
@@ -752,7 +794,10 @@ fun TvHomeView(
                         title = "🎙️ Top Podcasts from YouTube",
                         subtitle = "Trending episodes and long-form conversations"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                ) {
                         items(homePodcasts.take(10)) { podcast ->
                             TvSongCard(
                                 song = podcast,

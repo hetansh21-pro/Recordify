@@ -113,6 +113,13 @@ fun TvSearchView(
         } catch (_: Exception) {}
     }
 
+    BackHandler(enabled = !isEditingText && searchQuery.isNotBlank()) {
+        onSearchQueryChange("")
+        try {
+            capsuleFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     LaunchedEffect(isEditingText) {
         if (isEditingText) {
             try {
@@ -301,6 +308,7 @@ fun TvSearchView(
 
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(recentSearches.take(10)) { item ->
@@ -313,7 +321,9 @@ fun TvSearchView(
                                         .tvRemoteFocusable(
                                             onClick = { onSearchQueryChange(item.title) },
                                             shape = RoundedCornerShape(12.dp),
-                                            focusScale = 1.08f
+                                            focusScale = 1.04f,
+                                            focusBorderWidth = 2.dp,
+                                            focusBorderColor = Color.White
                                         )
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
@@ -370,6 +380,7 @@ fun TvSearchView(
                         )
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(discoveryAlbums) { album ->
@@ -464,7 +475,10 @@ fun TvSearchView(
                                 title = "Artists",
                                 subtitle = "Official artist essentials"
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
                                 items(matchingArtists) { artistAlbum ->
                                     TvCircularArtistCard(
                                         name = artistAlbum.title,
@@ -485,7 +499,10 @@ fun TvSearchView(
                                 title = "Matching Albums & Soundtracks",
                                 subtitle = "Explore complete collections"
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
                                 items(matchingAlbums) { album ->
                                     TvAlbumCard(album = album, onClick = { onPlayAlbum(album) })
                                 }

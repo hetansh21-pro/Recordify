@@ -297,7 +297,10 @@ fun TvCircleControl(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = CircleShape,
-                focusScale = 1.15f
+                focusScale = 1.12f,
+                focusBorderWidth = 2.dp,
+                focusBorderColor = Color.White,
+                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
             )
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -350,7 +353,9 @@ fun TvSongCard(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = RoundedCornerShape(12.dp),
-                focusScale = 1.08f
+                focusScale = 1.04f,
+                focusBorderWidth = 2.dp,
+                focusBorderColor = Color.White
             )
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -410,7 +415,9 @@ fun TvAlbumCard(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = RoundedCornerShape(12.dp),
-                focusScale = 1.08f
+                focusScale = 1.04f,
+                focusBorderWidth = 2.dp,
+                focusBorderColor = Color.White
             )
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -470,7 +477,9 @@ fun TvCircularArtistCard(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = RoundedCornerShape(12.dp),
-                focusScale = 1.08f
+                focusScale = 1.04f,
+                focusBorderWidth = 2.dp,
+                focusBorderColor = Color.White
             )
     ) {
         Column(
@@ -534,7 +543,9 @@ fun TvMoodCard(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = RoundedCornerShape(12.dp),
-                focusScale = 1.08f
+                focusScale = 1.04f,
+                focusBorderWidth = 2.dp,
+                focusBorderColor = Color.White
             )
     ) {
         Box(
