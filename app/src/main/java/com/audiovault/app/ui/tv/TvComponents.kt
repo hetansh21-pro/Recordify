@@ -342,7 +342,11 @@ fun TvShelfHeader(title: String, subtitle: String) {
 fun TvSongCard(
     song: OnlineSongModel,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false,
+    isTopBoundary: Boolean = false,
+    isBottomBoundary: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -355,7 +359,11 @@ fun TvSongCard(
                 shape = RoundedCornerShape(12.dp),
                 focusScale = 1.04f,
                 focusBorderWidth = 2.dp,
-                focusBorderColor = Color.White
+                focusBorderColor = Color.White,
+                isLeftBoundary = isLeftBoundary,
+                isRightBoundary = isRightBoundary,
+                isTopBoundary = isTopBoundary,
+                isBottomBoundary = isBottomBoundary
             )
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -404,7 +412,11 @@ fun TvSongCard(
 fun TvAlbumCard(
     album: OnlineAlbumModel,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false,
+    isTopBoundary: Boolean = false,
+    isBottomBoundary: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -417,7 +429,11 @@ fun TvAlbumCard(
                 shape = RoundedCornerShape(12.dp),
                 focusScale = 1.04f,
                 focusBorderWidth = 2.dp,
-                focusBorderColor = Color.White
+                focusBorderColor = Color.White,
+                isLeftBoundary = isLeftBoundary,
+                isRightBoundary = isRightBoundary,
+                isTopBoundary = isTopBoundary,
+                isBottomBoundary = isBottomBoundary
             )
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -467,7 +483,11 @@ fun TvCircularArtistCard(
     name: String,
     imageUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false,
+    isTopBoundary: Boolean = false,
+    isBottomBoundary: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -479,7 +499,11 @@ fun TvCircularArtistCard(
                 shape = RoundedCornerShape(12.dp),
                 focusScale = 1.04f,
                 focusBorderWidth = 2.dp,
-                focusBorderColor = Color.White
+                focusBorderColor = Color.White,
+                isLeftBoundary = isLeftBoundary,
+                isRightBoundary = isRightBoundary,
+                isTopBoundary = isTopBoundary,
+                isBottomBoundary = isBottomBoundary
             )
     ) {
         Column(
@@ -533,7 +557,11 @@ fun TvMoodCard(
     title: String,
     gradientColors: List<Color>,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false,
+    isTopBoundary: Boolean = false,
+    isBottomBoundary: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -545,7 +573,11 @@ fun TvMoodCard(
                 shape = RoundedCornerShape(12.dp),
                 focusScale = 1.04f,
                 focusBorderWidth = 2.dp,
-                focusBorderColor = Color.White
+                focusBorderColor = Color.White,
+                isLeftBoundary = isLeftBoundary,
+                isRightBoundary = isRightBoundary,
+                isTopBoundary = isTopBoundary,
+                isBottomBoundary = isBottomBoundary
             )
     ) {
         Box(

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -74,9 +74,11 @@ fun TvPlaylistsView(
                 )
 
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(curatedPlaylists) { playlist ->
+                    itemsIndexed(curatedPlaylists) { idx, playlist ->
                         TvAlbumCard(
                             album = playlist,
+                            isLeftBoundary = idx == 0,
+                            isRightBoundary = idx == curatedPlaylists.lastIndex,
                             onClick = { onOpenAlbum(playlist) }
                         )
                     }
@@ -97,7 +99,7 @@ fun TvPlaylistsView(
             )
         }
 
-        items(curatedPlaylists) { playlist ->
+        itemsIndexed(curatedPlaylists) { idx, playlist ->
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = Color(0xFF161616),
@@ -107,7 +109,9 @@ fun TvPlaylistsView(
                     .tvRemoteFocusable(
                         onClick = { onOpenAlbum(playlist) },
                         shape = RoundedCornerShape(12.dp),
-                        focusScale = 1.02f
+                        focusScale = 1.02f,
+                        isLeftBoundary = true,
+                        isRightBoundary = true
                     )
             ) {
                 Row(

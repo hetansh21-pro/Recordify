@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -257,7 +258,7 @@ fun TvHomeView(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                filterOptions.forEach { filterLabel ->
+                filterOptions.forEachIndexed { idx, filterLabel ->
                     val isSelected = selectedFilterPill == filterLabel
                     Surface(
                         shape = RoundedCornerShape(50),
@@ -273,7 +274,9 @@ fun TvHomeView(
                                     selectedFilterPill = filterLabel
                                 },
                                 shape = RoundedCornerShape(50),
-                                focusScale = 1.08f
+                                focusScale = 1.08f,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == filterOptions.lastIndex
                             )
                     ) {
                         Box(
@@ -326,11 +329,13 @@ fun TvHomeView(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                             ) {
-                                items(trendingPodcasts) { podcast ->
+                                itemsIndexed(trendingPodcasts) { pIdx, podcast ->
                                     TvSongCard(
                                         song = podcast,
+                                        isLeftBoundary = pIdx == 0,
+                                        isRightBoundary = pIdx == trendingPodcasts.lastIndex,
                                         onClick = {
-                                            val upcoming = trendingPodcasts.drop(trendingPodcasts.indexOf(podcast) + 1)
+                                            val upcoming = trendingPodcasts.drop(pIdx + 1)
                                             onPlaySong(podcast, upcoming)
                                         }
                                     )
@@ -352,11 +357,13 @@ fun TvHomeView(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                             ) {
-                                items(conversationPodcasts) { podcast ->
+                                itemsIndexed(conversationPodcasts) { cIdx, podcast ->
                                     TvSongCard(
                                         song = podcast,
+                                        isLeftBoundary = cIdx == 0,
+                                        isRightBoundary = cIdx == conversationPodcasts.lastIndex,
                                         onClick = {
-                                            val upcoming = conversationPodcasts.drop(conversationPodcasts.indexOf(podcast) + 1)
+                                            val upcoming = conversationPodcasts.drop(cIdx + 1)
                                             onPlaySong(podcast, upcoming)
                                         }
                                     )
@@ -378,11 +385,13 @@ fun TvHomeView(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                             ) {
-                                items(techPodcasts) { podcast ->
+                                itemsIndexed(techPodcasts) { tIdx, podcast ->
                                     TvSongCard(
                                         song = podcast,
+                                        isLeftBoundary = tIdx == 0,
+                                        isRightBoundary = tIdx == techPodcasts.lastIndex,
                                         onClick = {
-                                            val upcoming = techPodcasts.drop(techPodcasts.indexOf(podcast) + 1)
+                                            val upcoming = techPodcasts.drop(tIdx + 1)
                                             onPlaySong(podcast, upcoming)
                                         }
                                     )
@@ -408,12 +417,15 @@ fun TvHomeView(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        quickTiles.take(4).forEach { item ->
+                        val row1 = quickTiles.take(4)
+                        row1.forEachIndexed { idx, item ->
                             TvQuickAccessTile(
                                 title = item.title,
                                 artUrl = item.coverArtUrl,
                                 onClick = { onPlayAlbum(item) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == row1.lastIndex
                             )
                         }
                     }
@@ -423,12 +435,15 @@ fun TvHomeView(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        quickTiles.drop(4).take(4).forEach { item ->
+                        val row2 = quickTiles.drop(4).take(4)
+                        row2.forEachIndexed { idx, item ->
                             TvQuickAccessTile(
                                 title = item.title,
                                 artUrl = item.coverArtUrl,
                                 onClick = { onPlayAlbum(item) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == row2.lastIndex
                             )
                         }
                     }
@@ -449,9 +464,11 @@ fun TvHomeView(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                 ) {
-                    items(curatedAlbums) { album ->
+                    itemsIndexed(curatedAlbums) { idx, album ->
                         TvAlbumCard(
                             album = album,
+                            isLeftBoundary = idx == 0,
+                            isRightBoundary = idx == curatedAlbums.lastIndex,
                             onClick = { onPlayAlbum(album) }
                         )
                     }
@@ -471,10 +488,10 @@ fun TvHomeView(
                         subtitle = "Jump straight back into your recent music"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(historyItems) { item ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(historyItems) { idx, item ->
                             val songModel = OnlineSongModel(
                                 id = item.id,
                                 title = item.title,
@@ -484,6 +501,8 @@ fun TvHomeView(
                             )
                             TvSongCard(
                                 song = songModel,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == historyItems.lastIndex,
                                 onClick = { onPlaySong(songModel, null) }
                             )
                         }
@@ -508,14 +527,16 @@ fun TvHomeView(
                         subtitle = "Today's newest tracks and viral chartbusters"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(newReleasesList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(newReleasesList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == newReleasesList.lastIndex,
                                 onClick = {
-                                    val upcoming = newReleasesList.drop(newReleasesList.indexOf(song) + 1)
+                                    val upcoming = newReleasesList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -541,14 +562,16 @@ fun TvHomeView(
                         subtitle = "Top streamed music across ${countryProfile.countryName} and your region"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(countryHits) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(countryHits) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == countryHits.lastIndex,
                                 onClick = {
-                                    val upcoming = countryHits.drop(countryHits.indexOf(song) + 1)
+                                    val upcoming = countryHits.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -575,14 +598,16 @@ fun TvHomeView(
                         subtitle = "Personalized selections inspired by your music taste"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(madeForYouList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(madeForYouList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == madeForYouList.lastIndex,
                                 onClick = {
-                                    val upcoming = madeForYouList.drop(madeForYouList.indexOf(song) + 1)
+                                    val upcoming = madeForYouList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -608,14 +633,16 @@ fun TvHomeView(
                         subtitle = "Timeless love songs, slow ballads, and acoustic warmth"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(romanticList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(romanticList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == romanticList.lastIndex,
                                 onClick = {
-                                    val upcoming = romanticList.drop(romanticList.indexOf(song) + 1)
+                                    val upcoming = romanticList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -641,14 +668,16 @@ fun TvHomeView(
                         subtitle = "Soothing acoustic and ambient beats for evening unwinding"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(chillList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(chillList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == chillList.lastIndex,
                                 onClick = {
-                                    val upcoming = chillList.drop(chillList.indexOf(song) + 1)
+                                    val upcoming = chillList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -680,14 +709,16 @@ fun TvHomeView(
                         subtitle = shelf9Subtitle
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(bollywoodList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(bollywoodList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == bollywoodList.lastIndex,
                                 onClick = {
-                                    val upcoming = bollywoodList.drop(bollywoodList.indexOf(song) + 1)
+                                    val upcoming = bollywoodList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -715,14 +746,16 @@ fun TvHomeView(
                         subtitle = shelf10Subtitle
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(partyList) { song ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(partyList) { idx, song ->
                             TvSongCard(
                                 song = song,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == partyList.lastIndex,
                                 onClick = {
-                                    val upcoming = partyList.drop(partyList.indexOf(song) + 1)
+                                    val upcoming = partyList.drop(idx + 1)
                                     onPlaySong(song, upcoming)
                                 }
                             )
@@ -744,12 +777,14 @@ fun TvHomeView(
                         subtitle = "Complete collections and iconic soundtracks"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(albumsList) { album ->
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(albumsList) { idx, album ->
                             TvAlbumCard(
                                 album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == albumsList.lastIndex,
                                 onClick = { onPlayAlbum(album) }
                             )
                         }
@@ -770,12 +805,14 @@ fun TvHomeView(
                         subtitle = if (isIndia) "Full discographies from 70s, 80s, 90s, and retro Ghazals" else "Top streaming playlists across ${countryProfile.countryName}"
                     )
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(displayAlbums) { album ->
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(displayAlbums) { idx, album ->
                             TvAlbumCard(
                                 album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == displayAlbums.lastIndex,
                                 onClick = { onPlayAlbum(album) }
                             )
                         }
@@ -794,15 +831,18 @@ fun TvHomeView(
                         title = "🎙️ Top Podcasts from YouTube",
                         subtitle = "Trending episodes and long-form conversations"
                     )
+                    val topPodcasts = homePodcasts.take(10)
                     LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                ) {
-                        items(homePodcasts.take(10)) { podcast ->
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(topPodcasts) { idx, podcast ->
                             TvSongCard(
                                 song = podcast,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == topPodcasts.lastIndex,
                                 onClick = {
-                                    val upcoming = homePodcasts.drop(homePodcasts.indexOf(podcast) + 1)
+                                    val upcoming = topPodcasts.drop(idx + 1)
                                     onPlaySong(podcast, upcoming)
                                 }
                             )
@@ -1245,7 +1285,9 @@ fun TvQuickAccessTile(
     title: String,
     artUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(6.dp),
@@ -1256,7 +1298,9 @@ fun TvQuickAccessTile(
             .tvRemoteFocusable(
                 onClick = onClick,
                 shape = RoundedCornerShape(6.dp),
-                focusScale = 1.04f
+                focusScale = 1.04f,
+                isLeftBoundary = isLeftBoundary,
+                isRightBoundary = isRightBoundary
             )
     ) {
         Row(

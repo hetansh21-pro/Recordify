@@ -333,7 +333,7 @@ fun TvLibraryView(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    libraryFilterPills.forEach { pillLabel ->
+                    libraryFilterPills.forEachIndexed { idx, pillLabel ->
                         val isSelected = selectedFilterPill == pillLabel
                         Surface(
                             shape = RoundedCornerShape(50),
@@ -356,7 +356,9 @@ fun TvLibraryView(
                                     focusScale = 1.08f,
                                     focusRequester = if (pillLabel == "All") firstPillFocusRequester else null,
                                     focusBorderWidth = 2.dp,
-                                    focusBorderColor = Color.White
+                                    focusBorderColor = Color.White,
+                                    isLeftBoundary = idx == 0,
+                                    isRightBoundary = idx == libraryFilterPills.lastIndex
                                 )
                         ) {
                             Box(

@@ -59,7 +59,11 @@ fun Modifier.tvRemoteFocusable(
     unfocusedBackgroundColor: Color = Color.Transparent,
     elevationOnFocus: Dp = 0.dp,
     focusRequester: FocusRequester? = null,
-    onFocusChanged: ((Boolean) -> Unit)? = null
+    onFocusChanged: ((Boolean) -> Unit)? = null,
+    isLeftBoundary: Boolean = false,
+    isRightBoundary: Boolean = false,
+    isTopBoundary: Boolean = false,
+    isBottomBoundary: Boolean = false
 ): Modifier {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -101,14 +105,19 @@ fun Modifier.tvRemoteFocusable(
         .border(width = if (isFocused) focusBorderWidth else 1.dp, color = borderColor, shape = shape)
         .focusable(interactionSource = interactionSource)
         .onKeyEvent { keyEvent ->
-            if (keyEvent.type == KeyEventType.KeyDown &&
-                (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
-            ) {
-                onClick()
-                true
-            } else {
-                false
-            }
+            if (keyEvent.type == KeyEventType.KeyDown) {
+                when (keyEvent.key) {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        onClick()
+                        true
+                    }
+                    Key.DirectionLeft -> if (isLeftBoundary) true else false
+                    Key.DirectionRight -> if (isRightBoundary) true else false
+                    Key.DirectionUp -> if (isTopBoundary) true else false
+                    Key.DirectionDown -> if (isBottomBoundary) true else false
+                    else -> false
+                }
+            } else false
         }
         .clickable(
             interactionSource = interactionSource,

@@ -84,6 +84,7 @@ fun TvQueuePanel(
 ) {
     val firstItemFocusRequester = remember { FocusRequester() }
     val closeFocusRequester = remember { FocusRequester() }
+    val editActionFocusRequester = remember { FocusRequester() }
     var activeEditIndex by remember { mutableStateOf<Int?>(null) }
 
     // Auto-focus on entry for TV remote
@@ -98,6 +99,16 @@ fun TvQueuePanel(
         } catch (_: Exception) {}
     }
 
+    // Auto-focus on edit action button when opening three-dot menu so focus NEVER vanishes
+    LaunchedEffect(activeEditIndex) {
+        if (activeEditIndex != null) {
+            delay(50L)
+            try {
+                editActionFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp),
         color = Color(0xFF121212),
@@ -110,11 +121,16 @@ fun TvQueuePanel(
             .pointerInput(Unit) {
                 detectTapGestures { /* Consume touches inside queue panel */ }
             }
-            // Direct Remote Back button handling
+            // Direct Remote Back button handling (Cancels edit mode first, or closes queue)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back) {
-                    onClose()
-                    true
+                    if (activeEditIndex != null) {
+                        activeEditIndex = null
+                        true
+                    } else {
+                        onClose()
+                        true
+                    }
                 } else false
             }
     ) {
@@ -152,11 +168,17 @@ fun TvQueuePanel(
                         Surface(
                             shape = RoundedCornerShape(14.dp),
                             color = Color(0xFF242424),
-                            modifier = Modifier.tvRemoteFocusable(
-                                onClick = onClearQueue,
-                                shape = RoundedCornerShape(14.dp),
-                                focusScale = 1.05f
-                            )
+                            modifier = Modifier
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionUp) {
+                                        true // Top boundary locked
+                                    } else false
+                                }
+                                .tvRemoteFocusable(
+                                    onClick = onClearQueue,
+                                    shape = RoundedCornerShape(14.dp),
+                                    focusScale = 1.05f
+                                )
                         ) {
                             Text(
                                 text = "Clear",
@@ -176,6 +198,15 @@ fun TvQueuePanel(
                             .size(36.dp)
                             .clip(CircleShape)
                             .focusRequester(closeFocusRequester)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.DirectionUp -> true // Top boundary locked
+                                        Key.DirectionRight -> true // Right boundary locked
+                                        else -> false
+                                    }
+                                } else false
+                            }
                             .tvRemoteFocusable(
                                 onClick = onClose,
                                 shape = CircleShape,
@@ -321,6 +352,11 @@ fun TvQueuePanel(
                                 modifier = Modifier
                                     .weight(1f)
                                     .then(if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier)
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
+                                            true // Left boundary locked: stay inside queue panel
+                                        } else false
+                                    }
                                     .tvRemoteFocusable(
                                         onClick = { onPlayQueueIndex(index) },
                                         shape = RoundedCornerShape(10.dp),
@@ -378,11 +414,12 @@ fun TvQueuePanel(
 
                             if (isEditing) {
                                 // Three Action Buttons on edit mode: Up, Down, Close
-                                // 1. Move Up Button (enabled if index > 0)
+                                // 1. Move Up Button (enabled if index > 0, auto-focused via editActionFocusRequester)
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
+                                        .focusRequester(editActionFocusRequester)
                                         .tvRemoteFocusable(
                                             onClick = { onMoveQueueItemUp?.invoke(index) },
                                             shape = CircleShape,
@@ -424,11 +461,16 @@ fun TvQueuePanel(
                                     )
                                 }
 
-                                // 3. Remove Button (deletes track index)
+                                // 3. Remove Button (deletes track index, right-locked against escaping)
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                                                true // Right boundary locked
+                                            } else false
+                                        }
                                         .tvRemoteFocusable(
                                             onClick = {
                                                 onRemoveQueueIndex(index)
@@ -450,11 +492,16 @@ fun TvQueuePanel(
                                     )
                                 }
                             } else {
-                                // Edit Action Trigger Button
+                                // Edit Action Trigger Button (Right-locked against escaping)
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                                                true // Right boundary locked
+                                            } else false
+                                        }
                                         .tvRemoteFocusable(
                                             onClick = { activeEditIndex = index },
                                             shape = CircleShape,

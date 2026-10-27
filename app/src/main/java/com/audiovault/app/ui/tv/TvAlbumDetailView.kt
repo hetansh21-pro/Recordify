@@ -87,7 +87,6 @@ fun TvAlbumDetailView(
     val likedSongIds by viewModel.likedSongIds.collectAsState()
 
     val masterPlayFocusRequester = remember { FocusRequester() }
-    val tracklistButtonFocusRequester = remember { FocusRequester() }
     val firstTrackFocusRequester = remember { FocusRequester() }
 
     // Auto-focus on Master Play Button when entering Album Details
@@ -219,17 +218,22 @@ fun TvAlbumDetailView(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Buttons Row: Shuffle, Add, Master Play Button, and Browse Tracklist
+                // Action Buttons Row: Shuffle, Add, Master Play Button (Direct Right D-pad to Tracklist)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Shuffle button
+                    // Shuffle button (Left-locked so remote focus never escapes outside)
                     Surface(
                         shape = CircleShape,
                         color = Color(0xFF222222),
                         modifier = Modifier
                             .size(44.dp)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
+                                    true // Left boundary locked: stay on Shuffle
+                                } else false
+                            }
                             .tvRemoteFocusable(
                                 onClick = {
                                     viewModel.toggleShuffle()
@@ -286,13 +290,21 @@ fun TvAlbumDetailView(
                         }
                     }
 
-                    // Large Spotify-Green Master Play Button
+                    // Large Spotify-Green Master Play Button (Direct Right D-pad to Tracklist)
                     Surface(
                         shape = CircleShape,
                         color = SpotifyGreenBright,
                         modifier = Modifier
                             .size(52.dp)
                             .focusRequester(masterPlayFocusRequester)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                                    try {
+                                        firstTrackFocusRequester.requestFocus()
+                                        true
+                                    } catch (_: Exception) { false }
+                                } else false
+                            }
                             .tvRemoteFocusable(
                                 onClick = {
                                     if (trackList.isNotEmpty()) {
@@ -313,53 +325,6 @@ fun TvAlbumDetailView(
                                 contentDescription = "Play All",
                                 tint = Color.Black,
                                 modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-
-                    // Dedicated Browse Tracklist Button (Must click OK to focus songs; blocks D-pad Right leak)
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF222222),
-                        modifier = Modifier
-                            .height(44.dp)
-                            .focusRequester(tracklistButtonFocusRequester)
-                            .onKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
-                                    true // Stop focus from leaking to songs on D-pad right
-                                } else false
-                            }
-                            .tvRemoteFocusable(
-                                onClick = {
-                                    try {
-                                        firstTrackFocusRequester.requestFocus()
-                                    } catch (_: Exception) {}
-                                },
-                                shape = RoundedCornerShape(50),
-                                focusScale = 1.08f,
-                                focusBorderWidth = 2.dp,
-                                focusBorderColor = Color.White,
-                                focusedBackgroundColor = Color.White.copy(alpha = 0.25f)
-                            )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                                contentDescription = "Tracklist",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "Tracklist",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 12.sp
-                                )
                             )
                         }
                     }
@@ -394,7 +359,7 @@ fun TvAlbumDetailView(
                         },
                         onNavigateLeft = {
                             try {
-                                tracklistButtonFocusRequester.requestFocus()
+                                masterPlayFocusRequester.requestFocus()
                             } catch (_: Exception) {}
                         },
                         focusRequester = if (index == 0) firstTrackFocusRequester else null
@@ -434,9 +399,17 @@ private fun TvSpotifyTrackRow(
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { isFocused = it.isFocused }
             .onKeyEvent { keyEvent ->
-                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
-                    onNavigateLeft()
-                    true
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    when (keyEvent.key) {
+                        Key.DirectionLeft -> {
+                            onNavigateLeft()
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            true // Right boundary locked: stay on track row, never escape outside screen
+                        }
+                        else -> false
+                    }
                 } else false
             }
             .tvRemoteFocusable(

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -99,11 +100,20 @@ fun TvSearchView(
     val countryProfile = remember(userSettings.userCountryCode) {
         CountryMusicCatalog.getProfile(userSettings.userCountryCode)
     }
+    // Dynamic Rotating Regional Albums & Playlists (Auto-changes every session/visit with 60+ curated & regional records)
+    val discoveryAlbums = remember(countryProfile.countryCode, searchContainer?.albums) {
+        val regional = countryProfile.quickAccessTiles
+        val curated = CuratedAlbumCatalog.curatedAlbums
+        val online = searchContainer?.albums ?: emptyList()
+        (online + regional + curated).distinctBy { it.id }.shuffled().take(14)
+    }
     var isCapsuleFocused by remember { mutableStateOf(false) }
     var isEditingText by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val textFieldFocusRequester = remember { FocusRequester() }
+    val firstContentFocusRequester = remember { FocusRequester() }
+    val clearButtonFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = isEditingText) {
         isEditingText = false
@@ -157,9 +167,31 @@ fun TvSearchView(
                         isCapsuleFocused = state.isFocused
                     }
                     .onKeyEvent { keyEvent ->
-                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionUp) {
-                            onNavigateUpToHeader()
-                            true
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            when (keyEvent.key) {
+                                Key.DirectionUp -> {
+                                    onNavigateUpToHeader()
+                                    true
+                                }
+                                Key.DirectionDown -> {
+                                    try {
+                                        firstContentFocusRequester.requestFocus()
+                                        true
+                                    } catch (_: Exception) { false }
+                                }
+                                Key.DirectionRight -> {
+                                    if (searchQuery.isNotEmpty()) {
+                                        try {
+                                            clearButtonFocusRequester.requestFocus()
+                                            true
+                                        } catch (_: Exception) { false }
+                                    } else false
+                                }
+                                Key.DirectionLeft -> {
+                                    true // Left boundary locked: stay on capsule
+                                }
+                                else -> false
+                            }
                         } else false
                     }
                     .tvRemoteFocusable(
@@ -264,6 +296,33 @@ fun TvSearchView(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
+                                .focusRequester(clearButtonFocusRequester)
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionLeft -> {
+                                                try {
+                                                    capsuleFocusRequester.requestFocus()
+                                                    true
+                                                } catch (_: Exception) { false }
+                                            }
+                                            Key.DirectionRight -> {
+                                                true // Right boundary locked: stay on Clear button
+                                            }
+                                            Key.DirectionDown -> {
+                                                try {
+                                                    firstContentFocusRequester.requestFocus()
+                                                    true
+                                                } catch (_: Exception) { false }
+                                            }
+                                            Key.DirectionUp -> {
+                                                onNavigateUpToHeader()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                                 .tvRemoteFocusable(
                                     onClick = {
                                         onSearchQueryChange("")
@@ -293,7 +352,8 @@ fun TvSearchView(
         // 2. RECENT SEARCHES & CURATED COLLECTIONS (Full HD 500x500 Album Art)
         // -------------------------------------------------------------
         if (searchQuery.isBlank()) {
-            if (recentSearches.isNotEmpty()) {
+            val recentList = recentSearches.take(10)
+            if (recentList.isNotEmpty()) {
                 item {
                     Column {
                         Text(
@@ -311,13 +371,33 @@ fun TvSearchView(
                             contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(recentSearches.take(10)) { item ->
+                            itemsIndexed(recentList) { rIdx, item ->
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
                                     color = Color(0xFF161616),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
                                     modifier = Modifier
                                         .width(160.dp)
+                                        .then(if (rIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                                when (keyEvent.key) {
+                                                    Key.DirectionUp -> {
+                                                        try {
+                                                            capsuleFocusRequester.requestFocus()
+                                                            true
+                                                        } catch (_: Exception) { false }
+                                                    }
+                                                    Key.DirectionLeft -> {
+                                                        if (rIdx == 0) true else false // Left-locked
+                                                    }
+                                                    Key.DirectionRight -> {
+                                                        if (rIdx == recentList.lastIndex) true else false // Right-locked
+                                                    }
+                                                    else -> false
+                                                }
+                                            } else false
+                                        }
                                         .tvRemoteFocusable(
                                             onClick = { onSearchQueryChange(item.title) },
                                             shape = RoundedCornerShape(12.dp),
@@ -369,8 +449,6 @@ fun TvSearchView(
                 }
             }
 
-            // Dynamic Regional Albums & Playlists (Country-Aware Full HD 600x600 Cover Art)
-            val discoveryAlbums = ((searchContainer?.albums ?: emptyList()) + countryProfile.quickAccessTiles).distinctBy { it.id }.take(12)
             if (discoveryAlbums.isNotEmpty()) {
                 item {
                     Column {
@@ -383,10 +461,33 @@ fun TvSearchView(
                             contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(discoveryAlbums) { album ->
+                            itemsIndexed(discoveryAlbums) { dIdx, album ->
                                 TvAlbumCard(
                                     album = album,
-                                    onClick = { onPlayAlbum(album) }
+                                    onClick = { onPlayAlbum(album) },
+                                    modifier = Modifier
+                                        .then(if (recentList.isEmpty() && dIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                        .onKeyEvent { keyEvent ->
+                                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                                when (keyEvent.key) {
+                                                    Key.DirectionUp -> {
+                                                        if (recentList.isEmpty()) {
+                                                            try {
+                                                                capsuleFocusRequester.requestFocus()
+                                                                true
+                                                            } catch (_: Exception) { false }
+                                                        } else false
+                                                    }
+                                                    Key.DirectionLeft -> {
+                                                        if (dIdx == 0) true else false // Left-locked
+                                                    }
+                                                    Key.DirectionRight -> {
+                                                        if (dIdx == discoveryAlbums.lastIndex) true else false // Right-locked
+                                                    }
+                                                    else -> false
+                                                }
+                                            } else false
+                                        }
                                 )
                             }
                         }
@@ -479,11 +580,32 @@ fun TvSearchView(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                             ) {
-                                items(matchingArtists) { artistAlbum ->
+                                itemsIndexed(matchingArtists) { aIdx, artistAlbum ->
                                     TvCircularArtistCard(
                                         name = artistAlbum.title,
                                         imageUrl = artistAlbum.coverArtUrl ?: "",
-                                        onClick = { onPlayAlbum(artistAlbum) }
+                                        onClick = { onPlayAlbum(artistAlbum) },
+                                        modifier = Modifier
+                                            .then(if (aIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                            .onKeyEvent { keyEvent ->
+                                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                                    when (keyEvent.key) {
+                                                        Key.DirectionUp -> {
+                                                            try {
+                                                                capsuleFocusRequester.requestFocus()
+                                                                true
+                                                            } catch (_: Exception) { false }
+                                                        }
+                                                        Key.DirectionLeft -> {
+                                                            if (aIdx == 0) true else false // Left-locked
+                                                        }
+                                                        Key.DirectionRight -> {
+                                                            if (aIdx == matchingArtists.lastIndex) true else false // Right-locked
+                                                        }
+                                                        else -> false
+                                                    }
+                                                } else false
+                                            }
                                     )
                                 }
                             }
@@ -503,8 +625,34 @@ fun TvSearchView(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                             ) {
-                                items(matchingAlbums) { album ->
-                                    TvAlbumCard(album = album, onClick = { onPlayAlbum(album) })
+                                itemsIndexed(matchingAlbums) { mIdx, album ->
+                                    TvAlbumCard(
+                                        album = album,
+                                        onClick = { onPlayAlbum(album) },
+                                        modifier = Modifier
+                                            .then(if (matchingArtists.isEmpty() && mIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                            .onKeyEvent { keyEvent ->
+                                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                                    when (keyEvent.key) {
+                                                        Key.DirectionUp -> {
+                                                            if (matchingArtists.isEmpty()) {
+                                                                try {
+                                                                    capsuleFocusRequester.requestFocus()
+                                                                    true
+                                                                } catch (_: Exception) { false }
+                                                            } else false
+                                                        }
+                                                        Key.DirectionLeft -> {
+                                                            if (mIdx == 0) true else false // Left-locked
+                                                        }
+                                                        Key.DirectionRight -> {
+                                                            if (mIdx == matchingAlbums.lastIndex) true else false // Right-locked
+                                                        }
+                                                        else -> false
+                                                    }
+                                                } else false
+                                            }
+                                    )
                                 }
                             }
                         }
@@ -525,8 +673,9 @@ fun TvSearchView(
                         )
                     }
 
-                    items(searchResults) { song ->
+                    itemsIndexed(searchResults) { sIdx, song ->
                         val isLiked = likedSongIds.contains(song.id.hashCode().toLong())
+                        val isFirstResult = matchingArtists.isEmpty() && matchingAlbums.isEmpty() && sIdx == 0
                         TvSimpleSearchSongRow(
                             song = song,
                             isLiked = isLiked,
@@ -536,7 +685,29 @@ fun TvSearchView(
                             },
                             onToggleLike = {
                                 viewModel.toggleLikedSong(song.id.hashCode().toLong())
-                            }
+                            },
+                            modifier = Modifier
+                                .then(if (isFirstResult) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                .onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionUp -> {
+                                                if (isFirstResult) {
+                                                    try {
+                                                        capsuleFocusRequester.requestFocus()
+                                                        true
+                                                    } catch (_: Exception) { false }
+                                                } else false
+                                            }
+                                            Key.DirectionDown -> {
+                                                if (sIdx == searchResults.lastIndex) true else false // Bottom-locked
+                                            }
+                                            Key.DirectionLeft -> true // Left-locked
+                                            Key.DirectionRight -> true // Right-locked
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         )
                     }
                 }
@@ -562,12 +733,25 @@ fun TvSearchView(
                         Triple("Party Dance Hits", "Party dance hits bollywood", listOf(Color(0xFFB02897), Color(0xFF58144C))),
                         Triple("90s Nostalgia", "90s bollywood evergreen hits", listOf(Color(0xFFBA5D07), Color(0xFF5D2E04)))
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(moods) { (title, queryKey, colors) ->
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(moods) { mIdx, moodItem ->
+                            val (title, queryKey, colors) = moodItem
                             TvMoodCard(
                                 title = title,
                                 gradientColors = colors,
-                                onClick = { onSearchQueryChange(queryKey) }
+                                onClick = { onSearchQueryChange(queryKey) },
+                                modifier = Modifier.onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionLeft -> if (mIdx == 0) true else false
+                                            Key.DirectionRight -> if (mIdx == moods.lastIndex) true else false
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                             )
                         }
                     }
@@ -589,12 +773,26 @@ fun TvSearchView(
                         Triple("Acoustic & Lo-Fi", "Acoustic lofi songs", listOf(Color(0xFF7D4B32), Color(0xFF3E2519))),
                         Triple("Rock & Anthems", "Indian rock anthems", listOf(Color(0xFF477D95), Color(0xFF233E4A)))
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(genres) { (title, queryKey, colors) ->
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(genres) { gIdx, genreItem ->
+                            val (title, queryKey, colors) = genreItem
                             TvMoodCard(
                                 title = title,
                                 gradientColors = colors,
-                                onClick = { onSearchQueryChange(queryKey) }
+                                onClick = { onSearchQueryChange(queryKey) },
+                                modifier = Modifier.onKeyEvent { keyEvent ->
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        when (keyEvent.key) {
+                                            Key.DirectionLeft -> if (gIdx == 0) true else false
+                                            Key.DirectionRight -> if (gIdx == genres.lastIndex) true else false
+                                            Key.DirectionDown -> true // Bottom-locked on lowest shelf
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                             )
                         }
                     }
@@ -612,13 +810,14 @@ private fun TvSimpleSearchSongRow(
     song: OnlineSongModel,
     isLiked: Boolean,
     onPlay: () -> Unit,
-    onToggleLike: () -> Unit
+    onToggleLike: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
         color = Color(0xFF161616),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .tvRemoteFocusable(
                 onClick = onPlay,
