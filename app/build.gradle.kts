@@ -37,18 +37,29 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("recordify-release.jks")
+            storePassword = project.findProperty("RECORDIFY_STORE_PASS") as? String ?: "recordify2026"
+            keyAlias = project.findProperty("RECORDIFY_KEY_ALIAS") as? String ?: "recordify"
+            keyPassword = project.findProperty("RECORDIFY_KEY_PASS") as? String ?: "recordify2026"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("release")
+            isDebuggable = false
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -57,7 +68,7 @@ android {
         outputs.all {
             val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
             if (variantName.contains("tv", ignoreCase = true)) {
-                output?.outputFileName = "Recordify TV.apk"
+                output?.outputFileName = "Recordify.TV.apk"
             } else {
                 output?.outputFileName = "Recordify.apk"
             }

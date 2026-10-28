@@ -591,11 +591,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION 2: YOUTUBE AD CUTTER & ACCESSIBILITY
-            SettingsSectionHeader(title = "YOUTUBE AD-CUTTER (3-IN-1 ENGINE)")
-
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val isA11yEnabled = com.audiovault.app.core.intelligence.YouTubeAdAccessibilityService.isAccessibilityServiceEnabled(context)
+            // SECTION 2: YOUTUBE AD CUTTER (NATIVE ENGINE)
+            SettingsSectionHeader(title = "YOUTUBE AD-CUTTER (NATIVE ENGINE)")
 
             SettingsGroupCard {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -612,7 +609,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "3-in-1 Precision YouTube Ad Cutter",
+                                    text = "Native Precision YouTube Ad Cutter",
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color.White
@@ -620,7 +617,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Live Accessibility Detection + Smooth 50ms Crossfade + SponsorBlock Trimming",
+                                    text = "Built-in ExoPlayer Audio Stream Filtering + Smooth 50ms Crossfade",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color(0xFF909090)
                                     )
@@ -633,19 +630,8 @@ fun SettingsScreen(
 
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isA11yEnabled) Color(0xFF142918) else Color(0xFF282214),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                try {
-                                    val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    // fallback
-                                }
-                            }
+                        color = Color(0xFF142918),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -657,34 +643,24 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .size(10.dp)
                                         .clip(CircleShape)
-                                        .background(if (isA11yEnabled) SpotifyGreenBright else Color(0xFFFFB300))
+                                        .background(SpotifyGreenBright)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = if (isA11yEnabled) "Accessibility Service Active" else "Permission Required for Live Cuts",
+                                        text = "Native Engine Active",
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = if (isA11yEnabled) SpotifyGreenBright else Color(0xFFFFB300)
+                                            color = SpotifyGreenBright
                                         )
                                     )
                                     Text(
-                                        text = if (isA11yEnabled) "Cutting in-stream ads seamlessly" else "Tap here to enable Recordify in Accessibility Settings",
+                                        text = "Cutting in-stream ads and dead silence seamlessly",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = Color(0xFFCCCCCC)
                                         )
                                     )
                                 }
-                            }
-
-                            if (!isA11yEnabled) {
-                                Text(
-                                    text = "ENABLE",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = SpotifyGreenBright
-                                    )
-                                )
                             }
                         }
                     }

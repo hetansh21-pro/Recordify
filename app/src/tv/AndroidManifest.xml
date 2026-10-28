@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- In TV flavor, remove launcher intent-filter from phone MainActivity so only 1 TV icon shows -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            tools:replace="android:exported"
+            tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+
+        <!-- In TV flavor, make TvMainActivity the primary launcher -->
+        <activity
+            android:name=".ui.tv.TvMainActivity"
+            android:exported="true"
+            tools:replace="android:exported"
+            tools:node="merge">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

@@ -46,18 +46,12 @@
         <!-- Dedicated Android TV 10-Foot Leanback Launcher Activity -->
         <activity
             android:name=".ui.tv.TvMainActivity"
-            android:exported="true"
+            android:exported="false"
             android:label="${appName}"
             android:launchMode="singleTop"
             android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize"
-            android:theme="@style/Theme.AudioVault">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.AudioVault" />
 
         <!-- Foreground Service for audio capture -->
         <service
@@ -80,20 +74,6 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
-        </service>
-
-        <!-- Accessibility Service for Live YouTube Ad Detection & Cutting -->
-        <service
-            android:name=".core.intelligence.YouTubeAdAccessibilityService"
-            android:label="@string/accessibility_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
         </service>
 
         <!-- Receiver for interactive notification playback controls -->
