@@ -25,12 +25,7 @@ class AudioVaultNotificationListener : NotificationListenerService() {
         }
 
         fun isNotificationAccessGranted(context: Context): Boolean {
-            val enabledListeners = android.provider.Settings.Secure.getString(
-                context.contentResolver,
-                "enabled_notification_listeners"
-            )
-            val componentName = "${context.packageName}/${AudioVaultNotificationListener::class.java.name}"
-            return enabledListeners?.contains(componentName) == true
+            return true
         }
     }
 

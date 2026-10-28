@@ -65,17 +65,6 @@
             android:stopWithTask="true"
             android:exported="false" />
 
-        <!-- Notification Listener Service for Intelligent Song Identification -->
-        <service
-            android:name=".core.intelligence.AudioVaultNotificationListener"
-            android:label="AudioVault Song Identifier"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
         <!-- Receiver for interactive notification playback controls -->
         <receiver
             android:name=".core.service.PlaybackActionReceiver"
