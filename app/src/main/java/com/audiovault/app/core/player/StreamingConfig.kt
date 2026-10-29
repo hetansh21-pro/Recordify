@@ -22,34 +22,34 @@ data class StreamingBufferConfig(
     companion object {
         /**
          * Normal Streaming Mode (Spotify-Style Progressive Sliding Window):
-         * - 1s initial startup buffer (instant start)
-         * - 10s target ahead buffer
-         * - 15s maximum sliding window (prevents downloading whole song if user skips)
-         * - 5s retention behind playback
+         * - 2s initial startup buffer (instant start)
+         * - 25s target ahead buffer (prevents pausing on screen lock or network latency)
+         * - 50s maximum sliding window (robust headroom without over-downloading)
+         * - 15s retention behind playback for instant rewind
          */
         val NORMAL = StreamingBufferConfig(
-            initialBufferSeconds = 1,
-            targetBufferSeconds = 8,
-            maximumBufferSeconds = 10,
-            backBufferSeconds = 3,
-            bufferForPlaybackAfterRebufferSeconds = 2,
+            initialBufferSeconds = 2,
+            targetBufferSeconds = 25,
+            maximumBufferSeconds = 50,
+            backBufferSeconds = 15,
+            bufferForPlaybackAfterRebufferSeconds = 3,
             prefetchNextSong = false
         )
 
         /**
          * Ultra Data Saver Mode:
-         * - 1s initial startup buffer
-         * - 5s target ahead buffer
-         * - 8s maximum sliding window
-         * - 2s aggressive back buffer discard
+         * - 2s initial startup buffer
+         * - 12s target ahead buffer
+         * - 20s maximum sliding window
+         * - 5s back buffer discard
          * - Strict 0 next-song audio prefetch (immediate socket tear-down on skip)
          */
         val DATA_SAVER = StreamingBufferConfig(
-            initialBufferSeconds = 1,
-            targetBufferSeconds = 5,
-            maximumBufferSeconds = 8,
-            backBufferSeconds = 2,
-            bufferForPlaybackAfterRebufferSeconds = 1,
+            initialBufferSeconds = 2,
+            targetBufferSeconds = 12,
+            maximumBufferSeconds = 20,
+            backBufferSeconds = 5,
+            bufferForPlaybackAfterRebufferSeconds = 2,
             prefetchNextSong = false
         )
     }

@@ -91,7 +91,11 @@ class TvMainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing) {
-            com.audiovault.app.core.service.PlaybackNotificationManager.activeInstance?.cancelNotification()
+            val app = applicationContext as? com.audiovault.app.AudioVaultApplication
+            val isPlaying = app?.container?.playerEngine?.playerState?.value?.isPlaying == true
+            if (!isPlaying) {
+                com.audiovault.app.core.service.PlaybackNotificationManager.activeInstance?.cancelNotification()
+            }
         }
     }
 }

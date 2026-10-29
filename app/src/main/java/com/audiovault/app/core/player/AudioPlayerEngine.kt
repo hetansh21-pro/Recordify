@@ -3,6 +3,8 @@ package com.audiovault.app.core.player
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -248,8 +250,8 @@ class AudioPlayerEngine(private val context: Context) {
         // Progressive HTTP Range Request Data Source with local file support
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Recordify/2.0 (Linux; Android) ProgressiveStreaming")
-            .setConnectTimeoutMs(8000)
-            .setReadTimeoutMs(8000)
+            .setConnectTimeoutMs(20000)
+            .setReadTimeoutMs(20000)
             .setAllowCrossProtocolRedirects(true)
             .setTransferListener(networkTransferListener)
 
@@ -258,7 +260,15 @@ class AudioPlayerEngine(private val context: Context) {
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(defaultDataSourceFactory)
 
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+
         val player = ExoPlayer.Builder(context)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setHandleAudioBecomingNoisy(true)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()

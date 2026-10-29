@@ -44,9 +44,38 @@ class PlaybackNotificationManager(
         const val ACTION_PREV = "com.audiovault.app.ACTION_PREV"
         const val ACTION_CLOSE = "com.audiovault.app.ACTION_CLOSE_NOTIFICATION"
 
-        // Singleton instance hook for BroadcastReceiver
+        // Singleton instance hook for BroadcastReceiver and AudioPlaybackService
         var activeInstance: PlaybackNotificationManager? = null
+
+        fun buildFallbackNotification(context: Context): Notification {
+            AppNotificationManager.createChannels(context)
+            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openAppPendingIntent = PendingIntent.getActivity(
+                context,
+                10,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            return NotificationCompat.Builder(context, AppNotificationManager.CHANNEL_PLAYBACK_ID)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("Recordify")
+                .setContentText("Playing audio...")
+                .setContentIntent(openAppPendingIntent)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build()
+        }
     }
+
+    @Volatile
+    var currentNotification: Notification? = null
+        private set
+
+    val isCurrentlyPlaying: Boolean
+        get() = playerEngine.playerState.value.isPlaying
 
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -202,24 +231,25 @@ class PlaybackNotificationManager(
 
     fun cancelNotification() {
         try {
+            currentNotification = null
             updateMediaSessionState(PlaybackStateCompat.STATE_STOPPED, 0L, false)
             mediaSession.isActive = false
             notificationManager.cancel(NOTIFICATION_ID)
-            try {
-                val serviceIntent = Intent(context, AudioPlaybackService::class.java)
-                context.stopService(serviceIntent)
-            } catch (_: Throwable) {}
+            AudioPlaybackService.stop(context)
         } catch (_: Throwable) {}
     }
 
     private fun postNotification(recording: RecordingEntity, isPlaying: Boolean, artBitmap: Bitmap?) {
         try {
             val notification = buildNotification(recording, isPlaying, artBitmap)
-            notificationManager.notify(NOTIFICATION_ID, notification)
-            try {
-                val serviceIntent = Intent(context, AudioPlaybackService::class.java)
-                context.startService(serviceIntent)
-            } catch (_: Throwable) {}
+            currentNotification = notification
+
+            val service = AudioPlaybackService.activeService
+            if (service != null) {
+                service.updateForegroundNotification(notification, isPlaying)
+            } else {
+                AudioPlaybackService.start(context, isPlaying)
+            }
         } catch (_: Throwable) {}
     }
 
