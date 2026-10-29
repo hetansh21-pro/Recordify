@@ -80,8 +80,14 @@ class PlaybackQueueManager(
 
         playerEngine.onPlaybackError = { failedRec, errorMsg ->
             scope.launch {
-                Log.w(TAG, "Playback error: $errorMsg for ${failedRec?.title}. Advancing safely.")
-                skipToNext(isUserInitiated = false)
+                Log.w(TAG, "Playback error after retries: $errorMsg for ${failedRec?.title}.")
+                val state = _queueState.value
+                // Only advance if there are subsequent tracks queued and repeat ONE is not active
+                if (state.upcomingQueue.isNotEmpty() && state.repeatMode != PlaybackRepeatMode.ONE) {
+                    skipToNext(isUserInitiated = false)
+                } else {
+                    Log.w(TAG, "Upcoming queue is empty or repeat ONE active; halting auto-advancement after error.")
+                }
             }
         }
 

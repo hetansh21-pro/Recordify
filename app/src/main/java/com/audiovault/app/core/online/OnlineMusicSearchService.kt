@@ -212,44 +212,29 @@ object OnlineMusicSearchService {
                 intent = intent,
                 songs = rankedFastSongs,
                 albums = rankedAlbums,
-                artists = extractedArtists
+                artists = extractedArtists,
+                youtubeSongs = emptyList()
             )
             onPartialResults?.invoke(partialContainer)
 
-            // Stage 3: Deep search (iTunes + YouTube Music if needed)
-            val deepSongsDeferred = async {
+            // Stage 3: Dedicated YouTube Music & Video search in parallel
+            val ytSongsDeferred = async {
                 try {
-                    val itunes = if (!isIndianIntent) searchITunes(queryToSearch, limit) else emptyList()
-                    val yt = if (rankedFastSongs.size < 5) searchYouTubeAndInvidious(queryToSearch, 10) else emptyList()
-                    (itunes + yt)
+                    searchYouTubeAndInvidious(queryToSearch, 25)
                 } catch (e: Exception) {
                     emptyList<OnlineSongModel>()
                 }
             }
 
-            val deepSongs = deepSongsDeferred.await()
-            val allRawSongs = rawFastSongs + deepSongs
-
-            val canonicalAll = TrackQualityFilter.filterAndDeduplicate(
-                songs = allRawSongs,
-                isOriginalOnly = if (intent.requestedVersion != null) false else isOriginalOnly,
-                requestedVersion = intent.requestedVersion,
-                decadeRange = intent.decadeRange
-            )
-            val finalRankedSongs = SearchRelevanceRanker.rankTracks(
-                tracks = canonicalAll,
-                intent = intent,
-                userCountryCode = userCountryCode,
-                primaryLanguage = primaryLanguage,
-                preferredLanguages = preferredLanguages
-            )
+            val ytSongs = ytSongsDeferred.await()
 
             val finalContainer = SearchResultContainer(
                 query = rawQuery,
                 intent = intent,
-                songs = finalRankedSongs,
+                songs = rankedFastSongs,
                 albums = rankedAlbums,
-                artists = extractedArtists
+                artists = extractedArtists,
+                youtubeSongs = ytSongs
             )
             onPartialResults?.invoke(finalContainer)
             finalContainer
@@ -1529,7 +1514,7 @@ object OnlineMusicSearchService {
         return results.firstOrNull()
     }
 
-    private fun searchYouTubeAndInvidious(query: String, limit: Int): List<OnlineSongModel> {
+    fun searchYouTubeAndInvidious(query: String, limit: Int = 20): List<OnlineSongModel> {
         // Strategy A: Invidious Public API instances (Fast JSON)
         for (inst in INVIDIOUS_INSTANCES) {
             try {
@@ -1874,22 +1859,26 @@ object OnlineMusicSearchService {
             }
         } catch (_: Exception) {}
 
-        // 3b. Search YouTube ONLY if YouTube fallback is explicitly allowed (e.g. manual user search)
-        if (allowYouTubeFallback) {
-            try {
-                val ytResults = searchYouTubeAndInvidious(cleanQuery, limit = 5)
-                for (ytSong in ytResults) {
-                    if (!ytSong.youtubeVideoId.isNullOrBlank()) {
-                        val ytAudioUrl = com.audiovault.app.core.downloader.YouTubeVideoExtractor.fetchAudioStreamUrl(ytSong.youtubeVideoId)
-                        if (!ytAudioUrl.isNullOrBlank()) {
-                            return@withContext ytAudioUrl
-                        }
+        // 3b. Search YouTube for full audio track
+        try {
+            val ytResults = searchYouTubeAndInvidious(cleanQuery, limit = 5)
+            for (ytSong in ytResults) {
+                if (!ytSong.youtubeVideoId.isNullOrBlank()) {
+                    val ytAudioUrl = com.audiovault.app.core.downloader.YouTubeVideoExtractor.fetchAudioStreamUrl(ytSong.youtubeVideoId)
+                    if (!ytAudioUrl.isNullOrBlank()) {
+                        return@withContext ytAudioUrl
                     }
                 }
-            } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+
+        // 4. If currentStream is a short preview (e.g. 30s Apple/Spotify preview snippet), discard it
+        // so user never experiences unexpected track cut-off or auto-skip after 30 seconds
+        if (isShortPreview(currentStream)) {
+            return@withContext ""
         }
 
-        // 4. Fallback to existing stream if all else fails
+        // 5. Fallback to existing stream if valid full audio
         return@withContext currentStream
     }
 

@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -150,6 +151,7 @@ fun LibraryScreen(
     }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showAddArtistDialog by remember { mutableStateOf(false) }
+    var showImportAlbumDialog by remember { mutableStateOf(false) }
     var playlistToRename by remember { mutableStateOf<com.audiovault.app.data.repository.UserPlaylist?>(null) }
     var playlistToDelete by remember { mutableStateOf<com.audiovault.app.data.repository.UserPlaylist?>(null) }
     var artistToDelete by remember { mutableStateOf<Pair<String, Int>?>(null) }
@@ -485,6 +487,16 @@ fun LibraryScreen(
                                 expanded = plusMenuExpanded,
                                 onDismissRequest = { plusMenuExpanded = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("Import Album from Link") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Album, contentDescription = null, tint = SpotifyGreenBright)
+                                    },
+                                    onClick = {
+                                        plusMenuExpanded = false
+                                        showImportAlbumDialog = true
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Create Playlist") },
                                     leadingIcon = {
@@ -1015,6 +1027,13 @@ fun LibraryScreen(
     }
 
     // Dialogs
+    if (showImportAlbumDialog) {
+        com.audiovault.app.ui.components.ImportAlbumDialog(
+            viewModel = viewModel,
+            onDismiss = { showImportAlbumDialog = false }
+        )
+    }
+
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreatePlaylistDialog = false },

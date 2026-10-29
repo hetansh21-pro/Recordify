@@ -2,6 +2,7 @@ package com.audiovault.app.core.player
 
 import android.content.Context
 import android.net.Uri
+import android.os.PowerManager
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
@@ -63,6 +64,15 @@ class AudioPlayerEngine(private val context: Context) {
     private var exoPlayer: ExoPlayer? = null
     private val scope = CoroutineScope(Dispatchers.Main)
     private var progressJob: Job? = null
+    private var retryJob: Job? = null
+
+    // Safe CPU WakeLock to maintain smooth playback when screen turns off
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    // Playback recovery & transient error retry tracking
+    private var retryCount = 0
+    private val maxRetries = 3
 
     // Rapid song switching request ID tracking
     private val activePlaybackRequestId = AtomicLong(0L)
@@ -108,6 +118,28 @@ class AudioPlayerEngine(private val context: Context) {
         override fun onTransferEnd(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {}
     }
 
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Recordify:PlaybackWakeLock")
+                wakeLock?.setReferenceCounted(false)
+            }
+            wakeLock?.acquire(2 * 60 * 60 * 1000L) // 2 hours max safety window
+        } catch (e: Exception) {
+            Log.w(TAG, "WakeLock acquire failed: ${e.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "WakeLock release failed: ${e.message}")
+        }
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _playerState.update {
@@ -122,8 +154,10 @@ class AudioPlayerEngine(private val context: Context) {
                 )
             }
             if (isPlaying) {
+                acquireWakeLock()
                 startProgressTracker()
             } else {
+                releaseWakeLock()
                 stopProgressTracker()
             }
         }
@@ -131,6 +165,7 @@ class AudioPlayerEngine(private val context: Context) {
         override fun onPlaybackStateChanged(playbackState: Int) {
             when (playbackState) {
                 Player.STATE_READY -> {
+                    retryCount = 0 // Reset retries on successful playback transition
                     val duration = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
                     _playerState.update {
                         it.copy(
@@ -153,6 +188,7 @@ class AudioPlayerEngine(private val context: Context) {
                     }
                 }
                 Player.STATE_ENDED -> {
+                    releaseWakeLock()
                     val finishedRecording = _playerState.value.currentRecording
                     _playerState.update {
                         it.copy(
@@ -180,8 +216,57 @@ class AudioPlayerEngine(private val context: Context) {
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-            Log.e(TAG, "ExoPlayer error occurred: ${error.message}", error)
+            Log.e(TAG, "ExoPlayer error occurred (code=${error.errorCode}): ${error.message}", error)
             val current = _playerState.value.currentRecording
+            val lastPos = _playerState.value.currentPositionMs
+
+            // Auto-recovery attempt: retry playback without immediately skipping the song
+            if (current != null && retryCount < maxRetries) {
+                retryCount++
+                val backoffDelay = (retryCount * 800L)
+                Log.w(TAG, "Attempting playback auto-recovery attempt $retryCount/$maxRetries in ${backoffDelay}ms at position ${lastPos}ms for '${current.title}'")
+
+                _playerState.update {
+                    it.copy(
+                        status = PlayerPlaybackStatus.BUFFERING,
+                        isBuffering = true
+                    )
+                }
+
+                retryJob?.cancel()
+                retryJob = scope.launch {
+                    delay(backoffDelay)
+                    val player = exoPlayer
+                    if (player != null && _playerState.value.currentRecording?.id == current.id) {
+                        try {
+                            player.prepare()
+                            if (lastPos > 1000L) {
+                                player.seekTo(lastPos)
+                            }
+                            player.play()
+                            Log.i(TAG, "Playback retry #$retryCount initiated successfully")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Playback retry failed: ${e.message}")
+                            if (retryCount >= maxRetries) {
+                                releaseWakeLock()
+                                _playerState.update {
+                                    it.copy(
+                                        status = PlayerPlaybackStatus.ERROR,
+                                        isPlaying = false,
+                                        isBuffering = false,
+                                        error = error.localizedMessage ?: "Playback error"
+                                    )
+                                }
+                                onPlaybackError?.invoke(current, error.localizedMessage ?: "Playback error")
+                            }
+                        }
+                    }
+                }
+                return
+            }
+
+            // Retries exhausted
+            releaseWakeLock()
             _playerState.update {
                 it.copy(
                     status = PlayerPlaybackStatus.ERROR,
@@ -316,6 +401,10 @@ class AudioPlayerEngine(private val context: Context) {
         val player = getOrCreatePlayer()
 
         // Interrupt & cancel any existing network requests on previous media
+        retryCount = 0
+        retryJob?.cancel()
+        acquireWakeLock()
+
         player.stop()
         player.clearMediaItems()
 
@@ -376,6 +465,7 @@ class AudioPlayerEngine(private val context: Context) {
     }
 
     fun pause() {
+        releaseWakeLock()
         exoPlayer?.pause()
         _playerState.update { it.copy(isPlaying = false, status = PlayerPlaybackStatus.PAUSED) }
     }
@@ -434,6 +524,9 @@ class AudioPlayerEngine(private val context: Context) {
      */
     fun stopAndClose() {
         activePlaybackRequestId.incrementAndGet()
+        retryCount = 0
+        retryJob?.cancel()
+        releaseWakeLock()
         stopProgressTracker()
         exoPlayer?.stop()
         exoPlayer?.clearMediaItems()
@@ -442,6 +535,9 @@ class AudioPlayerEngine(private val context: Context) {
 
     fun release() {
         activePlaybackRequestId.incrementAndGet()
+        retryCount = 0
+        retryJob?.cancel()
+        releaseWakeLock()
         stopProgressTracker()
         exoPlayer?.removeListener(playerListener)
         exoPlayer?.stop()

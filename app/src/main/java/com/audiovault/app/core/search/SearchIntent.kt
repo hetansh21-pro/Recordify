@@ -42,5 +42,6 @@ data class SearchResultContainer(
     val intent: SearchIntent,
     val songs: List<com.audiovault.app.core.identity.CanonicalTrackIdentity> = emptyList(),
     val albums: List<com.audiovault.app.core.online.OnlineAlbumModel> = emptyList(),
-    val artists: List<com.audiovault.app.core.online.ArtistItemModel> = emptyList()
+    val artists: List<com.audiovault.app.core.online.ArtistItemModel> = emptyList(),
+    val youtubeSongs: List<com.audiovault.app.core.online.OnlineSongModel> = emptyList()
 )

@@ -2,6 +2,7 @@ package com.audiovault.app.ui.tv
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,39 +17,33 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,7 +54,6 @@ import com.audiovault.app.core.online.OnlineAlbumModel
 import com.audiovault.app.core.online.OnlineSongModel
 import com.audiovault.app.core.online.SpotifyHomeContent
 import com.audiovault.app.core.recommendation.HomeRecommendationFeed
-import com.audiovault.app.core.recommendation.VibeCategory
 import com.audiovault.app.ui.components.TrackCoverArt
 import com.audiovault.app.ui.recordings.RecordingsViewModel
 import com.audiovault.app.ui.theme.SpotifyGreenBright
@@ -67,19 +61,16 @@ import java.util.Calendar
 
 /**
  * 10-Foot TV Home Screen for Recordify TV.
- * Packed with rich, fresh song suggestions across genres, eras, and moods:
- * - Dynamic personalized greeting & audio master indicator.
- * - Interactive Vibe & Mood filter row that recalculates recommendations.
- * - Recently Played shelf (actual listening history).
- * - "New Releases & Fresh Hits": Latest trending tracks.
- * - "Top Chartbusters in Your Country": Regional trending hits.
- * - "Made For You • Daily Mix": Personalized discovery songs.
- * - "Romantic & Soulful Melodies": High-fidelity romantic tracks.
- * - "Relaxing Lo-Fi & Chill Lounge": Calm study and relaxation beats.
- * - "Evergreen 90s & Bollywood Classics": Timeless golden era tracks.
- * - "Punjabi & High-Energy Hits": Party and workout fuel.
- * - "Featured Albums & Soundtracks": Full complete albums.
- * - "Legendary Collections & Golden Eras": Curated retro discography.
+ * Exclusively focused on complete ALBUMS & SOUNDTRACKS for big-screen couch viewing:
+ * - Blockbuster Spotlight Hero Album Banner with instant 1-click playback.
+ * - Quick-Access rectangular album tiles.
+ * - "🎬 Blockbuster Bollywood Soundtracks": Animal, Kabir Singh, Aashiqui 2, Rockstar, Brahmāstra.
+ * - "🎤 Iconic Artist Discographies": Arijit Singh, Diljit Dosanjh, Sidhu Moose Wala, Shreya Ghoshal.
+ * - "📻 Golden Era & 90s Classics": Kishore Kumar, Lata Mangeshkar, Kumar Sanu, Mohammed Rafi.
+ * - "🔥 Punjabi & High-Energy Albums": Moosetape, Making Memories.
+ * - "🌧️ Romantic & Soulful Collections": Bollywood Mush, 90s Romance, Love songs.
+ * - "🎧 Lo-Fi, Chill & Soulful Ghazals".
+ * - "🌍 Trending & Popular Albums".
  */
 @Composable
 fun TvHomeView(
@@ -96,40 +87,33 @@ fun TvHomeView(
 ) {
     val userName by viewModel.userName.collectAsState()
     val userSettings by viewModel.userSettings.collectAsState()
-    val currentVibe by viewModel.currentVibe.collectAsState()
-    val recentSearches by viewModel.recentSearches.collectAsState()
     val curatedAlbums = CuratedAlbumCatalog.curatedAlbums
     val countryProfile = remember(userSettings.userCountryCode) {
         CountryMusicCatalog.getProfile(userSettings.userCountryCode)
     }
 
-    var selectedFilterPill by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
-    val homePodcasts by viewModel.homePodcasts.collectAsState()
-    val isPodcastsLoading by viewModel.isPodcastsLoading.collectAsState()
-
-    androidx.compose.runtime.LaunchedEffect(selectedFilterPill) {
-        if (selectedFilterPill == "Podcasts & Shows") {
-            viewModel.loadPodcasts(countryProfile.countryCode)
-        }
+    // Pick top blockbuster hero album (e.g. Animal, Kabir Singh, Aashiqui 2 or country hero)
+    val featuredHeroAlbum = remember(curatedAlbums) {
+        curatedAlbums.firstOrNull { it.title == "Animal" }
+            ?: curatedAlbums.firstOrNull { it.title == "Kabir Singh" }
+            ?: countryProfile.heroAlbum
     }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 64.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 44.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp)
     ) {
         // -----------------------------------------------------------------
-        // 1. HERO FEATURED HEADER BANNER (Country-Specific Spotify Match)
+        // 1. HERO FEATURED SPOTLIGHT ALBUM (Large 10-Foot Cinema Banner)
         // -----------------------------------------------------------------
-        val featuredAlbum = countryProfile.heroAlbum
-
         item {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF141414),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF262626)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF282828)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(heroFocusRequester)
@@ -140,8 +124,8 @@ fun TvHomeView(
                         } else false
                     }
                     .tvRemoteFocusable(
-                        onClick = { onPlayAlbum(featuredAlbum) },
-                        shape = RoundedCornerShape(16.dp),
+                        onClick = { onPlayAlbum(featuredHeroAlbum) },
+                        shape = RoundedCornerShape(18.dp),
                         focusScale = 1.02f
                     )
             ) {
@@ -152,18 +136,38 @@ fun TvHomeView(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Column: Big Bold Title, Recordify Subtitle & Description
+                    // Left Column: Big Bold Title, Badges, and Action Buttons
                     Column(
                         modifier = Modifier
                             .weight(1.3f)
-                            .padding(end = 24.dp)
+                            .padding(end = 28.dp)
                     ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SpotifyGreenBright,
+                                modifier = Modifier.size(12.dp)
+                            ) {}
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "FEATURED ALBUM • ALL ALBUMS TV",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = SpotifyGreenBright,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
-                            text = featuredAlbum.title,
+                            text = featuredHeroAlbum.title,
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.Black,
                                 color = Color.White,
-                                fontSize = 34.sp
+                                fontSize = 36.sp
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -171,305 +175,149 @@ fun TvHomeView(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = SpotifyGreenBright,
-                                modifier = Modifier.size(14.dp)
-                            ) {}
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Featured Playlist • ${countryProfile.flagEmoji} ${countryProfile.countryName}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
+                        Text(
+                            text = "${featuredHeroAlbum.year ?: "2023"} • ${featuredHeroAlbum.artist ?: featuredHeroAlbum.primaryArtists ?: "Recordify Master Soundtrack"} • ${featuredHeroAlbum.songCount} Songs",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFFCCCCCC),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
                             )
-                        }
+                        )
 
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = "Top chartbusters, viral records, and essential soundtracks streaming in ${countryProfile.countryName} • Recordify",
+                            text = "Complete original film soundtrack with full-length master audio. Click to play the entire album sequentially or browse all tracks.",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFFB3B3B3),
+                                color = Color(0xFF888888),
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp
                             ),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                    }
 
-                    // Right Column: Stylized Artwork Card with Waveform Graphic
-                    Box(
-                        modifier = Modifier
-                            .weight(0.7f),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            // Subtle equalizer / waveform lines
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = SpotifyGreenBright,
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .clickable { onPlayAlbum(featuredHeroAlbum) }
                             ) {
-                                val barHeights = listOf(14.dp, 28.dp, 44.dp, 22.dp, 36.dp, 18.dp)
-                                barHeights.forEach { h ->
-                                    Box(
-                                        modifier = Modifier
-                                            .width(4.dp)
-                                            .height(h)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(Color(0xFF333333))
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Play Full Album",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
                                     )
                                 }
                             }
 
                             Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFF1E1E1E),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
-                                modifier = Modifier.size(160.dp)
-                            ) {
-                                TrackCoverArt(
-                                    albumArtPath = featuredAlbum.coverArtUrl,
-                                    title = featuredAlbum.title,
-                                    artist = featuredAlbum.primaryArtists ?: countryProfile.countryName,
-                                    size = 160.dp,
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 2. FILTER PILLS ROW ([All], [Music], [Podcasts & Shows])
-        // -----------------------------------------------------------------
-        item {
-            val filterOptions = listOf("All", "Music", "Podcasts & Shows")
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                filterOptions.forEachIndexed { idx, filterLabel ->
-                    val isSelected = selectedFilterPill == filterLabel
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = if (isSelected) Color.White else Color(0xFF202020),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isSelected) Color.White else Color(0xFF333333)
-                        ),
-                        modifier = Modifier
-                            .height(34.dp)
-                            .tvRemoteFocusable(
-                                onClick = {
-                                    selectedFilterPill = filterLabel
-                                },
                                 shape = RoundedCornerShape(50),
-                                focusScale = 1.08f,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == filterOptions.lastIndex
-                            )
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = filterLabel,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else Color.White,
-                                    fontSize = 12.sp
-                                )
-                            )
+                                color = Color(0xFF242424),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF383838)),
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .clickable { onPlayAlbum(featuredHeroAlbum) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 18.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Album,
+                                        contentDescription = "Tracks",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "View Tracklist",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-            }
-        }
 
-        if (selectedFilterPill == "Podcasts & Shows") {
-            // -------------------------------------------------------------
-            // YOUTUBE PODCASTS HUB (Episodes streamed direct from YouTube)
-            // -------------------------------------------------------------
-            if (isPodcastsLoading && homePodcasts.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(280.dp),
-                        contentAlignment = Alignment.Center
+                    // Right Column: Artwork
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E1E1E),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF363636)),
+                        modifier = Modifier.size(175.dp)
                     ) {
-                        CircularProgressIndicator(
-                            color = SpotifyGreenBright,
-                            modifier = Modifier.size(36.dp),
-                            strokeWidth = 3.dp
+                        TrackCoverArt(
+                            albumArtPath = featuredHeroAlbum.coverArtUrl,
+                            title = featuredHeroAlbum.title,
+                            artist = featuredHeroAlbum.primaryArtists ?: "Recordify",
+                            size = 175.dp,
+                            shape = RoundedCornerShape(16.dp)
                         )
-                    }
-                }
-            } else {
-                val trendingPodcasts = homePodcasts.take(8)
-                if (trendingPodcasts.isNotEmpty()) {
-                    item {
-                        Column {
-                            TvShelfHeader(
-                                title = "🔥 Trending YouTube Podcasts",
-                                subtitle = "Top video podcasts and talk shows streaming now"
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                            ) {
-                                itemsIndexed(trendingPodcasts) { pIdx, podcast ->
-                                    TvSongCard(
-                                        song = podcast,
-                                        isLeftBoundary = pIdx == 0,
-                                        isRightBoundary = pIdx == trendingPodcasts.lastIndex,
-                                        onClick = {
-                                            val upcoming = trendingPodcasts.drop(pIdx + 1)
-                                            onPlaySong(podcast, upcoming)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                val conversationPodcasts = homePodcasts.drop(8).take(8)
-                if (conversationPodcasts.isNotEmpty()) {
-                    item {
-                        Column {
-                            TvShelfHeader(
-                                title = "🧠 Deep Conversations & Interviews",
-                                subtitle = "Long-form discussions, life lessons, and inspiring journeys"
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                            ) {
-                                itemsIndexed(conversationPodcasts) { cIdx, podcast ->
-                                    TvSongCard(
-                                        song = podcast,
-                                        isLeftBoundary = cIdx == 0,
-                                        isRightBoundary = cIdx == conversationPodcasts.lastIndex,
-                                        onClick = {
-                                            val upcoming = conversationPodcasts.drop(cIdx + 1)
-                                            onPlaySong(podcast, upcoming)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                val techPodcasts = homePodcasts.drop(16).take(8)
-                if (techPodcasts.isNotEmpty()) {
-                    item {
-                        Column {
-                            TvShelfHeader(
-                                title = "💡 Tech, Knowledge & Storytelling",
-                                subtitle = "Fascinating science, business breakdowns, and deep dives"
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                            ) {
-                                itemsIndexed(techPodcasts) { tIdx, podcast ->
-                                    TvSongCard(
-                                        song = podcast,
-                                        isLeftBoundary = tIdx == 0,
-                                        isRightBoundary = tIdx == techPodcasts.lastIndex,
-                                        onClick = {
-                                            val upcoming = techPodcasts.drop(tIdx + 1)
-                                            onPlaySong(podcast, upcoming)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            // -----------------------------------------------------------------
-            // 3. SIGNATURE 8 QUICK-ACCESS RECTANGULAR TILES (2 Rows x 4 Columns)
-            // Dynamically configured for the active country profile
-            // -----------------------------------------------------------------
-            item {
-                val quickTiles = countryProfile.quickAccessTiles.ifEmpty {
-                    curatedAlbums.take(8)
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // First Row (4 items)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        val row1 = quickTiles.take(4)
-                        row1.forEachIndexed { idx, item ->
-                            TvQuickAccessTile(
-                                title = item.title,
-                                artUrl = item.coverArtUrl,
-                                onClick = { onPlayAlbum(item) },
-                                modifier = Modifier.weight(1f),
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == row1.lastIndex
-                            )
-                        }
-                    }
-
-                    // Second Row (4 items)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        val row2 = quickTiles.drop(4).take(4)
-                        row2.forEachIndexed { idx, item ->
-                            TvQuickAccessTile(
-                                title = item.title,
-                                artUrl = item.coverArtUrl,
-                                onClick = { onPlayAlbum(item) },
-                                modifier = Modifier.weight(1f),
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == row2.lastIndex
-                            )
-                        }
                     }
                 }
             }
         }
 
         // -----------------------------------------------------------------
-        // 4. ALBUMS FEATURING SONGS YOU LIKE (Matching Spotify TV Shelf)
+        // 2. QUICK-ACCESS 8 ALBUMS GRID (2 Rows x 4 Columns)
         // -----------------------------------------------------------------
         item {
-            Column {
-                TvShelfHeader(
-                    title = "Albums featuring songs you like",
-                    subtitle = "Complete studio records, curated playlists & legendary soundtracks"
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+            val quickAlbums = curatedAlbums.take(8)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // First Row (4 items)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(curatedAlbums) { idx, album ->
-                        TvAlbumCard(
-                            album = album,
+                    val row1 = quickAlbums.take(4)
+                    row1.forEachIndexed { idx, item ->
+                        TvQuickAccessTile(
+                            title = item.title,
+                            artUrl = item.coverArtUrl,
+                            onClick = { onPlayAlbum(item) },
+                            modifier = Modifier.weight(1f),
                             isLeftBoundary = idx == 0,
-                            isRightBoundary = idx == curatedAlbums.lastIndex,
-                            onClick = { onPlayAlbum(album) }
+                            isRightBoundary = idx == row1.lastIndex
+                        )
+                    }
+                }
+
+                // Second Row (4 items)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val row2 = quickAlbums.drop(4).take(4)
+                    row2.forEachIndexed { idx, item ->
+                        TvQuickAccessTile(
+                            title = item.title,
+                            artUrl = item.coverArtUrl,
+                            onClick = { onPlayAlbum(item) },
+                            modifier = Modifier.weight(1f),
+                            isLeftBoundary = idx == 0,
+                            isRightBoundary = idx == row2.lastIndex
                         )
                     }
                 }
@@ -477,314 +325,28 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 3. RECENTLY PLAYED SHELF (Actual listening history)
+        // 3. BLOCKBUSTER MOVIE SOUNDTRACKS
         // -----------------------------------------------------------------
-        val historyItems = recentSearches.take(10)
-        if (historyItems.isNotEmpty()) {
+        val blockbusterAlbums = curatedAlbums.filter {
+            it.title in listOf("Animal", "Kabir Singh", "Aashiqui 2", "Rockstar", "Brahmāstra: Part One – Shiva", "Yeh Jawaani Hai Deewani", "Padmaavat")
+        }.ifEmpty { curatedAlbums.take(6) }
+
+        if (blockbusterAlbums.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = "Recently Played",
-                        subtitle = "Jump straight back into your recent music"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(historyItems) { idx, item ->
-                            val songModel = OnlineSongModel(
-                                id = item.id,
-                                title = item.title,
-                                artist = item.artist.ifBlank { "Artist" },
-                                streamUrl = item.streamUrl ?: "",
-                                highResArtUrl = item.albumArtPath
-                            )
-                            TvSongCard(
-                                song = songModel,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == historyItems.lastIndex,
-                                onClick = { onPlaySong(songModel, null) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 4. NEW RELEASES & FRESH HITS (Top suggestions)
-        // -----------------------------------------------------------------
-        val newReleasesList = homeFeed.newReleases
-            .ifEmpty { homeContent.latestReleases }
-            .ifEmpty { TvCatalogFallbacks.newReleases }
-            .take(12)
-
-        if (newReleasesList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "New Releases & Fresh Hits",
-                        subtitle = "Today's newest tracks and viral chartbusters"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(newReleasesList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == newReleasesList.lastIndex,
-                                onClick = {
-                                    val upcoming = newReleasesList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 5. TOP CHARTBUSTERS IN YOUR REGION
-        // -----------------------------------------------------------------
-        val countryHits = homeFeed.trendingInCountrySongs
-            .ifEmpty { homeFeed.trendingNow }
-            .ifEmpty { TvCatalogFallbacks.topHitsIndia }
-            .take(12)
-
-        if (countryHits.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Popular in ${countryProfile.countryName}",
-                        subtitle = "Top streamed music across ${countryProfile.countryName} and your region"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(countryHits) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == countryHits.lastIndex,
-                                onClick = {
-                                    val upcoming = countryHits.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 6. MADE FOR YOU • DAILY MIX
-        // -----------------------------------------------------------------
-        val madeForYouList = homeFeed.madeForYou
-            .ifEmpty { homeFeed.dailyMix1Songs }
-            .ifEmpty { homeFeed.quickTiles }
-            .ifEmpty { TvCatalogFallbacks.madeForYou }
-            .take(12)
-
-        if (madeForYouList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Made for You • Daily Mix",
-                        subtitle = "Personalized selections inspired by your music taste"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(madeForYouList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == madeForYouList.lastIndex,
-                                onClick = {
-                                    val upcoming = madeForYouList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 7. ROMANTIC & SOULFUL MELODIES
-        // -----------------------------------------------------------------
-        val romanticList = homeFeed.romanticMixSongs
-            .ifEmpty { homeFeed.chillMixSongs }
-            .ifEmpty { TvCatalogFallbacks.romanticMelodies }
-            .take(12)
-
-        if (romanticList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Romantic & Soulful Melodies",
-                        subtitle = "Timeless love songs, slow ballads, and acoustic warmth"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(romanticList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == romanticList.lastIndex,
-                                onClick = {
-                                    val upcoming = romanticList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 8. RELAXING LO-FI & CHILL LOUNGE
-        // -----------------------------------------------------------------
-        val chillList = homeFeed.chillMixSongs
-            .ifEmpty { homeFeed.vibeRecommendations }
-            .ifEmpty { TvCatalogFallbacks.chillLofi }
-            .take(12)
-
-        if (chillList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Relaxing Lo-Fi & Chill Lounge",
-                        subtitle = "Soothing acoustic and ambient beats for evening unwinding"
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(chillList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == chillList.lastIndex,
-                                onClick = {
-                                    val upcoming = chillList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        val isIndia = countryProfile.countryCode.equals("IN", ignoreCase = true)
-        val regionalShelf1 = countryProfile.shelves.getOrNull(1)
-        val regionalShelf2 = countryProfile.shelves.getOrNull(2)
-
-        // -----------------------------------------------------------------
-        // 9. REGIONAL ESSENTIALS / 90S BOLLYWOOD
-        // -----------------------------------------------------------------
-        val shelf9Title = if (isIndia) "Evergreen 90s & Bollywood Classics" else (regionalShelf1?.title ?: "Popular Hits")
-        val shelf9Subtitle = if (isIndia) "Kumar Sanu, Alka Yagnik, Udit Narayan, and golden era soundtracks" else (regionalShelf1?.subtitle ?: "Top regional hits and chart-toppers")
-        val bollywoodList = homeFeed.languageMixSongs
-            .ifEmpty { homeFeed.becauseYouListenedTo }
-            .ifEmpty { if (isIndia) TvCatalogFallbacks.golden90sBollywood else emptyList() }
-            .take(12)
-
-        if (bollywoodList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = shelf9Title,
-                        subtitle = shelf9Subtitle
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(bollywoodList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == bollywoodList.lastIndex,
-                                onClick = {
-                                    val upcoming = bollywoodList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 10. HIGH-ENERGY & PARTY HITS / REGIONAL SHELF 2
-        // -----------------------------------------------------------------
-        val shelf10Title = if (isIndia) "Punjabi Top 50 & High-Energy Hits" else (regionalShelf2?.title ?: "Regional Essentials")
-        val shelf10Subtitle = if (isIndia) "Diljit Dosanjh, Sidhu Moose Wala, Karan Aujla, and party anthems" else (regionalShelf2?.subtitle ?: "Genre favorites and trending tracks")
-        val partyList = homeFeed.heavyRotationSongs
-            .ifEmpty { homeFeed.trendingNow }
-            .ifEmpty { if (isIndia) TvCatalogFallbacks.punjabiParty else emptyList() }
-            .take(12)
-
-        if (partyList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = shelf10Title,
-                        subtitle = shelf10Subtitle
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                    ) {
-                        itemsIndexed(partyList) { idx, song ->
-                            TvSongCard(
-                                song = song,
-                                isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == partyList.lastIndex,
-                                onClick = {
-                                    val upcoming = partyList.drop(idx + 1)
-                                    onPlaySong(song, upcoming)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 11. FEATURED ALBUMS & SOUNDTRACKS
-        // -----------------------------------------------------------------
-        val albumsList = (homeContent.popularAlbumsAndSingles + countryProfile.quickAccessTiles).distinctBy { it.id }.take(10)
-        if (albumsList.isNotEmpty()) {
-            item {
-                Column {
-                    TvShelfHeader(
-                        title = "Featured Albums & Soundtracks",
-                        subtitle = "Complete collections and iconic soundtracks"
+                        title = "🎬 Blockbuster Movie Soundtracks",
+                        subtitle = "Complete official soundtrack records with original film scores"
                     )
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                     ) {
-                        itemsIndexed(albumsList) { idx, album ->
+                        itemsIndexed(blockbusterAlbums) { idx, album ->
                             TvAlbumCard(
                                 album = album,
                                 isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == albumsList.lastIndex,
+                                isRightBoundary = idx == blockbusterAlbums.lastIndex,
                                 onClick = { onPlayAlbum(album) }
                             )
                         }
@@ -794,25 +356,29 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 12. LEGENDARY COLLECTIONS & DISCOVERY TILES
+        // 4. ICONIC ARTIST DISCOGRAPHIES & ESSENTIALS
         // -----------------------------------------------------------------
-        val displayAlbums = if (isIndia) curatedAlbums else countryProfile.quickAccessTiles
-        if (displayAlbums.isNotEmpty()) {
+        val artistAlbums = curatedAlbums.filter {
+            it.type.equals("Artist", ignoreCase = true) ||
+            it.title in listOf("Arijit Singh", "Diljit Dosanjh", "Pritam", "Shreya Ghoshal", "Aditya Gadhvi")
+        }
+
+        if (artistAlbums.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = if (isIndia) "Legendary Eras & Vault Classics" else "Trending Collections & Artists",
-                        subtitle = if (isIndia) "Full discographies from 70s, 80s, 90s, and retro Ghazals" else "Top streaming playlists across ${countryProfile.countryName}"
+                        title = "🎤 Legendary Artist Discographies",
+                        subtitle = "Greatest hit albums and signature collections of master vocalists"
                     )
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                     ) {
-                        itemsIndexed(displayAlbums) { idx, album ->
+                        itemsIndexed(artistAlbums) { idx, album ->
                             TvAlbumCard(
                                 album = album,
                                 isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == displayAlbums.lastIndex,
+                                isRightBoundary = idx == artistAlbums.lastIndex,
                                 onClick = { onPlayAlbum(album) }
                             )
                         }
@@ -822,463 +388,179 @@ fun TvHomeView(
         }
 
         // -----------------------------------------------------------------
-        // 13. TOP PODCASTS FROM YOUTUBE (When browsing "All")
+        // 5. GOLDEN ERA & 90S BOLLYWOOD CLASSIC ALBUMS
         // -----------------------------------------------------------------
-        if (selectedFilterPill == "All" && homePodcasts.isNotEmpty()) {
+        val retroAlbums = curatedAlbums.filter {
+            it.title in listOf(
+                "Golden 90s Bollywood Hits",
+                "Retro Kishore Kumar Golden Hits",
+                "Evergreen Lata Mangeshkar Classics",
+                "Kumar Sanu All Time Hits",
+                "Immortal Mohammed Rafi Hits",
+                "Evergreen 70s & 80s Classics",
+                "90s bollywood",
+                "Old is Gold"
+            )
+        }
+
+        if (retroAlbums.isNotEmpty()) {
             item {
                 Column {
                     TvShelfHeader(
-                        title = "🎙️ Top Podcasts from YouTube",
-                        subtitle = "Trending episodes and long-form conversations"
+                        title = "📻 Golden Era & 90s Classic Albums",
+                        subtitle = "Timeless nostalgia from Kishore Kumar, Lata Mangeshkar, and Kumar Sanu"
                     )
-                    val topPodcasts = homePodcasts.take(10)
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
                     ) {
-                        itemsIndexed(topPodcasts) { idx, podcast ->
-                            TvSongCard(
-                                song = podcast,
+                        itemsIndexed(retroAlbums) { idx, album ->
+                            TvAlbumCard(
+                                album = album,
                                 isLeftBoundary = idx == 0,
-                                isRightBoundary = idx == topPodcasts.lastIndex,
-                                onClick = {
-                                    val upcoming = topPodcasts.drop(idx + 1)
-                                    onPlaySong(podcast, upcoming)
-                                }
+                                isRightBoundary = idx == retroAlbums.lastIndex,
+                                onClick = { onPlayAlbum(album) }
                             )
                         }
                     }
                 }
             }
         }
+
+        // -----------------------------------------------------------------
+        // 6. PUNJABI POWER & HIGH-ENERGY ALBUMS
+        // -----------------------------------------------------------------
+        val punjabiAlbums = curatedAlbums.filter {
+            it.title in listOf("Moosetape", "Making Memories", "90s High-Energy Dance Hits")
+        }
+
+        if (punjabiAlbums.isNotEmpty()) {
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "🔥 Punjabi Power & High-Energy Albums",
+                        subtitle = "Sidhu Moose Wala, Karan Aujla, Diljit Dosanjh, and party anthems"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(punjabiAlbums) { idx, album ->
+                            TvAlbumCard(
+                                album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == punjabiAlbums.lastIndex,
+                                onClick = { onPlayAlbum(album) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 7. ROMANTIC & HEARTBREAK ALBUM COLLECTIONS
+        // -----------------------------------------------------------------
+        val romanticAlbums = curatedAlbums.filter {
+            it.title in listOf(
+                "Bollywood Mush",
+                "90s Romantic Melodies",
+                "Love song 🥰💖",
+                "Arijit Singh All Sad Songs 💔🥀",
+                "Sad Hindi Songs 🥺💔 (Mood Off 🥺)"
+            )
+        }
+
+        if (romanticAlbums.isNotEmpty()) {
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "🌧️ Romantic & Soulful Album Collections",
+                        subtitle = "Passionate love ballads, acoustic melodies, and heartfelt poetry"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(romanticAlbums) { idx, album ->
+                            TvAlbumCard(
+                                album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == romanticAlbums.lastIndex,
+                                onClick = { onPlayAlbum(album) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 8. SOULFUL GHAZALS & ACOUSTIC ALBUMS
+        // -----------------------------------------------------------------
+        val ghazalAlbums = curatedAlbums.filter {
+            it.title in listOf("Old Is Gold: Soulful Ghazals", "90s Pop & Rock Anthems", "My songs", "Sadi ke fall sa")
+        }
+
+        if (ghazalAlbums.isNotEmpty()) {
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "🎧 Soulful Ghazals & Acoustic Albums",
+                        subtitle = "Calm evening listening, deep lyrics, and acoustic instruments"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(ghazalAlbums) { idx, album ->
+                            TvAlbumCard(
+                                album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == ghazalAlbums.lastIndex,
+                                onClick = { onPlayAlbum(album) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 9. POPULAR & REGIONAL ALBUMS FROM SPOTIFY & REGION
+        // -----------------------------------------------------------------
+        val popularAlbums = (homeContent.popularAlbumsAndSingles + homeContent.trendingSoundtracks)
+            .distinctBy { it.id }
+            .take(10)
+
+        if (popularAlbums.isNotEmpty()) {
+            item {
+                Column {
+                    TvShelfHeader(
+                        title = "🌍 Trending Soundtracks & Popular Albums",
+                        subtitle = "Worldwide favorites and trending releases streaming now"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        itemsIndexed(popularAlbums) { idx, album ->
+                            TvAlbumCard(
+                                album = album,
+                                isLeftBoundary = idx == 0,
+                                isRightBoundary = idx == popularAlbums.lastIndex,
+                                onClick = { onPlayAlbum(album) }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
-
-/**
- * Pre-compiled fallback songs for Android TV Home Screen.
- * Ensures the screen is NEVER empty or waiting when the TV app opens,
- * providing instant playable songs with real stream search keys and high-res art.
- */
-object TvCatalogFallbacks {
-    val newReleases: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_new_1",
-            title = "Aaj Ki Raat",
-            artist = "Sachin-Jigar, Madhubanti Bagchi",
-            album = "Stree 2",
-            durationMs = 228000L,
-            highResArtUrl = "https://c.saavncdn.com/188/Aaj-Ki-Raat-From-Stree-2-Hindi-2024-20240724141012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_2",
-            title = "Angaaron",
-            artist = "Shreya Ghoshal",
-            album = "Pushpa 2 The Rule",
-            durationMs = 260000L,
-            highResArtUrl = "https://c.saavncdn.com/978/Pushpa-2-The-Rule-Hindi-Hindi-2024-20241205093510-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_3",
-            title = "Tauba Tauba",
-            artist = "Karan Aujla",
-            album = "Bad Newz",
-            durationMs = 208000L,
-            highResArtUrl = "https://c.saavncdn.com/187/Tauba-Tauba-From-Bad-Newz-Hindi-2024-20240702131012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_4",
-            title = "Illuminati",
-            artist = "Sushin Shyam",
-            album = "Aavesham",
-            durationMs = 193000L,
-            highResArtUrl = "https://c.saavncdn.com/102/Aavesham-Malayalam-2024-20240410181512-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_5",
-            title = "Arjan Vailly",
-            artist = "Bhupinder Babbal",
-            album = "Animal",
-            durationMs = 182000L,
-            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_6",
-            title = "O Maahi",
-            artist = "Arijit Singh",
-            album = "Dunki",
-            durationMs = 233000L,
-            highResArtUrl = "https://c.saavncdn.com/978/O-Maahi-From-Dunki-Hindi-2023-20231211171008-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_7",
-            title = "Chaleya",
-            artist = "Arijit Singh, Shilpa Rao",
-            album = "Jawan",
-            durationMs = 200000L,
-            highResArtUrl = "https://c.saavncdn.com/026/Chaleya-From-Jawan-Hindi-2023-20230814014339-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_new_8",
-            title = "Satranga",
-            artist = "Arijit Singh",
-            album = "Animal",
-            durationMs = 271000L,
-            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
-        )
-    )
-
-    val topHitsIndia: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_top_1",
-            title = "Tum Hi Ho",
-            artist = "Arijit Singh",
-            album = "Aashiqui 2",
-            durationMs = 262000L,
-            highResArtUrl = "https://c.saavncdn.com/430/Aashiqui-2-Hindi-2013-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_2",
-            title = "Kesariya",
-            artist = "Arijit Singh",
-            album = "Brahmastra",
-            durationMs = 268000L,
-            highResArtUrl = "https://c.saavncdn.com/191/Kesariya-From-Brahmastra-Hindi-2022-20220717092820-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_3",
-            title = "Heeriye",
-            artist = "Jasleen Royal, Arijit Singh",
-            album = "Heeriye",
-            durationMs = 194000L,
-            highResArtUrl = "https://c.saavncdn.com/022/Heeriye-feat-Arijit-Singh-Hindi-2023-20230928050405-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_4",
-            title = "Apna Bana Le",
-            artist = "Arijit Singh",
-            album = "Bhediya",
-            durationMs = 261000L,
-            highResArtUrl = "https://c.saavncdn.com/835/Bhediya-Hindi-2022-20230414164348-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_5",
-            title = "Pehle Bhi Main",
-            artist = "Vishal Mishra",
-            album = "Animal",
-            durationMs = 250000L,
-            highResArtUrl = "https://c.saavncdn.com/023/Satranga-From-ANIMAL-Hindi-2023-20231027131012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_6",
-            title = "Maan Meri Jaan",
-            artist = "King",
-            album = "Champagne Talk",
-            durationMs = 194000L,
-            highResArtUrl = "https://c.saavncdn.com/871/Champagne-Talk-Hindi-2022-20221008011951-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_7",
-            title = "Raabta",
-            artist = "Arijit Singh",
-            album = "Agent Vinod",
-            durationMs = 243000L,
-            highResArtUrl = "https://c.saavncdn.com/391/Agent-Vinod-Hindi-2012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_top_8",
-            title = "Ranjha",
-            artist = "B Praak, Jasleen Royal",
-            album = "Shershaah",
-            durationMs = 228000L,
-            highResArtUrl = "https://c.saavncdn.com/600/Shershaah-Original-Motion-Picture-Soundtrack-Hindi-2021-20210815181610-500x500.jpg"
-        )
-    )
-
-    val madeForYou: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_mfy_1",
-            title = "Saiyaara",
-            artist = "Mohit Chauhan, Taraannum Mallik",
-            album = "Ek Tha Tiger",
-            durationMs = 253000L,
-            highResArtUrl = "https://c.saavncdn.com/598/Saiyaara-Hindi-2025-20250703061754-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_mfy_2",
-            title = "Agar Tum Saath Ho",
-            artist = "Alka Yagnik, Arijit Singh",
-            album = "Tamasha",
-            durationMs = 341000L,
-            highResArtUrl = "https://c.saavncdn.com/092/Tamasha-Hindi-2015-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_mfy_3",
-            title = "Hawayein",
-            artist = "Arijit Singh",
-            album = "Jab Harry Met Sejal",
-            durationMs = 290000L,
-            highResArtUrl = "https://c.saavncdn.com/409/Jab-Harry-Met-Sejal-Hindi-2017-20170803133606-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_mfy_4",
-            title = "Kalank Title Track",
-            artist = "Arijit Singh",
-            album = "Kalank",
-            durationMs = 311000L,
-            highResArtUrl = "https://c.saavncdn.com/849/Kalank-Hindi-2019-20190412140411-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_mfy_5",
-            title = "Tere Hawaale",
-            artist = "Arijit Singh, Shilpa Rao",
-            album = "Laal Singh Chaddha",
-            durationMs = 346000L,
-            highResArtUrl = "https://c.saavncdn.com/598/Laal-Singh-Chaddha-Hindi-2022-20220805141012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_mfy_6",
-            title = "Dil Diyan Gallan",
-            artist = "Atif Aslam",
-            album = "Tiger Zinda Hai",
-            durationMs = 260000L,
-            highResArtUrl = "https://c.saavncdn.com/445/Tiger-Zinda-Hai-Hindi-2017-20171212-500x500.jpg"
-        )
-    )
-
-    val romanticMelodies: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_rom_1",
-            title = "Jeene Laga Hoon",
-            artist = "Atif Aslam, Shreya Ghoshal",
-            album = "Ramaiya Vastavaiya",
-            durationMs = 237000L,
-            highResArtUrl = "https://c.saavncdn.com/264/Ramaiya-Vastavaiya-Hindi-2013-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_rom_2",
-            title = "Sun Saathiya",
-            artist = "Priya Saraiya, Divya Kumar",
-            album = "ABCD 2",
-            durationMs = 220000L,
-            highResArtUrl = "https://c.saavncdn.com/849/ABCD-2-Any-Body-Can-Dance-2-Hindi-2015-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_rom_3",
-            title = "Kaun Tujhe",
-            artist = "Palak Muchhal",
-            album = "M.S. Dhoni",
-            durationMs = 241000L,
-            highResArtUrl = "https://c.saavncdn.com/024/M-S-Dhoni-The-Untold-Story-Hindi-2016-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_rom_4",
-            title = "Hasi Ban Gaye",
-            artist = "Shreya Ghoshal",
-            album = "Hamari Adhuri Kahani",
-            durationMs = 192000L,
-            highResArtUrl = "https://c.saavncdn.com/565/Hamari-Adhuri-Kahani-Hindi-2015-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_rom_5",
-            title = "Tera Ban Jaunga",
-            artist = "Akhil Sachdeva, Tulsi Kumar",
-            album = "Kabir Singh",
-            durationMs = 236000L,
-            highResArtUrl = "https://c.saavncdn.com/807/Kabir-Singh-Hindi-2019-20240130053603-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_rom_6",
-            title = "Raataan Lambiyan",
-            artist = "Jubin Nautiyal, Asees Kaur",
-            album = "Shershaah",
-            durationMs = 230000L,
-            highResArtUrl = "https://c.saavncdn.com/600/Shershaah-Original-Motion-Picture-Soundtrack-Hindi-2021-20210815181610-500x500.jpg"
-        )
-    )
-
-    val chillLofi: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_lofi_1",
-            title = "Iktara (Lo-Fi Ambient)",
-            artist = "Kavita Seth, Amitabh Bhattacharya",
-            album = "Wake Up Sid",
-            durationMs = 253000L,
-            highResArtUrl = "https://c.saavncdn.com/177/Wake-Up-Sid-Hindi-2009-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_lofi_2",
-            title = "Kabira (Acoustic Study)",
-            artist = "Tochi Raina, Rekha Bhardwaj",
-            album = "Yeh Jawaani Hai Deewani",
-            durationMs = 223000L,
-            highResArtUrl = "https://c.saavncdn.com/264/Yeh-Jawaani-Hai-Deewani-Hindi-2013-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_lofi_3",
-            title = "Kun Faya Kun",
-            artist = "A.R. Rahman, Mohit Chauhan",
-            album = "Rockstar",
-            durationMs = 473000L,
-            highResArtUrl = "https://c.saavncdn.com/565/Rockstar-Hindi-2011-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_lofi_4",
-            title = "Phir Le Aya Dil (Reprise)",
-            artist = "Arijit Singh",
-            album = "Barfi",
-            durationMs = 304000L,
-            highResArtUrl = "https://c.saavncdn.com/835/Barfi-Hindi-2012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_lofi_5",
-            title = "Kho Gaye Hum Kahan",
-            artist = "Jasleen Royal, Prateek Kuhad",
-            album = "Baar Baar Dekho",
-            durationMs = 213000L,
-            highResArtUrl = "https://c.saavncdn.com/023/Baar-Baar-Dekho-Hindi-2016-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_lofi_6",
-            title = "Safarnama",
-            artist = "Lucky Ali",
-            album = "Tamasha",
-            durationMs = 251000L,
-            highResArtUrl = "https://c.saavncdn.com/092/Tamasha-Hindi-2015-500x500.jpg"
-        )
-    )
-
-    val golden90sBollywood: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_90s_1",
-            title = "Tujhe Dekha To",
-            artist = "Kumar Sanu, Lata Mangeshkar",
-            album = "Dilwale Dulhania Le Jayenge",
-            durationMs = 304000L,
-            highResArtUrl = "https://c.saavncdn.com/177/Dilwale-Dulhania-Le-Jayenge-Hindi-1995-20201026115918-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_2",
-            title = "Pehla Nasha",
-            artist = "Udit Narayan, Sadhana Sargam",
-            album = "Jo Jeeta Wohi Sikandar",
-            durationMs = 292000L,
-            highResArtUrl = "https://c.saavncdn.com/026/Jo-Jeeta-Wohi-Sikandar-Hindi-1992-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_3",
-            title = "Dheere Dheere Se Meri Zindagi",
-            artist = "Kumar Sanu, Anuradha Paudwal",
-            album = "Aashiqui",
-            durationMs = 331000L,
-            highResArtUrl = "https://c.saavncdn.com/492/Aashiqui-Hindi-1990-20200901083424-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_4",
-            title = "Tip Tip Barsa Paani",
-            artist = "Alka Yagnik, Udit Narayan",
-            album = "Mohra",
-            durationMs = 356000L,
-            highResArtUrl = "https://c.saavncdn.com/279/Mohra-Hindi-1994-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_5",
-            title = "Chura Ke Dil Mera",
-            artist = "Kumar Sanu, Alka Yagnik",
-            album = "Main Khiladi Tu Anari",
-            durationMs = 472000L,
-            highResArtUrl = "https://c.saavncdn.com/445/Main-Khiladi-Tu-Anari-Hindi-1994-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_6",
-            title = "Mera Dil Bhi Kitna Pagal Hai",
-            artist = "Kumar Sanu, Alka Yagnik",
-            album = "Saajan",
-            durationMs = 328000L,
-            highResArtUrl = "https://c.saavncdn.com/565/Saajan-Hindi-1991-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_7",
-            title = "Bahon Ke Darmiyan",
-            artist = "Hariharan, Alka Yagnik",
-            album = "Khamoshi",
-            durationMs = 371000L,
-            highResArtUrl = "https://c.saavncdn.com/142/Khamoshi-The-Musical-Hindi-1996-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_90s_8",
-            title = "Pal Pal Dil Ke Paas",
-            artist = "Kishore Kumar",
-            album = "Blackmail",
-            durationMs = 328000L,
-            highResArtUrl = "https://c.saavncdn.com/598/Blackmail-Hindi-1973-500x500.jpg"
-        )
-    )
-
-    val punjabiParty: List<OnlineSongModel> = listOf(
-        OnlineSongModel(
-            id = "tv_punj_1",
-            title = "Softly",
-            artist = "Karan Aujla",
-            album = "Making Memories",
-            durationMs = 155000L,
-            highResArtUrl = "https://c.saavncdn.com/187/Making-Memories-Punjabi-2023-20230818131012-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_punj_2",
-            title = "Born to Shine",
-            artist = "Diljit Dosanjh",
-            album = "G.O.A.T.",
-            durationMs = 214000L,
-            highResArtUrl = "https://c.saavncdn.com/391/G-O-A-T-Punjabi-2020-20200729175713-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_punj_3",
-            title = "Lover",
-            artist = "Diljit Dosanjh",
-            album = "MoonChild Era",
-            durationMs = 186000L,
-            highResArtUrl = "https://c.saavncdn.com/264/MoonChild-Era-Punjabi-2021-20210822181610-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_punj_4",
-            title = "295",
-            artist = "Sidhu Moose Wala",
-            album = "Moosetape",
-            durationMs = 270000L,
-            highResArtUrl = "https://c.saavncdn.com/565/Moosetape-Punjabi-2021-20210515181610-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_punj_5",
-            title = "So High",
-            artist = "Sidhu Moose Wala",
-            album = "PBX 1",
-            durationMs = 237000L,
-            highResArtUrl = "https://c.saavncdn.com/142/PBX-1-Punjabi-2018-500x500.jpg"
-        ),
-        OnlineSongModel(
-            id = "tv_punj_6",
-            title = "White Brown Black",
-            artist = "Karan Aujla, Avvy Sra",
-            album = "Single",
-            durationMs = 179000L,
-            highResArtUrl = "https://c.saavncdn.com/023/White-Brown-Black-Punjabi-2022-20221208131012-500x500.jpg"
-        )
-    )
-}
-
-@Composable
-private fun rememberGreeting(): String {
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    return when (hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        in 17..21 -> "Good evening"
-        else -> "Good night"
-    }
 }
 
 /**
- * Rectangular Quick-Access Tile (Spotify TV Home design: IMG20261026111711.jpg).
+ * Rectangular Quick-Access Tile (Spotify TV Home design).
  */
 @Composable
 fun TvQuickAccessTile(
@@ -1315,7 +597,7 @@ fun TvQuickAccessTile(
                 TrackCoverArt(
                     albumArtPath = artUrl,
                     title = title,
-                    artist = "Recordify",
+                    artist = "Recordify Album",
                     size = 58.dp,
                     shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)
                 )

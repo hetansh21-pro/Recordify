@@ -112,6 +112,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
     private val _isOnlineSearching = MutableStateFlow(false)
     val isOnlineSearching: StateFlow<Boolean> = _isOnlineSearching.asStateFlow()
 
+    private val _isImportingAlbum = MutableStateFlow(false)
+    val isImportingAlbum: StateFlow<Boolean> = _isImportingAlbum.asStateFlow()
+
+    private val _importAlbumMessage = MutableStateFlow<String?>(null)
+    val importAlbumMessage: StateFlow<String?> = _importAlbumMessage.asStateFlow()
+
     private val _downloadingSongIds = MutableStateFlow<Set<String>>(emptySet())
     val downloadingSongIds: StateFlow<Set<String>> = _downloadingSongIds.asStateFlow()
 
@@ -527,6 +533,32 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         _selectedVersionFilter.value = version
     }
 
+    fun importAlbumFromLink(url: String, onSuccess: ((com.audiovault.app.core.online.OnlineAlbumModel) -> Unit)? = null) {
+        viewModelScope.launch {
+            _isImportingAlbum.value = true
+            _importAlbumMessage.value = "Fetching album tracks..."
+            try {
+                val result = com.audiovault.app.core.online.AlbumLinkImporter.importAlbumFromLink(url)
+                if (result.success && result.album != null) {
+                    _importAlbumMessage.value = result.message
+                    _matchingAlbums.value = listOf(result.album)
+                    openAlbumDetails(result.album)
+                    onSuccess?.invoke(result.album)
+                } else {
+                    _importAlbumMessage.value = result.message.ifBlank { "Could not import album from this link." }
+                }
+            } catch (e: Exception) {
+                _importAlbumMessage.value = "Import failed: ${e.localizedMessage ?: "Unknown error"}"
+            } finally {
+                _isImportingAlbum.value = false
+            }
+        }
+    }
+
+    fun clearImportMessage() {
+        _importAlbumMessage.value = null
+    }
+
     fun submitSearch(query: String = _searchQuery.value) {
         searchOnlineMusic(query, immediate = true)
     }
@@ -535,38 +567,25 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         onlineSearchJob?.cancel()
         val trimmed = query.trim()
 
-        // 1. Detect pasted Spotify links (Album, Playlist, Track)
+        // 1. Detect pasted Album or Playlist links (Spotify, JioSaavn, YouTube)
+        if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+            importAlbumFromLink(trimmed)
+            return
+        }
+
+        // 1b. Detect single track Spotify links
         val spotifyMatch = com.audiovault.app.core.online.SpotifyLinkParser.parse(trimmed)
-        if (spotifyMatch != null) {
+        if (spotifyMatch != null && spotifyMatch.type == com.audiovault.app.core.online.SpotifyEntityType.TRACK) {
             onlineSearchJob = viewModelScope.launch {
                 _isOnlineSearching.value = true
                 try {
-                    when (spotifyMatch.type) {
-                        com.audiovault.app.core.online.SpotifyEntityType.ALBUM -> {
-                            val album = com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchAlbum(spotifyMatch.id)
-                            if (album != null) {
-                                _matchingAlbums.value = listOf(album)
-                                openAlbumDetails(album)
-                            }
-                        }
-                        com.audiovault.app.core.online.SpotifyEntityType.PLAYLIST -> {
-                            val playlistAlbum = com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchPlaylist(spotifyMatch.id)
-                            if (playlistAlbum != null) {
-                                _matchingAlbums.value = listOf(playlistAlbum)
-                                openAlbumDetails(playlistAlbum)
-                            }
-                        }
-                        com.audiovault.app.core.online.SpotifyEntityType.TRACK -> {
-                            val track = com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchTrack(spotifyMatch.id)
-                            if (track != null) {
-                                _onlineSearchResults.value = listOf(track)
-                                playOnlineSong(track)
-                            }
-                        }
-                        else -> {}
+                    val track = com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchTrack(spotifyMatch.id)
+                    if (track != null) {
+                        _onlineSearchResults.value = listOf(track)
+                        playOnlineSong(track)
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("Recordify/Search", "Error resolving Spotify link", e)
+                    android.util.Log.e("Recordify/Search", "Error resolving Spotify track", e)
                 } finally {
                     _isOnlineSearching.value = false
                 }

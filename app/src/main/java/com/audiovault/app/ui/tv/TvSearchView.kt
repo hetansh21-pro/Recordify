@@ -109,6 +109,8 @@ fun TvSearchView(
     }
     var isCapsuleFocused by remember { mutableStateOf(false) }
     var isEditingText by remember { mutableStateOf(false) }
+    var selectedDivision by remember { mutableStateOf("Real Songs") }
+    var showImportAlbumDialog by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val textFieldFocusRequester = remember { FocusRequester() }
@@ -554,186 +556,351 @@ fun TvSearchView(
         }
 
         // -------------------------------------------------------------
-        // 5. SEARCH RESULTS STATE (ALBUMS & SONGS)
+        // 5. SEARCH RESULTS STATE (TWO DIVISIONS: REAL SONGS VS YOUTUBE)
         // -------------------------------------------------------------
         if (searchQuery.isNotBlank() && !isSearching) {
-            if (searchResults.isEmpty() && matchingAlbums.isEmpty()) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 36.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "No results found for \"$searchQuery\"",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Try searching for an artist, movie soundtrack, or select a quick category pill above.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF888888))
-                        )
-                    }
-                }
-            } else {
-                // A. Matching Artists Shelf
-                val curatedMatchingArtists = CuratedAlbumCatalog.curatedAlbums.filter { album ->
-                    album.type.equals("Artist", ignoreCase = true) &&
-                    (album.title.contains(searchQuery.trim(), ignoreCase = true) ||
-                     (album.primaryArtists ?: "").contains(searchQuery.trim(), ignoreCase = true))
-                }
-                val dynamicArtists = searchContainer?.artists?.map { artistItem ->
-                    OnlineAlbumModel(
-                        id = "artist_${artistItem.name}",
-                        title = artistItem.name,
-                        year = "Artist",
-                        artist = "Artist • ${artistItem.name}",
-                        primaryArtists = artistItem.name,
-                        coverArtUrl = artistItem.imageUrl,
-                        type = "Artist",
-                        source = "search"
-                    )
-                } ?: emptyList()
-                val matchingArtists = (curatedMatchingArtists + dynamicArtists).distinctBy { it.title.lowercase() }
-                if (matchingArtists.isNotEmpty()) {
-                    item {
-                        Column {
-                            TvShelfHeader(
-                                title = "Artists",
-                                subtitle = "Official artist essentials"
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+            // Two Main Divisions: Real Songs vs YouTube + Paste Album Link
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val divisions = listOf("Real Songs", "YouTube")
+                    divisions.forEachIndexed { dIdx, div ->
+                        val isSelected = selectedDivision == div
+                        val label = if (div == "Real Songs") "🎵 Real Songs (Studio Audio)" else "▶️ YouTube (Video Audio)"
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = if (isSelected) Color.White else Color(0xFF222222),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) Color.White else Color(0xFF383838)
+                            ),
+                            modifier = Modifier
+                                .height(38.dp)
+                                .tvRemoteFocusable(
+                                    onClick = { selectedDivision = div },
+                                    shape = RoundedCornerShape(50),
+                                    focusScale = 1.08f,
+                                    isLeftBoundary = dIdx == 0
+                                )
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 18.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                itemsIndexed(matchingArtists) { aIdx, artistAlbum ->
-                                    TvCircularArtistCard(
-                                        name = artistAlbum.title,
-                                        imageUrl = artistAlbum.coverArtUrl ?: "",
-                                        onClick = { onPlayAlbum(artistAlbum) },
-                                        modifier = Modifier
-                                            .then(if (aIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
-                                            .onKeyEvent { keyEvent ->
-                                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                                    when (keyEvent.key) {
-                                                        Key.DirectionUp -> {
-                                                            try {
-                                                                capsuleFocusRequester.requestFocus()
-                                                                true
-                                                            } catch (_: Exception) { false }
-                                                        }
-                                                        Key.DirectionLeft -> {
-                                                            if (aIdx == 0) true else false // Left-locked
-                                                        }
-                                                        Key.DirectionRight -> {
-                                                            if (aIdx == matchingArtists.lastIndex) true else false // Right-locked
-                                                        }
-                                                        else -> false
-                                                    }
-                                                } else false
-                                            }
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontSize = 13.sp
                                     )
-                                }
+                                )
                             }
                         }
                     }
-                }
 
-                // B. Matching Albums Shelf
-                if (matchingAlbums.isNotEmpty()) {
-                    item {
-                        Column {
-                            TvShelfHeader(
-                                title = "Matching Albums & Soundtracks",
-                                subtitle = "Explore complete collections"
+                    // Paste Album Link Button
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF1E3823),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright),
+                        modifier = Modifier
+                            .height(38.dp)
+                            .tvRemoteFocusable(
+                                onClick = { showImportAlbumDialog = true },
+                                shape = RoundedCornerShape(50),
+                                focusScale = 1.08f
                             )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
-                            ) {
-                                itemsIndexed(matchingAlbums) { mIdx, album ->
-                                    TvAlbumCard(
-                                        album = album,
-                                        onClick = { onPlayAlbum(album) },
-                                        modifier = Modifier
-                                            .then(if (matchingArtists.isEmpty() && mIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
-                                            .onKeyEvent { keyEvent ->
-                                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                                    when (keyEvent.key) {
-                                                        Key.DirectionUp -> {
-                                                            if (matchingArtists.isEmpty()) {
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = SpotifyGreenBright,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Paste Album Link",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = SpotifyGreenBright,
+                                    fontSize = 13.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (selectedDivision == "Real Songs") {
+                if (searchResults.isEmpty() && matchingAlbums.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No real songs found for \"$searchQuery\"",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Switch to the YouTube division or paste an album link above.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF888888))
+                            )
+                        }
+                    }
+                } else {
+                    // A. Matching Artists Shelf
+                    val curatedMatchingArtists = CuratedAlbumCatalog.curatedAlbums.filter { album ->
+                        album.type.equals("Artist", ignoreCase = true) &&
+                        (album.title.contains(searchQuery.trim(), ignoreCase = true) ||
+                         (album.primaryArtists ?: "").contains(searchQuery.trim(), ignoreCase = true))
+                    }
+                    val dynamicArtists = searchContainer?.artists?.map { artistItem ->
+                        OnlineAlbumModel(
+                            id = "artist_${artistItem.name}",
+                            title = artistItem.name,
+                            year = "Artist",
+                            artist = "Artist • ${artistItem.name}",
+                            primaryArtists = artistItem.name,
+                            coverArtUrl = artistItem.imageUrl,
+                            type = "Artist",
+                            source = "search"
+                        )
+                    } ?: emptyList()
+                    val matchingArtists = (curatedMatchingArtists + dynamicArtists).distinctBy { it.title.lowercase() }
+                    if (matchingArtists.isNotEmpty()) {
+                        item {
+                            Column {
+                                TvShelfHeader(
+                                    title = "Artists",
+                                    subtitle = "Official artist essentials"
+                                )
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                                ) {
+                                    itemsIndexed(matchingArtists) { aIdx, artistAlbum ->
+                                        TvCircularArtistCard(
+                                            name = artistAlbum.title,
+                                            imageUrl = artistAlbum.coverArtUrl ?: "",
+                                            onClick = { onPlayAlbum(artistAlbum) },
+                                            modifier = Modifier
+                                                .then(if (aIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                                .onKeyEvent { keyEvent ->
+                                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                                        when (keyEvent.key) {
+                                                            Key.DirectionUp -> {
                                                                 try {
                                                                     capsuleFocusRequester.requestFocus()
                                                                     true
                                                                 } catch (_: Exception) { false }
-                                                            } else false
+                                                            }
+                                                            Key.DirectionLeft -> {
+                                                                if (aIdx == 0) true else false
+                                                            }
+                                                            Key.DirectionRight -> {
+                                                                if (aIdx == matchingArtists.lastIndex) true else false
+                                                            }
+                                                            else -> false
                                                         }
-                                                        Key.DirectionLeft -> {
-                                                            if (mIdx == 0) true else false // Left-locked
-                                                        }
-                                                        Key.DirectionRight -> {
-                                                            if (mIdx == matchingAlbums.lastIndex) true else false // Right-locked
-                                                        }
-                                                        else -> false
-                                                    }
-                                                } else false
-                                            }
-                                    )
+                                                    } else false
+                                                }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // C. Matching Songs Section
-                if (searchResults.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Songs (${searchResults.size})",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 18.sp
-                            ),
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                    // B. Matching Albums Shelf
+                    if (matchingAlbums.isNotEmpty()) {
+                        item {
+                            Column {
+                                TvShelfHeader(
+                                    title = "Matching Albums & Soundtracks",
+                                    subtitle = "Explore complete collections"
+                                )
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp)
+                                ) {
+                                    itemsIndexed(matchingAlbums) { mIdx, album ->
+                                        TvAlbumCard(
+                                            album = album,
+                                            onClick = { onPlayAlbum(album) },
+                                            modifier = Modifier
+                                                .then(if (matchingArtists.isEmpty() && mIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                                .onKeyEvent { keyEvent ->
+                                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                                        when (keyEvent.key) {
+                                                            Key.DirectionUp -> {
+                                                                if (matchingArtists.isEmpty()) {
+                                                                    try {
+                                                                        capsuleFocusRequester.requestFocus()
+                                                                        true
+                                                                    } catch (_: Exception) { false }
+                                                                } else false
+                                                            }
+                                                            Key.DirectionLeft -> {
+                                                                if (mIdx == 0) true else false
+                                                            }
+                                                            Key.DirectionRight -> {
+                                                                if (mIdx == matchingAlbums.lastIndex) true else false
+                                                            }
+                                                            else -> false
+                                                        }
+                                                    } else false
+                                                }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    itemsIndexed(searchResults) { sIdx, song ->
+                    // C. Matching Songs Section
+                    if (searchResults.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Real Studio Songs (${searchResults.size})",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 18.sp
+                                ),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+
+                        itemsIndexed(searchResults) { sIdx, song ->
+                            val isLiked = likedSongIds.contains(song.id.hashCode().toLong())
+                            val isFirstResult = matchingArtists.isEmpty() && matchingAlbums.isEmpty() && sIdx == 0
+                            TvSimpleSearchSongRow(
+                                song = song,
+                                isLiked = isLiked,
+                                onPlay = {
+                                    val upcoming = searchResults.drop(searchResults.indexOf(song) + 1)
+                                    onPlaySong(song, upcoming)
+                                },
+                                onToggleLike = {
+                                    viewModel.toggleLikedSong(song.id.hashCode().toLong())
+                                },
+                                modifier = Modifier
+                                    .then(if (isFirstResult) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.type == KeyEventType.KeyDown) {
+                                            when (keyEvent.key) {
+                                                Key.DirectionUp -> {
+                                                    if (isFirstResult) {
+                                                        try {
+                                                            capsuleFocusRequester.requestFocus()
+                                                            true
+                                                        } catch (_: Exception) { false }
+                                                    } else false
+                                                }
+                                                Key.DirectionDown -> {
+                                                    if (sIdx == searchResults.lastIndex) true else false
+                                                }
+                                                Key.DirectionLeft -> true
+                                                Key.DirectionRight -> true
+                                                else -> false
+                                            }
+                                        } else false
+                                    }
+                            )
+                        }
+                    }
+                }
+            } else {
+                // -------------------------------------------------------------
+                // YOUTUBE DIVISION
+                // -------------------------------------------------------------
+                val ytSongs = searchContainer?.youtubeSongs ?: emptyList()
+                if (ytSongs.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No YouTube audio results found for \"$searchQuery\"",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFFF0000),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "YOUTUBE",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Text(
+                                text = "Video & Live Audio Tracks (${ytSongs.size})",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 18.sp
+                                )
+                            )
+                        }
+                    }
+
+                    itemsIndexed(ytSongs) { yIdx, song ->
                         val isLiked = likedSongIds.contains(song.id.hashCode().toLong())
-                        val isFirstResult = matchingArtists.isEmpty() && matchingAlbums.isEmpty() && sIdx == 0
                         TvSimpleSearchSongRow(
                             song = song,
                             isLiked = isLiked,
                             onPlay = {
-                                val upcoming = searchResults.drop(searchResults.indexOf(song) + 1)
+                                val upcoming = ytSongs.drop(ytSongs.indexOf(song) + 1)
                                 onPlaySong(song, upcoming)
                             },
                             onToggleLike = {
                                 viewModel.toggleLikedSong(song.id.hashCode().toLong())
                             },
                             modifier = Modifier
-                                .then(if (isFirstResult) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
+                                .then(if (yIdx == 0) Modifier.focusRequester(firstContentFocusRequester) else Modifier)
                                 .onKeyEvent { keyEvent ->
                                     if (keyEvent.type == KeyEventType.KeyDown) {
                                         when (keyEvent.key) {
-                                            Key.DirectionUp -> {
-                                                if (isFirstResult) {
-                                                    try {
-                                                        capsuleFocusRequester.requestFocus()
-                                                        true
-                                                    } catch (_: Exception) { false }
-                                                } else false
-                                            }
                                             Key.DirectionDown -> {
-                                                if (sIdx == searchResults.lastIndex) true else false // Bottom-locked
+                                                if (yIdx == ytSongs.lastIndex) true else false
                                             }
-                                            Key.DirectionLeft -> true // Left-locked
-                                            Key.DirectionRight -> true // Right-locked
+                                            Key.DirectionLeft -> true
+                                            Key.DirectionRight -> true
                                             else -> false
                                         }
                                     } else false
@@ -829,6 +996,13 @@ fun TvSearchView(
                 }
             }
         }
+    }
+
+    if (showImportAlbumDialog) {
+        com.audiovault.app.ui.components.ImportAlbumDialog(
+            viewModel = viewModel,
+            onDismiss = { showImportAlbumDialog = false }
+        )
     }
 }
 

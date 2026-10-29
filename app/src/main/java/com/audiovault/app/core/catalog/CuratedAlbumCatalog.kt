@@ -614,6 +614,172 @@ object CuratedAlbumCatalog {
                 "Sunn Raha Hai Ankit Tiwari Aashiqui 2",
                 "Channa Mereya Arijit Singh Ae Dil Hai Mushkil"
             )
+        ),
+
+        // Blockbuster Soundtracks
+        OnlineAlbumModel(
+            id = "curated_animal_soundtrack",
+            title = "Animal",
+            year = "2023",
+            artist = "Soundtrack • Pritam, JAM8, B Praak",
+            primaryArtists = "Ranbir Kapoor, Rashmika Mandanna, Bobby Deol",
+            coverArtUrl = "https://c.saavncdn.com/092/ANIMAL-Hindi-2023-20231124191036-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 8,
+            trackQueries = listOf(
+                "Arjan Vailly Bhupinder Babbal Animal",
+                "Satranga Arijit Singh Animal Shreyas Puranik",
+                "Pehle Bhi Main Vishal Mishra Animal",
+                "Hua Main Raghav Chaitanya Pritam Animal",
+                "Papa Meri Jaan Sonu Nigam Harshavardhan Rameshwar Animal",
+                "Kashmir Manan Bhardwaj Shreya Ghoshal Animal",
+                "Saari Duniya Jalaa Denge B Praak Jaani Animal",
+                "Haiwaan Animal Theme Harshavardhan Rameshwar"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_kabir_singh_soundtrack",
+            title = "Kabir Singh",
+            year = "2019",
+            artist = "Soundtrack • Sachet-Parampara, Mithoon, Vishal Mishra",
+            primaryArtists = "Shahid Kapoor, Kiara Advani",
+            coverArtUrl = "https://c.saavncdn.com/352/Kabir-Singh-Hindi-2019-20190614075009-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 7,
+            trackQueries = listOf(
+                "Bekhayali Sachet Tandon Kabir Singh",
+                "Kaise Hua Vishal Mishra Kabir Singh",
+                "Tujhe Kitna Chahne Lage Arijit Singh Mithoon Kabir Singh",
+                "Tera Ban Jaunga Akhil Sachdeva Tulsi Kumar Kabir Singh",
+                "Mere Sohneya Sachet Tandon Parampara Thakur Kabir Singh",
+                "Pehla Pyaar Armaan Malik Vishal Mishra Kabir Singh",
+                "Yeh Aaina Shreya Ghoshal Amaal Mallik Kabir Singh"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_aashiqui_2_soundtrack",
+            title = "Aashiqui 2",
+            year = "2013",
+            artist = "Soundtrack • Mithoon, Ankit Tiwari, Jeet Gannguli",
+            primaryArtists = "Aditya Roy Kapur, Shraddha Kapoor",
+            coverArtUrl = "https://c.saavncdn.com/026/Aashiqui-2-Hindi-2013-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 10,
+            trackQueries = listOf(
+                "Tum Hi Ho Arijit Singh Mithoon Aashiqui 2",
+                "Sunn Raha Hai Ankit Tiwari Aashiqui 2",
+                "Chahun Main Ya Naa Arijit Singh Palak Muchhal Aashiqui 2",
+                "Hum Mar Jayenge Tulsi Kumar Arijit Singh Aashiqui 2",
+                "Meri Aashiqui Arijit Singh Palak Muchhal Aashiqui 2",
+                "Piya Aaye Na KK Tulsi Kumar Aashiqui 2",
+                "Bhula Dena Mustafa Zahid Aashiqui 2",
+                "Aasan Nahin Yahan Arijit Singh Aashiqui 2",
+                "Milne Hai Mujhse Aayi Arijit Singh Aashiqui 2",
+                "Sunn Raha Hai Female Shreya Ghoshal Aashiqui 2"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_rockstar_soundtrack",
+            title = "Rockstar",
+            year = "2011",
+            artist = "Soundtrack • A.R. Rahman, Irshad Kamil",
+            primaryArtists = "Ranbir Kapoor, Nargis Fakhri",
+            coverArtUrl = "https://c.saavncdn.com/138/Rockstar-Hindi-2011-20221212023023-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 8,
+            trackQueries = listOf(
+                "Kun Faya Kun A.R. Rahman Javed Ali Mohit Chauhan Rockstar",
+                "Nadaan Parinde A.R. Rahman Mohit Chauhan Rockstar",
+                "Sadda Haq Mohit Chauhan A.R. Rahman Rockstar",
+                "Phir Se Ud Chala Mohit Chauhan Rockstar",
+                "Tum Ho Mohit Chauhan Suzanne D'Mello Rockstar",
+                "Jo Bhi Main Mohit Chauhan Rockstar",
+                "Katiya Karun Harshdeep Kaur A.R. Rahman Rockstar",
+                "Hawaa Hawaa Mohit Chauhan Rockstar"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_brahmastra_soundtrack",
+            title = "Brahmāstra: Part One – Shiva",
+            year = "2022",
+            artist = "Soundtrack • Pritam, Amitabh Bhattacharya",
+            primaryArtists = "Ranbir Kapoor, Alia Bhatt",
+            coverArtUrl = "https://c.saavncdn.com/902/Brahmastra-Original-Motion-Picture-Soundtrack-Hindi-2022-20221006141018-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 6,
+            trackQueries = listOf(
+                "Kesariya Arijit Singh Pritam Brahmastra",
+                "Deva Deva Arijit Singh Jonita Gandhi Pritam Brahmastra",
+                "Dance Ka Bhoot Arijit Singh Pritam Brahmastra",
+                "Rasiya Shreya Ghoshal Tushar Joshi Pritam Brahmastra",
+                "Shiva Theme Pritam Brahmastra",
+                "Kesariya Audio Teaser Arijit Singh Pritam"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_yjhd_soundtrack",
+            title = "Yeh Jawaani Hai Deewani",
+            year = "2013",
+            artist = "Soundtrack • Pritam, Amitabh Bhattacharya",
+            primaryArtists = "Ranbir Kapoor, Deepika Padukone",
+            coverArtUrl = "https://c.saavncdn.com/399/Yeh-Jawaani-Hai-Deewani-Hindi-2013-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 7,
+            trackQueries = listOf(
+                "Badtameez Dil Benny Dayal Shefali Alvares Pritam",
+                "Balam Pichkari Vishal Dadlani Shalmali Kholgade Pritam",
+                "Ilahi Arijit Singh Pritam Yeh Jawaani Hai Deewani",
+                "Kabira Tochi Raina Rekha Bhardwaj Pritam",
+                "Subhanallah Sreerama Chandra Shilpa Rao Pritam",
+                "Dilliwaali Girlfriend Arijit Singh Sunidhi Chauhan Pritam",
+                "Ghagra Vishal Dadlani Rekha Bhardwaj Pritam"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_punjabi_moosetape",
+            title = "Moosetape",
+            year = "2021",
+            artist = "Sidhu Moose Wala",
+            primaryArtists = "Sidhu Moose Wala, The Kidd",
+            coverArtUrl = "https://c.saavncdn.com/565/Moosetape-Punjabi-2021-20210515181610-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 8,
+            trackQueries = listOf(
+                "295 Sidhu Moose Wala Moosetape",
+                "These Days Sidhu Moose Wala Bohemia",
+                "US Sidhu Moose Wala Raja Kumari",
+                "Bitch I'm Back Sidhu Moose Wala Moosetape",
+                "Brown Shortie Sidhu Moose Wala Sonam Bajwa",
+                "Racks And Rounds Sidhu Moose Wala Sikander Kahlon",
+                "G-Shit Sidhu Moose Wala Moosetape",
+                "Power Sidhu Moose Wala Moosetape"
+            )
+        ),
+        OnlineAlbumModel(
+            id = "curated_punjabi_making_memories",
+            title = "Making Memories",
+            year = "2023",
+            artist = "Karan Aujla, Ikky",
+            primaryArtists = "Karan Aujla, Ikky",
+            coverArtUrl = "https://c.saavncdn.com/187/Making-Memories-Punjabi-2023-20230818131012-500x500.jpg",
+            type = "Album",
+            source = "curated",
+            songCount = 6,
+            trackQueries = listOf(
+                "Softly Karan Aujla Making Memories",
+                "Admirin' You Karan Aujla Preston Pablo",
+                "White Brown Black Karan Aujla Avvy Sra",
+                "What Karan Aujla Making Memories",
+                "You Karan Aujla Making Memories",
+                "Champion's Anthem Karan Aujla Making Memories"
+            )
         )
     )
 
