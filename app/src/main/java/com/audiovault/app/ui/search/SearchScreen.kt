@@ -70,6 +70,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -573,14 +578,38 @@ fun SearchScreen(
                                         singleLine = true,
                                         cursorBrush = SolidColor(SpotifyGreenBright),
                                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                        keyboardActions = KeyboardActions(onSearch = {
-                                            viewModel.submitSearch(searchQuery)
-                                            keyboardController?.hide()
-                                            focusManager.clearFocus()
-                                        }),
+                                        keyboardActions = KeyboardActions(
+                                            onSearch = {
+                                                viewModel.submitSearch(searchQuery)
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                            },
+                                            onDone = {
+                                                viewModel.submitSearch(searchQuery)
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                            },
+                                            onGo = {
+                                                viewModel.submitSearch(searchQuery)
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                            }
+                                        ),
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .focusRequester(focusRequester)
+                                            .onKeyEvent { keyEvent ->
+                                                if (keyEvent.type == KeyEventType.KeyDown &&
+                                                    (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                                ) {
+                                                    viewModel.submitSearch(searchQuery)
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    true
+                                                } else {
+                                                    false
+                                                }
+                                            }
                                     )
                                 }
 

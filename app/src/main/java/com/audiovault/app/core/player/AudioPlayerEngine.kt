@@ -2,7 +2,6 @@ package com.audiovault.app.core.player
 
 import android.content.Context
 import android.net.Uri
-import android.net.wifi.WifiManager
 import android.os.PowerManager
 import android.util.Log
 import androidx.media3.common.AudioAttributes
@@ -69,11 +68,9 @@ class AudioPlayerEngine(private val context: Context) {
     private var progressJob: Job? = null
     private var retryJob: Job? = null
 
-    // Safe CPU WakeLock and WifiLock to maintain uninterrupted playback when screen turns off or device idles
+    // Safe CPU WakeLock to maintain uninterrupted playback when screen turns off
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-    private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
     private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: WifiManager.WifiLock? = null
 
     // Playback recovery & transient error retry tracking
     private var retryCount = 0
@@ -133,22 +130,6 @@ class AudioPlayerEngine(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "WakeLock acquire failed: ${e.message}")
         }
-
-        try {
-            if (wifiLock == null) {
-                val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    WifiManager.WIFI_MODE_FULL_HIGH_PERF
-                } else {
-                    @Suppress("DEPRECATION")
-                    WifiManager.WIFI_MODE_FULL
-                }
-                wifiLock = wifiManager?.createWifiLock(mode, "Recordify:PlaybackWifiLock")
-                wifiLock?.setReferenceCounted(false)
-            }
-            wifiLock?.acquire()
-        } catch (e: Exception) {
-            Log.w(TAG, "WifiLock acquire failed: ${e.message}")
-        }
     }
 
     private fun releaseWakeLock() {
@@ -159,11 +140,6 @@ class AudioPlayerEngine(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "WakeLock release failed: ${e.message}")
         }
-        try {
-            if (wifiLock?.isHeld == true) {
-                wifiLock?.release()
-            }
-        } catch (_: Exception) {}
     }
 
     private val playerListener = object : Player.Listener {
@@ -374,13 +350,19 @@ class AudioPlayerEngine(private val context: Context) {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        val player = ExoPlayer.Builder(context)
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-            .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setLoadControl(loadControl)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
+        val player = try {
+            ExoPlayer.Builder(context)
+                .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
+                .setLoadControl(loadControl)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+        } catch (t: Throwable) {
+            Log.w(TAG, "ExoPlayer builder fallback", t)
+            ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+        }
 
         player.addListener(playerListener)
         exoPlayer = player
@@ -439,12 +421,24 @@ class AudioPlayerEngine(private val context: Context) {
         retryJob?.cancel()
         acquireWakeLock()
 
-        player.stop()
-        player.clearMediaItems()
-
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
+        try {
+            player.stop()
+            player.clearMediaItems()
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.play()
+        } catch (t: Throwable) {
+            Log.e(TAG, "Fatal error starting ExoPlayer playback", t)
+            _playerState.update {
+                it.copy(
+                    currentRecording = recording,
+                    isPlaying = false,
+                    status = PlayerPlaybackStatus.ERROR,
+                    error = "Playback error: ${t.localizedMessage ?: "Unknown"}"
+                )
+            }
+            return requestId
+        }
 
         _playerState.update {
             PlayerState(

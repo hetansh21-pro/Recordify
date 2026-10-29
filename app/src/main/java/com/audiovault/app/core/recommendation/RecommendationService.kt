@@ -317,7 +317,7 @@ class RecommendationService(
                     com.audiovault.app.core.online.ArtistItemModel(
                         id = "spotify_art_${name.hashCode()}",
                         name = name,
-                        imageUrl = "",
+                        imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
                         role = "Favorite Artist"
                     )
                 }

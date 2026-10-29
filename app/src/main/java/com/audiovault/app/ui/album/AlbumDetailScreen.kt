@@ -388,6 +388,7 @@ fun AlbumDetailScreen(
 
                 AlbumTrackRow(
                     track = track,
+                    albumCoverArt = currentAlbum.coverArtUrl,
                     isPlaying = isTrackPlaying,
                     isSavedInLibrary = isTrackSaved,
                     isDownloading = isTrackDownloading,
@@ -408,6 +409,7 @@ fun AlbumDetailScreen(
 @Composable
 private fun AlbumTrackRow(
     track: OnlineSongModel,
+    albumCoverArt: String? = null,
     isPlaying: Boolean,
     isSavedInLibrary: Boolean = false,
     isDownloading: Boolean = false,
@@ -430,9 +432,22 @@ private fun AlbumTrackRow(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+            TrackCoverArt(
+                albumArtPath = track.highResArtUrl?.ifBlank { null } ?: albumCoverArt,
+                title = track.title,
+                artist = track.artist,
+                size = 48.dp,
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
             Text(
                 text = if (isPlaying) "... ${track.title}" else track.title,
                 style = MaterialTheme.typography.bodyLarge.copy(

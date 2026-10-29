@@ -273,16 +273,38 @@ fun TvSearchView(
                                 fontWeight = FontWeight.SemiBold
                             ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                isEditingText = false
-                                keyboardController?.hide()
-                                try {
-                                    capsuleFocusRequester.requestFocus()
-                                } catch (_: Exception) {}
-                                if (searchQuery.isNotBlank()) {
-                                    viewModel.submitSearch(searchQuery)
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    isEditingText = false
+                                    keyboardController?.hide()
+                                    try {
+                                        capsuleFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                    if (searchQuery.isNotBlank()) {
+                                        viewModel.submitSearch(searchQuery)
+                                    }
+                                },
+                                onDone = {
+                                    isEditingText = false
+                                    keyboardController?.hide()
+                                    try {
+                                        capsuleFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                    if (searchQuery.isNotBlank()) {
+                                        viewModel.submitSearch(searchQuery)
+                                    }
+                                },
+                                onGo = {
+                                    isEditingText = false
+                                    keyboardController?.hide()
+                                    try {
+                                        capsuleFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                    if (searchQuery.isNotBlank()) {
+                                        viewModel.submitSearch(searchQuery)
+                                    }
                                 }
-                            }),
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(textFieldFocusRequester)

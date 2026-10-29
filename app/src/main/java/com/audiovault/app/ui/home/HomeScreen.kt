@@ -1371,18 +1371,31 @@ private fun SpotifyArtistCircleCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val resolvedArtUrl = androidx.compose.runtime.remember(artist.imageUrl, artist.name) {
+        artist.imageUrl.ifBlank {
+            com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(artist.name)
+        }
+    }
+
     Column(
         modifier = modifier
             .width(112.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        TrackCoverArt(
-            albumArtPath = artist.imageUrl,
-            title = artist.name,
-            size = 112.dp,
-            shape = CircleShape
-        )
+        if (resolvedArtUrl.isNotBlank()) {
+            TrackCoverArt(
+                albumArtPath = resolvedArtUrl,
+                title = artist.name,
+                size = 112.dp,
+                shape = CircleShape
+            )
+        } else {
+            com.audiovault.app.ui.components.ArtistAvatar(
+                artistName = artist.name,
+                size = 112.dp
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 

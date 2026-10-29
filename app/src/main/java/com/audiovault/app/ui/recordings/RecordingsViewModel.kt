@@ -507,6 +507,9 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
             _matchingAlbums.value = emptyList()
             _searchResultContainer.value = null
             _isOnlineSearching.value = false
+        } else {
+            // Live as-you-type search: continuously scan & show music with fast 180ms debounce
+            searchOnlineMusic(query, immediate = false)
         }
     }
 
@@ -610,12 +613,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val settings = userSettings.value
-        // Balanced typing debounce: gives user ample time to write full words
+        // Highly responsive as-you-type search: scans music on every keystroke
         // Immediate mode (keyboard Search/Enter button) bypasses debounce entirely (0ms)
         val debounceMs = when {
             immediate -> 0L
-            trimmed.length <= 1 -> 800L
-            else -> 600L
+            trimmed.length <= 1 -> 350L
+            else -> 180L
         }
 
         // Check for matching pre-built curated albums (90s, Old Songs, Retro Classics)

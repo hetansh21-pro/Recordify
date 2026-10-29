@@ -215,11 +215,11 @@ class PlaybackNotificationManager(
     private fun postNotification(recording: RecordingEntity, isPlaying: Boolean, artBitmap: Bitmap?) {
         try {
             val notification = buildNotification(recording, isPlaying, artBitmap)
+            notificationManager.notify(NOTIFICATION_ID, notification)
             if (isPlaying) {
                 // Elevate process with FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
                 AudioPlaybackService.startForeground(context, notification)
             } else {
-                notificationManager.notify(NOTIFICATION_ID, notification)
                 AudioPlaybackService.stopForeground(context, removeNotification = false)
             }
         } catch (_: Throwable) {}

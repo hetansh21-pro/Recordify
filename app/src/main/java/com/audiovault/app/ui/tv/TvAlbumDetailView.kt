@@ -347,6 +347,7 @@ fun TvAlbumDetailView(
                     TvSpotifyTrackRow(
                         index = index,
                         song = song,
+                        albumCoverArt = album.coverArtUrl,
                         isPlaying = playerState.currentRecording?.title.equals(song.title, ignoreCase = true) && playerState.isPlaying,
                         isLiked = likedSongIds.contains(song.id.hashCode().toLong()),
                         onPlay = {
@@ -378,6 +379,7 @@ fun TvAlbumDetailView(
 private fun TvSpotifyTrackRow(
     index: Int,
     song: OnlineSongModel,
+    albumCoverArt: String? = null,
     isPlaying: Boolean,
     isLiked: Boolean,
     onPlay: () -> Unit,
@@ -436,7 +438,7 @@ private fun TvSpotifyTrackRow(
                     )
             ) {
                 TrackCoverArt(
-                    albumArtPath = song.highResArtUrl,
+                    albumArtPath = song.highResArtUrl?.ifBlank { null } ?: albumCoverArt,
                     title = song.title,
                     artist = song.artist,
                     size = 46.dp,
