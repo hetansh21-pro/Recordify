@@ -123,7 +123,7 @@ object SpotifyWebMetadataFetcher {
                             artist = trackArtist,
                             album = title,
                             durationMs = durationMs,
-                            highResArtUrl = coverArtUrl,
+                            highResArtUrl = "",
                             source = "spotify",
                             bitrate = "320kbps",
                             streamUrl = ""

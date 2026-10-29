@@ -35,6 +35,7 @@ import com.audiovault.app.ui.theme.SpotifyCardSurface
 fun TrackCoverArt(
     albumArtPath: String?,
     modifier: Modifier = Modifier,
+    fallbackArtPath: String? = null,
     title: String? = null,
     artist: String? = null,
     size: Dp = Dp.Unspecified,
@@ -45,6 +46,7 @@ fun TrackCoverArt(
     val resolvedModifier = if (size != Dp.Unspecified) modifier.size(size) else modifier
     val imageBitmap by rememberAsyncCoverArt(
         albumArtPath = albumArtPath,
+        fallbackArtPath = fallbackArtPath,
         title = title,
         artist = artist,
         targetSizeDp = size

@@ -146,7 +146,15 @@ object OnlineMusicSearchService {
                 }
             }
 
-            // Stage 2: Direct CDN fast songs (JioSaavn + Spotify catalog + Language/Regional trending)
+            val knownArtistMatch = com.audiovault.app.core.catalog.ArtistImageCatalog.allArtistNames.firstOrNull {
+                val qTrim = rawQuery.trim().lowercase()
+                it.equals(qTrim, ignoreCase = true) || it.startsWith(qTrim) || it.contains(" $qTrim")
+            }
+            val cleanArtistName = knownArtistMatch?.split(" ")?.joinToString(" ") { word ->
+                word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
+
+            // Stage 2: Direct CDN fast songs (JioSaavn + iTunes + Spotify catalog + Language/Regional trending)
             val fastSongsDeferred = async {
                 try {
                     val s1 = searchJioSaavnFast(queryToSearch, limit)
@@ -161,8 +169,15 @@ object OnlineMusicSearchService {
                             searchJioSaavnFast(exp, limit = 3)
                         }
                     } else emptyList()
+                    val artistSongs = if (cleanArtistName != null) {
+                        val itunesHits = searchITunes(cleanArtistName, limit = 20)
+                        val saavnHits = searchJioSaavnFast(cleanArtistName, limit = 20)
+                        itunesHits + saavnHits
+                    } else {
+                        searchITunes(queryToSearch, limit = 15)
+                    }
                     val sp = if (!isIndianIntent) searchSpotifyWeb(queryToSearch, limit) else emptyList()
-                    (expSongs + s1 + s2 + s3 + sp)
+                    (artistSongs + expSongs + s1 + s2 + s3 + sp)
                 } catch (e: Exception) {
                     emptyList<OnlineSongModel>()
                 }
@@ -192,20 +207,35 @@ object OnlineMusicSearchService {
                 primaryLanguage = primaryLanguage
             )
 
-            // Extract artists from top albums / songs
-            val extractedArtists = rankedFastSongs.map { it.normalizedPrimaryArtist }
-                .distinct()
-                .filter { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) }
-                .take(6)
-                .map { name ->
-                    val art = rankedFastSongs.firstOrNull { it.normalizedPrimaryArtist == name }?.highResArtUrl ?: ""
-                    ArtistItemModel(
-                        id = "artist_${name.hashCode()}",
-                        name = name,
-                        imageUrl = art,
-                        role = "Artist"
-                    )
-                }
+            // Extract artists from top albums / songs with clean CDN portraits
+            val primaryArtistItem = cleanArtistName?.let { name ->
+                ArtistItemModel(
+                    id = "artist_${name.hashCode()}",
+                    name = name,
+                    imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
+                    role = "Artist"
+                )
+            }
+            val extractedArtists = buildList {
+                if (primaryArtistItem != null) add(primaryArtistItem)
+                rankedFastSongs.map { it.normalizedPrimaryArtist }
+                    .distinct()
+                    .filter { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) && !it.equals(cleanArtistName, ignoreCase = true) }
+                    .take(5)
+                    .forEach { name ->
+                        val art = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name).ifBlank {
+                            rankedFastSongs.firstOrNull { it.normalizedPrimaryArtist == name }?.highResArtUrl ?: ""
+                        }
+                        add(
+                            ArtistItemModel(
+                                id = "artist_${name.hashCode()}",
+                                name = name,
+                                imageUrl = art,
+                                role = "Artist"
+                            )
+                        )
+                    }
+            }
 
             val partialContainer = SearchResultContainer(
                 query = rawQuery,

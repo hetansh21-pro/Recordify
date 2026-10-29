@@ -64,6 +64,10 @@ object ArtistImageCatalog {
         "blackpink" to "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/0e/e6/78/0ee678a9-4632-15be-6663-b184ca717f90/22UMGIM83870.rgb.jpg/500x500bb.jpg"
     )
 
+    val allArtistNames: List<String> by lazy {
+        ARTIST_IMAGE_MAP.keys.toList()
+    }
+
     /**
      * Resolves high-resolution official CDN photo URL for the given artist name.
      * Returns empty string if unknown.

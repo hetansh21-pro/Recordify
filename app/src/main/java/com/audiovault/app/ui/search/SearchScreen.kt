@@ -34,6 +34,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
@@ -569,7 +571,17 @@ fun SearchScreen(
 
                                     BasicTextField(
                                         value = searchQuery,
-                                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                                        onValueChange = { newText ->
+                                            val trimmed = newText.trim()
+                                            if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                viewModel.importAlbumFromLink(trimmed)
+                                            } else {
+                                                viewModel.onSearchQueryChange(newText)
+                                            }
+                                        },
                                         textStyle = TextStyle(
                                             color = Color.White,
                                             fontSize = 15.sp,
@@ -580,17 +592,35 @@ fun SearchScreen(
                                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                         keyboardActions = KeyboardActions(
                                             onSearch = {
-                                                viewModel.submitSearch(searchQuery)
+                                                val trimmed = searchQuery.trim()
+                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    viewModel.importAlbumFromLink(trimmed)
+                                                } else {
+                                                    viewModel.submitSearch(searchQuery)
+                                                }
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                             },
                                             onDone = {
-                                                viewModel.submitSearch(searchQuery)
+                                                val trimmed = searchQuery.trim()
+                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    viewModel.importAlbumFromLink(trimmed)
+                                                } else {
+                                                    viewModel.submitSearch(searchQuery)
+                                                }
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                             },
                                             onGo = {
-                                                viewModel.submitSearch(searchQuery)
+                                                val trimmed = searchQuery.trim()
+                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    viewModel.importAlbumFromLink(trimmed)
+                                                } else {
+                                                    viewModel.submitSearch(searchQuery)
+                                                }
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                             }
@@ -602,7 +632,13 @@ fun SearchScreen(
                                                 if (keyEvent.type == KeyEventType.KeyDown &&
                                                     (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
                                                 ) {
-                                                    viewModel.submitSearch(searchQuery)
+                                                    val trimmed = searchQuery.trim()
+                                                    if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                        android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                        viewModel.importAlbumFromLink(trimmed)
+                                                    } else {
+                                                        viewModel.submitSearch(searchQuery)
+                                                    }
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
                                                     true
@@ -637,11 +673,10 @@ fun SearchScreen(
 
                 // If user typed a search query: show instant search results (Online Worldwide, Artists & Library)
                 if (searchQuery.isNotBlank()) {
-                    // Two Main Divisions: Real Songs vs YouTube + Paste Album Link
+                    // Clean Spotify Division Tabs: Real Songs vs YouTube
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
                             .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -649,192 +684,19 @@ fun SearchScreen(
                         val searchDivisions = listOf("Real Songs", "YouTube")
                         searchDivisions.forEach { tab ->
                             val isSelected = selectedSearchTab == tab
-                            val label = if (tab == "Real Songs") "🎵 Real Songs" else "▶️ YouTube"
                             Surface(
                                 shape = CircleShape,
                                 color = if (isSelected) SpotifyGreenBright else SpotifyCardSurface,
                                 modifier = Modifier.clickable { selectedSearchTab = tab }
                             ) {
                                 Text(
-                                    text = label,
+                                    text = tab,
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (isSelected) Color.Black else Color.White
                                     ),
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                                 )
-                            }
-                        }
-
-                        // Dedicated "Paste Album Link" button
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFF1F2F23),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright),
-                            modifier = Modifier.clickable { showImportAlbumDialog = true }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = SpotifyGreenBright,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Paste Album Link",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = SpotifyGreenBright
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // Advanced Filter Bar: Official Only, Decade, Version
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(bottom = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 1. Official / Original Only Toggle
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isSearchOriginalOnly) Color(0xFF1E3823) else SpotifyCardSurface,
-                            modifier = Modifier.clickable { viewModel.toggleSearchOriginalOnly() }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isSearchOriginalOnly) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = SpotifyGreenBright,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                Text(
-                                    text = "Official Only",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSearchOriginalOnly) SpotifyGreenBright else Color.White
-                                    )
-                                )
-                            }
-                        }
-
-                        // 2. Decade Filter Menu
-                        Box {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (selectedDecade != null) Color(0xFF1E3823) else SpotifyCardSurface,
-                                modifier = Modifier.clickable { showDecadeMenu = true }
-                            ) {
-                                val label = when (selectedDecade) {
-                                    1970..1979 -> "70s"
-                                    1980..1989 -> "80s"
-                                    1990..1999 -> "90s"
-                                    2000..2009 -> "2000s"
-                                    2010..2019 -> "2010s"
-                                    2020..2029 -> "2020s"
-                                    null -> "Decade"
-                                    else -> "${selectedDecade!!.first}-${selectedDecade!!.last}"
-                                }
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (selectedDecade != null) SpotifyGreenBright else Color.White
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
-                            }
-
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = showDecadeMenu,
-                                onDismissRequest = { showDecadeMenu = false }
-                            ) {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("All Decades") },
-                                    onClick = {
-                                        showDecadeMenu = false
-                                        viewModel.setSelectedDecade(null)
-                                    }
-                                )
-                                listOf(
-                                    "2020s" to 2020..2029,
-                                    "2010s" to 2010..2019,
-                                    "2000s" to 2000..2009,
-                                    "90s" to 1990..1999,
-                                    "80s" to 1980..1989,
-                                    "70s" to 1970..1979
-                                ).forEach { (name, range) ->
-                                    androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text(name) },
-                                        onClick = {
-                                            showDecadeMenu = false
-                                            viewModel.setSelectedDecade(range)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // 3. Version Filter Menu
-                        Box {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (selectedVersionFilter != null) Color(0xFF1E3823) else SpotifyCardSurface,
-                                modifier = Modifier.clickable { showVersionMenu = true }
-                            ) {
-                                val label = selectedVersionFilter?.badge ?: "Version"
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (selectedVersionFilter != null) SpotifyGreenBright else Color.White
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
-                            }
-
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = showVersionMenu,
-                                onDismissRequest = { showVersionMenu = false }
-                            ) {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("All Versions") },
-                                    onClick = {
-                                        showVersionMenu = false
-                                        viewModel.setSelectedVersionFilter(null)
-                                    }
-                                )
-                                listOf(
-                                    RecordingVersionType.ORIGINAL_STUDIO,
-                                    RecordingVersionType.OFFICIAL_SOUNDTRACK,
-                                    RecordingVersionType.REMIX,
-                                    RecordingVersionType.ACOUSTIC,
-                                    RecordingVersionType.LIVE,
-                                    RecordingVersionType.KARAOKE_INSTRUMENTAL
-                                ).forEach { version ->
-                                    androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text(version.displayName) },
-                                        onClick = {
-                                            showVersionMenu = false
-                                            viewModel.setSelectedVersionFilter(version)
-                                        }
-                                    )
-                                }
                             }
                         }
                     }
@@ -848,39 +710,33 @@ fun SearchScreen(
                     }
 
                     val canonicalSongs = searchContainer?.songs ?: emptyList()
-                    val displayedCanonical = canonicalSongs.filter { song ->
-                        val decadeOk = selectedDecade == null || (song.releaseYear != null && song.releaseYear in selectedDecade!!)
-                        val versionOk = selectedVersionFilter == null || song.recordingVersion == selectedVersionFilter
-                        decadeOk && versionOk
-                    }
-                    val displayedOnlineSongs = if (displayedCanonical.isNotEmpty()) {
-                        displayedCanonical.map { it.toOnlineSongModel() }
+                    val displayedOnlineSongs = if (canonicalSongs.isNotEmpty()) {
+                        canonicalSongs.map { it.toOnlineSongModel() }
                     } else {
                         onlineSearchResults
                     }
 
-                    val displayedAlbums = (searchContainer?.albums ?: matchingAlbums).filter { album ->
-                        val albumYear = album.year?.filter { it.isDigit() }?.toIntOrNull()
-                        selectedDecade == null || (albumYear != null && albumYear in selectedDecade!!)
-                    }
-
-                    val isAlbumIntent = searchContainer?.intent?.targetEntity == SearchTargetEntity.ALBUMS ||
-                            searchContainer?.intent?.queryType == com.audiovault.app.core.search.SearchQueryType.ALBUM_SEARCH ||
-                            searchContainer?.intent?.queryType == com.audiovault.app.core.search.SearchQueryType.SOUNDTRACK_SEARCH
-
+                    val displayedAlbums = searchContainer?.albums ?: matchingAlbums
                     val searchSuggestions = remember(searchQuery) {
                         com.audiovault.app.core.search.SearchSuggestionEngine.getLocalSuggestions(searchQuery)
                     }
 
-                    val qLower = searchQuery.trim().lowercase()
-                    val isOldSongsQuery = qLower.contains("old") || qLower == "olds" || qLower.contains("puran") || qLower.contains("retro")
-                    val isSadSongsQuery = qLower.contains("sad") || qLower.contains("dard")
                     val onlineArtists = searchContainer?.artists ?: emptyList()
+                    val matchedArtistName = remember(searchQuery, onlineArtists, matchingArtists) {
+                        val q = searchQuery.trim().lowercase()
+                        val fromOnline = onlineArtists.firstOrNull()?.name
+                        val fromLocal = matchingArtists.firstOrNull()?.first
+                        val fromCatalog = com.audiovault.app.core.catalog.ArtistImageCatalog.allArtistNames.firstOrNull {
+                            val a = it.lowercase()
+                            a.contains(q) || q.contains(a.take(4))
+                        }
+                        fromOnline ?: fromLocal ?: fromCatalog
+                    }
 
                     LazyColumn(
                         state = resultsListState,
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
                         // Loading Animation during active search
@@ -889,16 +745,16 @@ fun SearchScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 14.dp),
+                                        .padding(vertical = 12.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     CircularProgressIndicator(
                                         color = SpotifyGreenBright,
-                                        modifier = Modifier.size(22.dp),
-                                        strokeWidth = 2.5.dp
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = "Searching Recordify Catalog...",
                                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -911,496 +767,219 @@ fun SearchScreen(
                             }
                         }
 
-                        // 1. TOP SPOTIFY AUTOCOMPLETE SUGGESTIONS (Search icon on left, Up-right arrow on right)
-                        if (searchSuggestions.isNotEmpty() && (selectedSearchTab == "All" || selectedSearchTab == "Songs")) {
-                            items(searchSuggestions) { suggestionText ->
+                        if (selectedSearchTab == "Real Songs") {
+                            // 1. TOP SPOTIFY AUTOCOMPLETE SUGGESTIONS (Search icon on left, Up-right arrow on right)
+                            if (searchSuggestions.isNotEmpty()) {
+                                items(searchSuggestions.take(5)) { suggestionText ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                viewModel.onSearchQueryChange(suggestionText)
+                                                viewModel.submitSearch(suggestionText)
+                                            }
+                                            .padding(horizontal = 4.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            tint = Color(0xFFB3B3B3),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            text = suggestionText,
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color.White,
+                                                fontSize = 15.sp
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.onSearchQueryChange(suggestionText)
+                                                viewModel.submitSearch(suggestionText)
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Text(
+                                                text = "↗",
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    color = Color(0xFFB3B3B3),
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Light
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. MATCHED ARTIST (Circular Profile Avatar, Name, "Artist" subtitle)
+                            if (!matchedArtistName.isNullOrBlank()) {
+                                item(key = "matched_artist_$matchedArtistName") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                selectedArtistForDetail = matchedArtistName
+                                            }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ArtistAvatar(
+                                            artistName = matchedArtistName,
+                                            size = 52.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = matchedArtistName,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color.White,
+                                                    fontSize = 16.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "Artist",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = Color(0xFFB3B3B3),
+                                                    fontSize = 13.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 3. TOP HIT ORIGINAL SONGS (Square Art, Song • Artist, ⋮ and ⊕)
+                            items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
+                                val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
+                                val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
+                                val isDownloading = downloadingSongIds.contains(onlineSong.id)
+                                val progress = downloadProgress[onlineSong.id]
+                                val versionBadge = canonicalSongs.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
+
+                                OnlineSongItem(
+                                    song = onlineSong,
+                                    isPlaying = isCurrentPlayingOnline,
+                                    isSavedInLibrary = isSaved,
+                                    isDownloading = isDownloading,
+                                    downloadProgress = progress,
+                                    versionBadge = versionBadge,
+                                    onPlayClick = {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
+                                        viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
+                                    },
+                                    onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
+                                    onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                    onSwipeToQueue = {
+                                        viewModel.addSongToQueue(onlineSong)
+                                        android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+
+                            // 4. MATCHING PLAYLISTS / ALBUMS (Shown AFTER songs, exactly matching Spotify)
+                            if (displayedAlbums.isNotEmpty()) {
+                                items(displayedAlbums.take(2), key = { "album_${it.id}" }) { album ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                viewModel.openAlbumDetails(album)
+                                            }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TrackCoverArt(
+                                            albumArtPath = album.coverArtUrl,
+                                            title = album.title,
+                                            artist = album.artist ?: "",
+                                            size = 52.dp,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = album.title,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color.White,
+                                                    fontSize = 15.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = Color(0xFFB3B3B3),
+                                                    fontSize = 13.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                viewModel.openAlbumDetails(album)
+                                            },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AddCircleOutline,
+                                                contentDescription = "View Album",
+                                                tint = Color(0xFFB3B3B3),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 5. BOTTOM SPOTIFY ANCHOR: "View all results for '<query>'"
+                            item(key = "view_all_results_bottom") {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             keyboardController?.hide()
                                             focusManager.clearFocus()
-                                            viewModel.onSearchQueryChange(suggestionText)
-                                            viewModel.submitSearch(suggestionText)
+                                            viewModel.submitSearch(searchQuery.trim())
                                         }
-                                        .padding(horizontal = 4.dp, vertical = 10.dp),
+                                        .padding(vertical = 16.dp, horizontal = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = Color(0xFFB3B3B3),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
                                     Text(
-                                        text = suggestionText,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color.White,
+                                        text = "View all results for \"${searchQuery.trim()}\"",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = SpotifyGreenBright,
                                             fontSize = 15.sp
-                                        ),
-                                        modifier = Modifier.weight(1f)
+                                        )
                                     )
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.onSearchQueryChange(suggestionText)
-                                            viewModel.submitSearch(suggestionText)
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Text(
-                                            text = "↗",
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                color = Color(0xFFB3B3B3),
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Light
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                            item {
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                        }
-
-                        // 2. DISPATCH CONTENT BY TAB AND INTENT
-                        if (selectedSearchTab == "Real Songs") {
-                            when {
-                                isSadSongsQuery -> {
-                                    // Sad songs intent: Playlists at top, then songs
-                                    val sadPlaylists = displayedAlbums.filter { it.type == "Playlist" || it.title.contains("Sad", ignoreCase = true) || it.title.contains("Arijit", ignoreCase = true) }.take(2)
-                                    items(sadPlaylists, key = { "sad_pl_${it.id}" }) { album ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    viewModel.openAlbumDetails(album)
-                                                }
-                                                .padding(vertical = 6.dp, horizontal = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            TrackCoverArt(
-                                                albumArtPath = album.coverArtUrl,
-                                                title = album.title,
-                                                artist = album.artist ?: "",
-                                                size = 52.dp,
-                                                shape = RoundedCornerShape(6.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(14.dp))
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = album.title,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color.White,
-                                                        fontSize = 15.sp
-                                                    ),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
-                                                    style = MaterialTheme.typography.bodySmall.copy(
-                                                        color = Color(0xB3FFFFFF),
-                                                        fontSize = 12.sp
-                                                    ),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
-                                        val isCurrentPlayingOnline = playerState.isPlaying &&
-                                                (playerState.currentRecording?.filePath == onlineSong.streamUrl)
-                                        val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
-                                        val isDownloading = downloadingSongIds.contains(onlineSong.id)
-                                        val progress = downloadProgress[onlineSong.id]
-                                        val versionBadge = displayedCanonical.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
-
-                                        OnlineSongItem(
-                                            song = onlineSong,
-                                            isPlaying = isCurrentPlayingOnline,
-                                            isSavedInLibrary = isSaved,
-                                            isDownloading = isDownloading,
-                                            downloadProgress = progress,
-                                            versionBadge = versionBadge,
-                                            onPlayClick = {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.playOnlineSong(onlineSong)
-                                            },
-                                            onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
-                                            onSwipeToQueue = {
-                                                viewModel.addSongToQueue(onlineSong)
-                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    }
-                                }
-
-                                isOldSongsQuery -> {
-                                    // Old songs intent: 2 songs -> 90s bollywood playlist -> 1 song -> Old is Gold playlist -> Kishore Kumar artist -> remaining songs
-                                    val top2Songs = displayedOnlineSongs.take(2)
-                                    val playlist90s = displayedAlbums.firstOrNull { it.id.contains("90s") || it.title.contains("90s", ignoreCase = true) } ?: displayedAlbums.getOrNull(0)
-                                    val song3 = displayedOnlineSongs.getOrNull(2)
-                                    val playlistOldIsGold = displayedAlbums.firstOrNull { it.id.contains("gold") || it.title.contains("Gold", ignoreCase = true) } ?: displayedAlbums.getOrNull(1)
-                                    val kishoreArtist = onlineArtists.firstOrNull { it.name.contains("Kishore", ignoreCase = true) } ?: onlineArtists.firstOrNull()
-                                    val remainingSongs = displayedOnlineSongs.drop(3)
-
-                                    items(top2Songs, key = { "old_top_${it.id}" }) { onlineSong ->
-                                        val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
-                                        val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
-                                        val isDownloading = downloadingSongIds.contains(onlineSong.id)
-                                        val progress = downloadProgress[onlineSong.id]
-                                        val versionBadge = displayedCanonical.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
-
-                                        OnlineSongItem(
-                                            song = onlineSong,
-                                            isPlaying = isCurrentPlayingOnline,
-                                            isSavedInLibrary = isSaved,
-                                            isDownloading = isDownloading,
-                                            downloadProgress = progress,
-                                            versionBadge = versionBadge,
-                                            onPlayClick = {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.playOnlineSong(onlineSong)
-                                            },
-                                            onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
-                                            onSwipeToQueue = {
-                                                viewModel.addSongToQueue(onlineSong)
-                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    }
-
-                                    if (playlist90s != null) {
-                                        item(key = "old_pl_90s") {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .clickable {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        viewModel.openAlbumDetails(playlist90s)
-                                                    }
-                                                    .padding(vertical = 6.dp, horizontal = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                TrackCoverArt(
-                                                    albumArtPath = playlist90s.coverArtUrl,
-                                                    title = playlist90s.title,
-                                                    artist = playlist90s.artist ?: "",
-                                                    size = 52.dp,
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(14.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = playlist90s.title,
-                                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color.White,
-                                                            fontSize = 15.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Spacer(modifier = Modifier.height(2.dp))
-                                                    Text(
-                                                        text = "Playlist • Recordify",
-                                                        style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xB3FFFFFF),
-                                                            fontSize = 12.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (song3 != null) {
-                                        item(key = "old_s3_${song3.id}") {
-                                            val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == song3.streamUrl)
-                                            val isSaved = viewModel.isOnlineSongSavedInLibrary(song3)
-                                            val isDownloading = downloadingSongIds.contains(song3.id)
-                                            val progress = downloadProgress[song3.id]
-                                            val versionBadge = displayedCanonical.firstOrNull { it.providerTrackId == song3.id }?.recordingVersion?.badge
-
-                                            OnlineSongItem(
-                                                song = song3,
-                                                isPlaying = isCurrentPlayingOnline,
-                                                isSavedInLibrary = isSaved,
-                                                isDownloading = isDownloading,
-                                                downloadProgress = progress,
-                                                versionBadge = versionBadge,
-                                                onPlayClick = {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    viewModel.playOnlineSong(song3)
-                                                },
-                                                onDownloadClick = { viewModel.downloadOnlineSong(song3) },
-                                                onCancelDownload = { viewModel.cancelDownload(song3.id) },
-                                                onSwipeToQueue = {
-                                                    viewModel.addSongToQueue(song3)
-                                                    android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            )
-                                        }
-                                    }
-
-                                    if (playlistOldIsGold != null) {
-                                        item(key = "old_pl_gold") {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .clickable {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        viewModel.openAlbumDetails(playlistOldIsGold)
-                                                    }
-                                                    .padding(vertical = 6.dp, horizontal = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                TrackCoverArt(
-                                                    albumArtPath = playlistOldIsGold.coverArtUrl,
-                                                    title = playlistOldIsGold.title,
-                                                    artist = playlistOldIsGold.artist ?: "",
-                                                    size = 52.dp,
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(14.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = playlistOldIsGold.title,
-                                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color.White,
-                                                            fontSize = 15.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Spacer(modifier = Modifier.height(2.dp))
-                                                    Text(
-                                                        text = "Playlist • Recordify",
-                                                        style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xB3FFFFFF),
-                                                            fontSize = 12.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (kishoreArtist != null) {
-                                        item(key = "old_art_${kishoreArtist.id}") {
-                                            ArtistSearchResultItem(
-                                                artistName = kishoreArtist.name,
-                                                songCount = 0,
-                                                songHint = "Artist",
-                                                onClick = {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    selectedArtistForDetail = kishoreArtist.name
-                                                }
-                                            )
-                                        }
-                                    }
-
-                                    items(remainingSongs, key = { "old_rem_${it.id}" }) { onlineSong ->
-                                        val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
-                                        val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
-                                        val isDownloading = downloadingSongIds.contains(onlineSong.id)
-                                        val progress = downloadProgress[onlineSong.id]
-                                        val versionBadge = displayedCanonical.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
-
-                                        OnlineSongItem(
-                                            song = onlineSong,
-                                            isPlaying = isCurrentPlayingOnline,
-                                            isSavedInLibrary = isSaved,
-                                            isDownloading = isDownloading,
-                                            downloadProgress = progress,
-                                            versionBadge = versionBadge,
-                                            onPlayClick = {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.playOnlineSong(onlineSong)
-                                            },
-                                            onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                            onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
-                                            onSwipeToQueue = {
-                                                viewModel.addSongToQueue(onlineSong)
-                                                android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    }
-                                }
-
-                                else -> {
-                                    // General All tab search
-                                    if (isAlbumIntent && displayedAlbums.isNotEmpty()) {
-                                        items(displayedAlbums, key = { "album_${it.id}" }) { album ->
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .clickable {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        viewModel.openAlbumDetails(album)
-                                                    }
-                                                    .padding(vertical = 6.dp, horizontal = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                TrackCoverArt(
-                                                    albumArtPath = album.coverArtUrl,
-                                                    title = album.title,
-                                                    artist = album.artist ?: "",
-                                                    size = 52.dp,
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(14.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = album.title,
-                                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color.White,
-                                                            fontSize = 15.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Spacer(modifier = Modifier.height(2.dp))
-                                                    Text(
-                                                        text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
-                                                        style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xB3FFFFFF),
-                                                            fontSize = 12.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        if (displayedAlbums.isNotEmpty()) {
-                                            items(displayedAlbums.take(2), key = { "compact_album_${it.id}" }) { album ->
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .clickable {
-                                                            keyboardController?.hide()
-                                                            focusManager.clearFocus()
-                                                            viewModel.openAlbumDetails(album)
-                                                        }
-                                                        .padding(vertical = 4.dp, horizontal = 4.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    TrackCoverArt(
-                                                        albumArtPath = album.coverArtUrl,
-                                                        title = album.title,
-                                                        artist = album.artist ?: "",
-                                                        size = 48.dp,
-                                                        shape = RoundedCornerShape(6.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(12.dp))
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Text(
-                                                            text = album.title,
-                                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = Color.White
-                                                            ),
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                        Text(
-                                                            text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist • Recordify" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
-                                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                                color = Color(0xB3FFFFFF),
-                                                                fontSize = 12.sp
-                                                            ),
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
-                                            val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
-                                            val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
-                                            val isDownloading = downloadingSongIds.contains(onlineSong.id)
-                                            val progress = downloadProgress[onlineSong.id]
-                                            val versionBadge = displayedCanonical.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
-
-                                            OnlineSongItem(
-                                                song = onlineSong,
-                                                isPlaying = isCurrentPlayingOnline,
-                                                isSavedInLibrary = isSaved,
-                                                isDownloading = isDownloading,
-                                                downloadProgress = progress,
-                                                versionBadge = versionBadge,
-                                                onPlayClick = {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
-                                                    viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
-                                                },
-                                                onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                                onCancelDownload = { viewModel.cancelDownload(onlineSong.id) }
-                                            )
-                                        }
-
-                                        if (onlineArtists.isNotEmpty() || matchingArtists.isNotEmpty()) {
-                                            items(matchingArtists.take(2), key = { "art_match_${it.first}" }) { (artistName, songs) ->
-                                                ArtistSearchResultItem(
-                                                    artistName = artistName,
-                                                    songCount = songs.size,
-                                                    songHint = songs.firstOrNull()?.title,
-                                                    onClick = {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        selectedArtistForDetail = artistName
-                                                    }
-                                                )
-                                            }
-                                            items(onlineArtists.take(2), key = { "online_art_${it.id}" }) { artist ->
-                                                ArtistSearchResultItem(
-                                                    artistName = artist.name,
-                                                    songCount = 0,
-                                                    songHint = "Popular Artist",
-                                                    onClick = {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        selectedArtistForDetail = artist.name
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         } else if (selectedSearchTab == "YouTube") {
@@ -1496,75 +1075,12 @@ fun SearchScreen(
                             }
                         }
 
-                        // Playlists Section
-                        if (selectedSearchTab == "All" || selectedSearchTab == "Playlists") {
-                            val matchingPlaylists = playlists.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
-                            if (matchingPlaylists.isNotEmpty()) {
-                                item {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Playlists",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        ),
-                                        modifier = Modifier.padding(bottom = 4.dp)
-                                    )
-                                }
-
-                                items(matchingPlaylists, key = { "playlist_${it.id}" }) { playlist ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                            }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = SpotifyCardSurface,
-                                            modifier = Modifier.size(48.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.Default.LibraryMusic,
-                                                    contentDescription = null,
-                                                    tint = SpotifyGreenBright,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = playlist.name,
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.White
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = "Playlist • ${playlist.songIds.size} songs",
-                                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3)),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
                         // Empty State if no results found
                         val hasAnyResult = displayedOnlineSongs.isNotEmpty() ||
                                 displayedAlbums.isNotEmpty() ||
-                                matchingArtists.isNotEmpty()
+                                matchingArtists.isNotEmpty() ||
+                                searchSuggestions.isNotEmpty() ||
+                                !matchedArtistName.isNullOrBlank()
 
                         if (!hasAnyResult && !isOnlineSearching) {
                             item {
@@ -2236,7 +1752,7 @@ fun ArtistSearchResultItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ArtistAvatar(
@@ -2251,8 +1767,9 @@ fun ArtistSearchResultItem(
             Text(
                 text = artistName,
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    fontSize = 16.sp
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -2261,27 +1778,12 @@ fun ArtistSearchResultItem(
             Text(
                 text = if (songCount > 0) "Artist • $songCount ${if (songCount == 1) "track" else "tracks"}" else "Artist",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xB3FFFFFF),
-                    fontSize = 12.sp
+                    color = Color(0xFFB3B3B3),
+                    fontSize = 13.sp
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-
-        Surface(
-            shape = CircleShape,
-            color = SpotifyCardSurface,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = SpotifyGreenBright,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
         }
     }
 }

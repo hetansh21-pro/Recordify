@@ -433,14 +433,15 @@ private fun AlbumTrackRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TrackCoverArt(
-                albumArtPath = track.highResArtUrl?.ifBlank { null } ?: albumCoverArt,
+                albumArtPath = track.highResArtUrl?.takeIf { it.isNotBlank() && it != albumCoverArt },
+                fallbackArtPath = albumCoverArt,
                 title = track.title,
                 artist = track.artist,
                 size = 48.dp,
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(4.dp))
             )
 
             Spacer(modifier = Modifier.width(12.dp))

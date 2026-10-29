@@ -105,6 +105,7 @@ object ImageMemoryCache {
 @Composable
 fun rememberAsyncCoverArt(
     albumArtPath: String?,
+    fallbackArtPath: String? = null,
     title: String?,
     artist: String?,
     targetSizeDp: Dp
@@ -119,8 +120,8 @@ fun rememberAsyncCoverArt(
         }
     }
 
-    val cacheKey = remember(albumArtPath, title, artist, targetSizePx) {
-        "cover_${albumArtPath ?: ""}_${title ?: ""}_${artist ?: ""}_$targetSizePx"
+    val cacheKey = remember(albumArtPath, fallbackArtPath, title, artist, targetSizePx) {
+        "cover_${albumArtPath ?: ""}_${fallbackArtPath ?: ""}_${title ?: ""}_${artist ?: ""}_$targetSizePx"
     }
 
     val imageState = remember(cacheKey) {
@@ -204,6 +205,46 @@ fun rememberAsyncCoverArt(
                     }
                     if (resolvedPath != null) {
                         ImageMemoryCache.putResolvedPath(titleArtistKey, resolvedPath)
+                    }
+                }
+            }
+
+            // 3. Fallback to album/fallback art URL if song-specific art resolution was not found
+            if (resolvedPath == null && !fallbackArtPath.isNullOrBlank()) {
+                val cleanFallbackUrl = fallbackArtPath
+                    .replace("-150x150.jpg", "-500x500.jpg")
+                    .replace("-50x50.jpg", "-500x500.jpg")
+                    .replace("100x100bb.jpg", "600x600bb.jpg")
+
+                if (cleanFallbackUrl.startsWith("http://", ignoreCase = true) || cleanFallbackUrl.startsWith("https://", ignoreCase = true)) {
+                    val safeHash = Math.abs(cleanFallbackUrl.hashCode()).toString()
+                    val cachedFile = File(context.cacheDir, "thumb_$safeHash.jpg")
+                    if (cachedFile.exists() && cachedFile.length() > 500) {
+                        resolvedPath = cachedFile.absolutePath
+                    } else {
+                        try {
+                            val conn = (URL(cleanFallbackUrl).openConnection() as HttpURLConnection).apply {
+                                connectTimeout = 6000
+                                readTimeout = 6000
+                                setRequestProperty("User-Agent", "Mozilla/5.0")
+                            }
+                            if (conn.responseCode == 200) {
+                                conn.inputStream.use { input ->
+                                    cachedFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                if (cachedFile.exists() && cachedFile.length() > 500) {
+                                    resolvedPath = cachedFile.absolutePath
+                                }
+                            }
+                            conn.disconnect()
+                        } catch (_: Throwable) {}
+                    }
+                } else {
+                    val f = File(cleanFallbackUrl)
+                    if (f.exists() && f.length() > 500) {
+                        resolvedPath = cleanFallbackUrl
                     }
                 }
             }

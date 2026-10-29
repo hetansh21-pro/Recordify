@@ -113,12 +113,29 @@ object SearchSuggestionEngine {
             }
         }
 
-        // 3. Dynamic smart expansion for Indian context
+        // 3. Matched artist query expansion (e.g. "atif" -> "Atif Aslam all songs", "Atif Aslam", etc.)
+        val matchedArtist = com.audiovault.app.core.catalog.ArtistImageCatalog.allArtistNames.firstOrNull {
+            it.startsWith(q) || it.contains(" $q") || q.startsWith(it)
+        }
+        if (matchedArtist != null) {
+            val capitalized = matchedArtist.split(" ").joinToString(" ") { word ->
+                word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
+            return listOf(
+                "$capitalized all songs",
+                capitalized,
+                "$capitalized top hits",
+                "$capitalized song",
+                "$capitalized mashup"
+            )
+        }
+
+        // 4. Dynamic smart expansion for music search context
         return listOf(
-            "$rawQuery hindi",
+            "$rawQuery all songs",
             rawQuery,
-            "$rawQuery top songs",
-            "$rawQuery new version",
+            "$rawQuery top hits",
+            "$rawQuery song",
             "$rawQuery playlist"
         )
     }
