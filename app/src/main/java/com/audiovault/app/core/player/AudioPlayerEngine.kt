@@ -3,8 +3,6 @@ package com.audiovault.app.core.player
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -260,25 +258,10 @@ class AudioPlayerEngine(private val context: Context) {
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(defaultDataSourceFactory)
 
-        val player = try {
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(C.USAGE_MEDIA)
-                .build()
-
-            ExoPlayer.Builder(context)
-                .setWakeMode(C.WAKE_MODE_LOCAL)
-                .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-                .setLoadControl(loadControl)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .build()
-        } catch (t: Throwable) {
-            Log.w(TAG, "Fallback to basic ExoPlayer builder", t)
-            ExoPlayer.Builder(context)
-                .setLoadControl(loadControl)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .build()
-        }
+        val player = ExoPlayer.Builder(context)
+            .setLoadControl(loadControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
 
         player.addListener(playerListener)
         exoPlayer = player
