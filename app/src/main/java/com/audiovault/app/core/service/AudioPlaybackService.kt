@@ -37,13 +37,16 @@ class AudioPlaybackService : Service() {
                 action = if (isPlaying) ACTION_PLAY else ACTION_PAUSE
             }
             try {
-                if (isPlaying) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     ContextCompat.startForegroundService(context, intent)
                 } else {
                     context.startService(intent)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to start AudioPlaybackService with action: ${intent.action}", e)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Fallback to startService for AudioPlaybackService", t)
+                try {
+                    context.startService(intent)
+                } catch (_: Throwable) {}
             }
         }
 
@@ -89,7 +92,37 @@ class AudioPlaybackService : Service() {
             ?: PlaybackNotificationManager.buildFallbackNotification(this)
 
         val isPlaying = action != ACTION_PAUSE
-        updateForegroundNotification(notification, isPlaying)
+
+        // Unconditionally fulfill the startForegroundService contract first
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this,
+                    PlaybackNotificationManager.NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(PlaybackNotificationManager.NOTIFICATION_ID, notification)
+            }
+            isForegroundActive = true
+        } catch (t: Throwable) {
+            Log.w(TAG, "Primary startForeground failed, attempting legacy fallback", t)
+            try {
+                startForeground(PlaybackNotificationManager.NOTIFICATION_ID, notification)
+                isForegroundActive = true
+            } catch (e: Exception) {
+                Log.e(TAG, "All startForeground attempts failed", e)
+            }
+        }
+
+        // If paused, detach foreground so notification remains interactive and dismissible
+        if (!isPlaying && isForegroundActive) {
+            try {
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+                isForegroundActive = false
+            } catch (_: Throwable) {}
+        }
 
         return START_STICKY
     }
@@ -98,7 +131,8 @@ class AudioPlaybackService : Service() {
         try {
             if (isPlaying) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(
+                    ServiceCompat.startForeground(
+                        this,
                         PlaybackNotificationManager.NOTIFICATION_ID,
                         notification,
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
@@ -116,7 +150,11 @@ class AudioPlaybackService : Service() {
                 nm?.notify(PlaybackNotificationManager.NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating foreground playback notification", e)
+            Log.w(TAG, "Fallback updating notification in foreground service", e)
+            try {
+                startForeground(PlaybackNotificationManager.NOTIFICATION_ID, notification)
+                isForegroundActive = true
+            } catch (_: Throwable) {}
         }
     }
 

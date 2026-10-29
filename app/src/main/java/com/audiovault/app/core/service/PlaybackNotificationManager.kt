@@ -244,6 +244,12 @@ class PlaybackNotificationManager(
             val notification = buildNotification(recording, isPlaying, artBitmap)
             currentNotification = notification
 
+            // Always display notification via standard notificationManager immediately
+            try {
+                notificationManager.notify(NOTIFICATION_ID, notification)
+            } catch (_: Throwable) {}
+
+            // Attach to AudioPlaybackService for foreground lifecycle
             val service = AudioPlaybackService.activeService
             if (service != null) {
                 service.updateForegroundNotification(notification, isPlaying)

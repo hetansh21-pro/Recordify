@@ -260,18 +260,25 @@ class AudioPlayerEngine(private val context: Context) {
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(defaultDataSourceFactory)
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .setUsage(C.USAGE_MEDIA)
-            .build()
+        val player = try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .build()
 
-        val player = ExoPlayer.Builder(context)
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setHandleAudioBecomingNoisy(true)
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-            .setLoadControl(loadControl)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
+            ExoPlayer.Builder(context)
+                .setWakeMode(C.WAKE_MODE_LOCAL)
+                .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
+                .setLoadControl(loadControl)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Fallback to basic ExoPlayer builder", t)
+            ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+        }
 
         player.addListener(playerListener)
         exoPlayer = player
