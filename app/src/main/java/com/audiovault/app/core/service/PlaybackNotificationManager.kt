@@ -208,21 +208,20 @@ class PlaybackNotificationManager(
             updateMediaSessionState(PlaybackStateCompat.STATE_STOPPED, 0L, false)
             mediaSession.isActive = false
             notificationManager.cancel(NOTIFICATION_ID)
-            try {
-                val serviceIntent = Intent(context, AudioPlaybackService::class.java)
-                context.stopService(serviceIntent)
-            } catch (_: Throwable) {}
+            AudioPlaybackService.stopForeground(context, removeNotification = true)
         } catch (_: Throwable) {}
     }
 
     private fun postNotification(recording: RecordingEntity, isPlaying: Boolean, artBitmap: Bitmap?) {
         try {
             val notification = buildNotification(recording, isPlaying, artBitmap)
-            notificationManager.notify(NOTIFICATION_ID, notification)
-            try {
-                val serviceIntent = Intent(context, AudioPlaybackService::class.java)
-                context.startService(serviceIntent)
-            } catch (_: Throwable) {}
+            if (isPlaying) {
+                // Elevate process with FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                AudioPlaybackService.startForeground(context, notification)
+            } else {
+                notificationManager.notify(NOTIFICATION_ID, notification)
+                AudioPlaybackService.stopForeground(context, removeNotification = false)
+            }
         } catch (_: Throwable) {}
     }
 

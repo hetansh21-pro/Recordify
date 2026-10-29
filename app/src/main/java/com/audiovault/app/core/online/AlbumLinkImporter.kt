@@ -76,7 +76,12 @@ object AlbumLinkImporter {
                     val albumId = extractId(url, SPOTIFY_ALBUM_REGEX) ?: url.substringAfterLast(":").substringBefore("?")
                     val album = SpotifyWebMetadataFetcher.fetchAlbum(albumId)
                     if (album != null && album.songs.isNotEmpty()) {
-                        val enrichedAlbum = preResolveInitialTracks(album)
+                        val fixedAlbum = album.copy(
+                            id = "imp_sp_alb_$albumId",
+                            source = "imported",
+                            type = "Album"
+                        )
+                        val enrichedAlbum = preResolveInitialTracks(fixedAlbum)
                         return@withContext AlbumImportResult(
                             album = enrichedAlbum,
                             success = true,
@@ -91,7 +96,12 @@ object AlbumLinkImporter {
                     val playlistId = extractId(url, SPOTIFY_PLAYLIST_REGEX) ?: url.substringAfterLast(":").substringBefore("?")
                     val album = SpotifyWebMetadataFetcher.fetchPlaylist(playlistId)
                     if (album != null && album.songs.isNotEmpty()) {
-                        val enrichedAlbum = preResolveInitialTracks(album)
+                        val fixedAlbum = album.copy(
+                            id = "imp_sp_pl_$playlistId",
+                            source = "imported",
+                            type = "Playlist"
+                        )
+                        val enrichedAlbum = preResolveInitialTracks(fixedAlbum)
                         return@withContext AlbumImportResult(
                             album = enrichedAlbum,
                             success = true,
@@ -113,10 +123,14 @@ object AlbumLinkImporter {
                     if (token.isNotBlank()) {
                         val directAlbum = OnlineMusicSearchService.fetchAlbumSoundtrack(token)
                         if (directAlbum != null && directAlbum.songs.isNotEmpty()) {
+                            val sealed = directAlbum.copy(
+                                id = "imp_saavn_$token",
+                                source = "imported"
+                            )
                             return@withContext AlbumImportResult(
-                                album = directAlbum,
+                                album = sealed,
                                 success = true,
-                                message = "Successfully imported '${directAlbum.title}' with ${directAlbum.songs.size} tracks!"
+                                message = "Successfully imported '${sealed.title}' with ${sealed.songs.size} tracks!"
                             )
                         }
                     }
@@ -125,10 +139,14 @@ object AlbumLinkImporter {
                     if (token.isNotBlank()) {
                         val tokenAlbum = fetchSaavnAlbumViaToken(token)
                         if (tokenAlbum != null && tokenAlbum.songs.isNotEmpty()) {
+                            val sealed = tokenAlbum.copy(
+                                id = "imp_saavn_$token",
+                                source = "imported"
+                            )
                             return@withContext AlbumImportResult(
-                                album = tokenAlbum,
+                                album = sealed,
                                 success = true,
-                                message = "Successfully imported '${tokenAlbum.title}' with ${tokenAlbum.songs.size} tracks!"
+                                message = "Successfully imported '${sealed.title}' with ${sealed.songs.size} tracks!"
                             )
                         }
                     }
@@ -137,10 +155,14 @@ object AlbumLinkImporter {
                     if (albumName.isNotBlank()) {
                         val matchedAlbum = OnlineMusicSearchService.resolveMovieSoundtrack(albumName)
                         if (matchedAlbum != null && matchedAlbum.songs.isNotEmpty()) {
+                            val sealed = matchedAlbum.copy(
+                                id = "imp_saavn_${matchedAlbum.id}",
+                                source = "imported"
+                            )
                             return@withContext AlbumImportResult(
-                                album = matchedAlbum,
+                                album = sealed,
                                 success = true,
-                                message = "Successfully imported '${matchedAlbum.title}' with ${matchedAlbum.songs.size} tracks!"
+                                message = "Successfully imported '${sealed.title}' with ${sealed.songs.size} tracks!"
                             )
                         }
                     }
@@ -152,10 +174,14 @@ object AlbumLinkImporter {
                     val playlistId = extractId(url, YOUTUBE_PLAYLIST_REGEX) ?: url.substringAfter("list=").substringBefore("&")
                     val album = fetchYouTubePlaylist(playlistId)
                     if (album != null && album.songs.isNotEmpty()) {
+                        val sealed = album.copy(
+                            id = "imp_yt_$playlistId",
+                            source = "imported"
+                        )
                         return@withContext AlbumImportResult(
-                            album = album,
+                            album = sealed,
                             success = true,
-                            message = "Successfully imported '${album.title}' with ${album.songs.size} YouTube tracks!"
+                            message = "Successfully imported '${sealed.title}' with ${sealed.songs.size} YouTube tracks!"
                         )
                     } else {
                         return@withContext AlbumImportResult(message = "Could not fetch tracks from this YouTube playlist.")

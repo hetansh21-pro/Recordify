@@ -42,6 +42,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
     private val recordingRepository: RecordingRepository = container.recordingRepository
     private val fileManager: FileManager = container.fileManager
     private val playlistRepository: com.audiovault.app.data.repository.PlaylistRepository = container.playlistRepository
+    private val importedAlbumRepository: com.audiovault.app.data.repository.ImportedAlbumRepository = container.importedAlbumRepository
+    val importedAlbums: StateFlow<List<com.audiovault.app.core.online.OnlineAlbumModel>> = importedAlbumRepository.importedAlbums
     val playerEngine: AudioPlayerEngine = container.playerEngine
     private val onlineSongDownloader = container.onlineSongDownloader
     private val userPreferencesRepository = container.userPreferencesRepository
@@ -542,6 +544,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 if (result.success && result.album != null) {
                     _importAlbumMessage.value = result.message
                     _matchingAlbums.value = listOf(result.album)
+                    importedAlbumRepository.saveAlbum(result.album, url)
                     openAlbumDetails(result.album)
                     onSuccess?.invoke(result.album)
                 } else {
@@ -553,6 +556,10 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 _isImportingAlbum.value = false
             }
         }
+    }
+
+    fun deleteImportedAlbum(albumId: String) {
+        importedAlbumRepository.deleteAlbum(albumId)
     }
 
     fun clearImportMessage() {
@@ -674,11 +681,18 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
 
-                // 2. Fetch curated albums and singles in parallel
+                // 2. Fetch curated albums and singles in parallel with daily live Spotify home sync
                 val featuredJob = launch {
                     if (_homeContent.value.popularAlbumsAndSingles.isEmpty() || forceRefresh) {
                         try {
-                            val content = com.audiovault.app.core.online.OnlineMusicSearchService.fetchHomeFeaturedContent(currentSettings.userCountryCode)
+                            val liveSpotify = com.audiovault.app.core.online.SpotifyLiveHomeSync.getLiveDailyHomeContent(
+                                context = getApplication<AudioVaultApplication>(),
+                                forceRefresh = forceRefresh
+                            )
+                            val content = com.audiovault.app.core.online.OnlineMusicSearchService.fetchHomeFeaturedContent(
+                                countryCode = currentSettings.userCountryCode,
+                                liveSpotifyContent = liveSpotify
+                            )
                             _homeContent.value = content
                             _homeLatestReleases.value = content.latestReleases
                             _homeTrendingSoundtracks.value = content.popularAlbumsAndSingles
@@ -725,24 +739,39 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         album: com.audiovault.app.core.online.OnlineAlbumModel,
         autoPlayIndex: Int? = null
     ) {
-        _selectedAlbum.value = album
+        // 1. Check if this album exists in permanent ImportedAlbumRepository
+        val existingImported = importedAlbumRepository.getAlbumById(album.id)
+            ?: (if (album.songs.isEmpty()) importedAlbumRepository.getAlbumByTitle(album.title) else null)
+
+        val targetAlbum = if (existingImported != null && existingImported.songs.isNotEmpty()) {
+            existingImported
+        } else {
+            album
+        }
+
+        _selectedAlbum.value = targetAlbum
+
+        // Ensure newly imported albums or loaded albums are persisted
+        if (targetAlbum.source == "imported" && targetAlbum.songs.isNotEmpty()) {
+            importedAlbumRepository.saveAlbum(targetAlbum)
+        }
 
         // Save album to Recent Searches
         viewModelScope.launch {
             userPreferencesRepository.addRecentSearchItem(
                 com.audiovault.app.data.repository.RecentlyPlayedSearchItem(
-                    id = "alb_${album.id}",
-                    title = album.title,
-                    artist = album.artist ?: "Soundtrack",
-                    albumArtPath = album.coverArtUrl,
+                    id = "alb_${targetAlbum.id}",
+                    title = targetAlbum.title,
+                    artist = targetAlbum.artist ?: "Soundtrack",
+                    albumArtPath = targetAlbum.coverArtUrl,
                     isOnline = true,
                     isAlbum = true,
-                    albumId = album.id
+                    albumId = targetAlbum.id
                 )
             )
         }
 
-        if (album.songs.isEmpty()) {
+        if (targetAlbum.songs.isEmpty()) {
             viewModelScope.launch {
                 _isAlbumLoading.value = true
                 try {
@@ -845,6 +874,9 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
                     if (finalAlbum != null) {
                         _selectedAlbum.value = finalAlbum
+                        if (targetAlbum.source == "imported") {
+                            importedAlbumRepository.saveAlbum(finalAlbum)
+                        }
                         if (autoPlayIndex != null && finalAlbum.songs.isNotEmpty()) {
                             _activeAlbumContext.value = finalAlbum
                             playbackQueueManager.playAlbum(
@@ -861,10 +893,10 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
         } else if (autoPlayIndex != null) {
-            _activeAlbumContext.value = album
+            _activeAlbumContext.value = targetAlbum
             playbackQueueManager.playAlbum(
-                album,
-                startIndex = autoPlayIndex.coerceIn(0, album.songs.size - 1),
+                targetAlbum,
+                startIndex = autoPlayIndex.coerceIn(0, targetAlbum.songs.size - 1),
                 isDataSaver = userSettings.value.isDataSaverEnabled
             )
         }
@@ -1174,6 +1206,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
     fun playRecentSearchItem(item: com.audiovault.app.data.repository.RecentlyPlayedSearchItem) {
         if (item.isAlbum && !item.albumId.isNullOrBlank()) {
+            val imported = importedAlbumRepository.getAlbumById(item.albumId)
+                ?: importedAlbumRepository.getAlbumByTitle(item.title)
+            if (imported != null && imported.songs.isNotEmpty()) {
+                openAlbumDetails(imported)
+                return
+            }
             openAlbumDetails(
                 com.audiovault.app.core.online.OnlineAlbumModel(
                     id = item.albumId,

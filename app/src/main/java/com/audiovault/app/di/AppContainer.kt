@@ -3,6 +3,7 @@ package com.audiovault.app.di
 import android.content.Context
 import com.audiovault.app.core.player.AudioPlayerEngine
 import com.audiovault.app.data.local.AppDatabase
+import com.audiovault.app.data.repository.ImportedAlbumRepository
 import com.audiovault.app.data.repository.PlaylistRepository
 import com.audiovault.app.data.repository.RecordingRepository
 import com.audiovault.app.data.repository.UserPreferencesRepository
@@ -16,6 +17,7 @@ interface AppContainer {
     val videoRepository: VideoRepository
     val userPreferencesRepository: UserPreferencesRepository
     val playlistRepository: PlaylistRepository
+    val importedAlbumRepository: ImportedAlbumRepository
     val playerEngine: AudioPlayerEngine
     val onlineSongDownloader: com.audiovault.app.core.online.OnlineSongDownloader
     val recommendationService: com.audiovault.app.core.recommendation.RecommendationService
@@ -46,6 +48,10 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val playlistRepository: PlaylistRepository by lazy {
         PlaylistRepository(context)
+    }
+
+    override val importedAlbumRepository: ImportedAlbumRepository by lazy {
+        ImportedAlbumRepository(context)
     }
 
     override val playerEngine: AudioPlayerEngine by lazy {

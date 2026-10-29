@@ -1016,7 +1016,10 @@ object OnlineMusicSearchService {
         results
     }
 
-    suspend fun fetchHomeFeaturedContent(countryCode: String = "IN"): SpotifyHomeContent = withContext(Dispatchers.IO) {
+    suspend fun fetchHomeFeaturedContent(
+        countryCode: String = "IN",
+        liveSpotifyContent: SpotifyHomeContent? = null
+    ): SpotifyHomeContent = withContext(Dispatchers.IO) {
         val isIndia = countryCode.equals("IN", ignoreCase = true)
         val profile = com.audiovault.app.core.catalog.CountryMusicCatalog.getProfile(countryCode)
         val countryUpper = countryCode.uppercase()
@@ -1249,15 +1252,33 @@ object OnlineMusicSearchService {
             val pop = popularAlbumsDeferred.await()
             val rel = releasesDeferred.await()
 
+            val combinedRecommended = if (liveSpotifyContent != null && liveSpotifyContent.recommendedToday.isNotEmpty()) {
+                (liveSpotifyContent.recommendedToday + rec).distinctBy { it.id }
+            } else {
+                rec
+            }
+
+            val combinedPopular = if (liveSpotifyContent != null && liveSpotifyContent.popularAlbumsAndSingles.isNotEmpty()) {
+                (liveSpotifyContent.popularAlbumsAndSingles + pop).distinctBy { it.id }
+            } else {
+                pop
+            }
+
+            val combinedReleases = if (liveSpotifyContent != null && liveSpotifyContent.latestReleases.isNotEmpty()) {
+                (liveSpotifyContent.latestReleases + rel).distinctBy { normalizeKey(it.title, it.artist) }
+            } else {
+                rel
+            }
+
             SpotifyHomeContent(
-                recommendedToday = rec,
-                popularAlbumsAndSingles = pop,
+                recommendedToday = combinedRecommended,
+                popularAlbumsAndSingles = combinedPopular,
                 popularRadios = radioList,
                 favouriteArtists = artistList,
-                moreOfWhatYouLike = pop.reversed(),
-                latestReleases = rel,
-                trendingSoundtracks = pop,
-                featuredPlaylists = rel.take(8)
+                moreOfWhatYouLike = combinedPopular.reversed(),
+                latestReleases = combinedReleases,
+                trendingSoundtracks = combinedPopular,
+                featuredPlaylists = combinedReleases.take(8)
             )
         }
     }

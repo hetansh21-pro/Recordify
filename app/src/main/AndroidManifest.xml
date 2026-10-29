@@ -13,9 +13,10 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
-    <!-- Foreground Service permissions for MediaProjection Playback Capture -->
+    <!-- Foreground Service permissions for MediaProjection Playback Capture and Audio Playback -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -64,7 +65,8 @@
         <!-- Service for audio playback task lifecycle & background continuity -->
         <service
             android:name=".core.service.AudioPlaybackService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Receiver for interactive notification playback controls -->
         <receiver

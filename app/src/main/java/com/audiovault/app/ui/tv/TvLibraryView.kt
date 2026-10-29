@@ -88,6 +88,7 @@ fun TvLibraryView(
     val allRecordings by viewModel.allRecordings.collectAsState(initial = emptyList())
     val playlists by viewModel.playlists.collectAsState()
     val savedArtists by viewModel.savedArtists.collectAsState()
+    val importedAlbums by viewModel.importedAlbums.collectAsState()
 
     val likedSongs = remember(allRecordings, likedSongIds) {
         allRecordings.filter { likedSongIds.contains(it.id) }
@@ -439,7 +440,7 @@ fun TvLibraryView(
             // 1. FILTER PILLS ([All], [Playlists], [Podcasts & shows], [Artists])
             // -------------------------------------------------------------
             item {
-                val libraryFilterPills = listOf("All", "Playlists", "Podcasts & shows", "Artists")
+                val libraryFilterPills = listOf("All", "Albums", "Playlists", "Podcasts & shows", "Artists")
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -641,6 +642,15 @@ fun TvLibraryView(
                     if (selectedFilterPill == "All" || selectedFilterPill == "Playlists") {
                         val displayPlaylists = CuratedAlbumCatalog.curatedAlbums.take(4)
                         displayPlaylists.forEach { album ->
+                            item {
+                                TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
+                            }
+                        }
+                    }
+
+                    // 3b. Imported Albums & Preserved Collections
+                    if (selectedFilterPill == "All" || selectedFilterPill == "Albums") {
+                        importedAlbums.forEach { album ->
                             item {
                                 TvAlbumCard(album = album, onClick = { onOpenAlbum(album) })
                             }

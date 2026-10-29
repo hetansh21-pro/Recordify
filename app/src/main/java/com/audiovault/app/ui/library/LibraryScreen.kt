@@ -117,6 +117,7 @@ enum class LibraryTab {
     ALL,
     DOWNLOADED,
     PLAYLISTS,
+    ALBUMS,
     ARTISTS,
     SONGS
 }
@@ -138,6 +139,7 @@ fun LibraryScreen(
     val playlists by viewModel.playlists.collectAsState()
     val savedArtists by viewModel.savedArtists.collectAsState()
     val manualArtists by viewModel.manualArtists.collectAsState()
+    val importedAlbums by viewModel.importedAlbums.collectAsState()
 
     var selectedTab by remember { mutableStateOf(LibraryTab.ALL) }
     var selectedArtistForDetail by remember { mutableStateOf<String?>(null) }
@@ -257,6 +259,14 @@ fun LibraryScreen(
     val filteredPlaylists = remember(playlists, query) {
         if (query.isEmpty()) playlists
         else playlists.filter { it.name.contains(query, ignoreCase = true) }
+    }
+
+    val filteredImportedAlbums = remember(importedAlbums, query) {
+        if (query.isEmpty()) importedAlbums
+        else importedAlbums.filter {
+            it.title.contains(query, ignoreCase = true) ||
+            (it.artist ?: "").contains(query, ignoreCase = true)
+        }
     }
 
     val filteredRecordings = remember(recordings, query) {
@@ -472,6 +482,7 @@ fun LibraryScreen(
                                 when (selectedTab) {
                                     LibraryTab.ARTISTS -> showAddArtistDialog = true
                                     LibraryTab.PLAYLISTS -> showCreatePlaylistDialog = true
+                                    LibraryTab.ALBUMS -> showImportAlbumDialog = true
                                     else -> plusMenuExpanded = true
                                 }
                             }) {
@@ -536,6 +547,7 @@ fun LibraryScreen(
                         LibraryTab.ALL -> "All"
                         LibraryTab.DOWNLOADED -> "Downloaded"
                         LibraryTab.PLAYLISTS -> "Playlists"
+                        LibraryTab.ALBUMS -> "Albums"
                         LibraryTab.ARTISTS -> "Artists"
                         LibraryTab.SONGS -> "Songs"
                     }
@@ -778,6 +790,17 @@ fun LibraryScreen(
                         }
                     }
 
+                    // Imported Albums Grid Cards
+                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.ALBUMS) {
+                        items(filteredImportedAlbums, key = { "imp_grid_${it.id}" }) { album ->
+                            ImportedAlbumGridCard(
+                                album = album,
+                                onClick = { viewModel.openAlbumDetails(album) },
+                                onDelete = { viewModel.deleteImportedAlbum(album.id) }
+                            )
+                        }
+                    }
+
                     // Saved Artist Cards (if in ALL tab - only saved/followed artists)
                     if (selectedTab == LibraryTab.ALL) {
                         items(filteredSavedArtistGroups, key = { it.first }) { (artistName, songs) ->
@@ -963,6 +986,56 @@ fun LibraryScreen(
                                 onRename = { playlistToRename = playlist },
                                 onDelete = { playlistToDelete = playlist }
                             )
+                        }
+                    }
+
+                    // Imported Albums & Soundtracks
+                    if (selectedTab == LibraryTab.ALL || selectedTab == LibraryTab.ALBUMS) {
+                        if (selectedTab == LibraryTab.ALBUMS && filteredImportedAlbums.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 48.dp, horizontal = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Album,
+                                        contentDescription = null,
+                                        tint = SpotifyGreenBright,
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                    Text(
+                                        text = "No Imported Albums Yet",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Text(
+                                        text = "Import albums and playlists from Spotify, JioSaavn, or YouTube with permanent offline track preservation.",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color.Gray,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    )
+                                    Button(
+                                        onClick = { showImportAlbumDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreenBright)
+                                    ) {
+                                        Text("Import Album from Link", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            items(filteredImportedAlbums, key = { "imp_row_${it.id}" }) { album ->
+                                ImportedAlbumLibraryRow(
+                                    album = album,
+                                    onClick = { viewModel.openAlbumDetails(album) },
+                                    onDelete = { viewModel.deleteImportedAlbum(album.id) }
+                                )
+                            }
                         }
                     }
 
@@ -2994,6 +3067,153 @@ fun LibraryCategoryHub(
                 gradientColors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)),
                 onClick = onArtistsClick,
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImportedAlbumLibraryRow(
+    album: com.audiovault.app.core.online.OnlineAlbumModel,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TrackCoverArt(
+            albumArtPath = album.coverArtUrl,
+            title = album.title,
+            size = 56.dp,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp))
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = album.title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Album • ${album.artist ?: "Various Artists"} • ${album.songs.size} tracks",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.Gray
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Options",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Delete from Library") },
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportedAlbumGridCard(
+    album: com.audiovault.app.core.online.OnlineAlbumModel,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF1E1E1E),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
+                TrackCoverArt(
+                    albumArtPath = album.coverArtUrl,
+                    title = album.title,
+                    size = 140.dp,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Delete from Library") },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = album.title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${album.songs.size} tracks",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                maxLines = 1
             )
         }
     }
