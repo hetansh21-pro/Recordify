@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ImageKit Video Player</title>
+    <link rel="stylesheet" href="https://recordify.local/imagekit/styles.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .video-js {
+            width: 100% !important;
+            height: 100% !important;
+            background-color: #000 !important;
+        }
+        .video-js .vjs-big-play-button {
+            border-color: #00E676 !important;
+            background-color: rgba(0, 0, 0, 0.75) !important;
+            border-radius: 50% !important;
+            width: 72px !important;
+            height: 72px !important;
+            line-height: 68px !important;
+            font-size: 38px !important;
+            margin-top: -36px !important;
+            margin-left: -36px !important;
+            color: #00E676 !important;
+        }
+        .video-js .vjs-play-progress,
+        .video-js .vjs-volume-level,
+        .video-js .vjs-slider-bar {
+            background-color: #00E676 !important;
+        }
+        .video-js .vjs-load-progress {
+            background: rgba(255, 255, 255, 0.25) !important;
+        }
+        .video-js .vjs-control-bar {
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%) !important;
+            height: 56px !important;
+        }
+        .vjs-button > .vjs-icon-placeholder:before {
+            font-size: 24px !important;
+            line-height: 56px !important;
+        }
+        .vjs-time-control {
+            line-height: 56px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            color: #fff !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <video
+            id="imagekit-player"
+            class="video-js vjs-default-skin vjs-big-play-centered"
+            controls
+            autoplay
+            playsinline
+            preload="auto">
+        </video>
+    </div>
+
+    <script src="https://recordify.local/imagekit/index.global.js"></script>
+    <script>
+        var player = null;
+        function setupPlayer(srcUrl) {
+            try {
+                if (window.ImageKitVideoPlayer && typeof window.ImageKitVideoPlayer.videoPlayer === 'function') {
+                    player = window.ImageKitVideoPlayer.videoPlayer('imagekit-player', {
+                        imagekitId: 'recordify',
+                        seekThumbnails: false,
+                        hideContextMenu: false
+                    }, {
+                        autoplay: true,
+                        controls: true,
+                        responsive: true,
+                        fluid: false,
+                        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2]
+                    });
+                    player.src({
+                        src: srcUrl,
+                        type: 'video/mp4'
+                    });
+                    player.ready(function() {
+                        player.play().catch(function(err) {
+                            console.log('Autoplay handled', err);
+                        });
+                    });
+                } else if (window.videojs) {
+                    player = window.videojs('imagekit-player', {
+                        autoplay: true,
+                        controls: true,
+                        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2]
+                    });
+                    player.src({
+                        src: srcUrl,
+                        type: 'video/mp4'
+                    });
+                }
+            } catch (e) {
+                console.error('ImageKit player error:', e);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            setupPlayer('https://recordify.local/video.mp4');
+        });
+    </script>
+</body>
+</html>

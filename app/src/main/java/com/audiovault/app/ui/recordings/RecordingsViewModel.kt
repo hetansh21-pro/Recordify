@@ -579,7 +579,9 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
         // 1. Detect pasted Album or Playlist links (Spotify, JioSaavn, YouTube)
         if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-            importAlbumFromLink(trimmed)
+            if (immediate) {
+                importAlbumFromLink(trimmed)
+            }
             return
         }
 

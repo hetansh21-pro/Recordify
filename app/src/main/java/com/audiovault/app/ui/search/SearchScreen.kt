@@ -560,10 +560,10 @@ fun SearchScreen(
                                 Box(modifier = Modifier.weight(1f)) {
                                     if (searchQuery.isEmpty()) {
                                         Text(
-                                            text = "What do you want to listen to?",
+                                            text = "Search songs or paste playlist link...",
                                             style = TextStyle(
                                                 color = Color(0xFFAAAAAA),
-                                                fontSize = 15.sp,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium
                                             )
                                         )
@@ -572,15 +572,7 @@ fun SearchScreen(
                                     BasicTextField(
                                         value = searchQuery,
                                         onValueChange = { newText ->
-                                            val trimmed = newText.trim()
-                                            if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
-                                                viewModel.importAlbumFromLink(trimmed)
-                                            } else {
-                                                viewModel.onSearchQueryChange(newText)
-                                            }
+                                            viewModel.onSearchQueryChange(newText)
                                         },
                                         textStyle = TextStyle(
                                             color = Color.White,
@@ -594,35 +586,41 @@ fun SearchScreen(
                                             onSearch = {
                                                 val trimmed = searchQuery.trim()
                                                 if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
                                                     viewModel.importAlbumFromLink(trimmed)
                                                 } else {
                                                     viewModel.submitSearch(searchQuery)
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
                                                 }
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
                                             },
                                             onDone = {
                                                 val trimmed = searchQuery.trim()
                                                 if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
                                                     viewModel.importAlbumFromLink(trimmed)
                                                 } else {
                                                     viewModel.submitSearch(searchQuery)
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
                                                 }
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
                                             },
                                             onGo = {
                                                 val trimmed = searchQuery.trim()
                                                 if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
                                                     viewModel.importAlbumFromLink(trimmed)
                                                 } else {
                                                     viewModel.submitSearch(searchQuery)
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
                                                 }
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
                                             }
                                         ),
                                         modifier = Modifier
@@ -634,13 +632,15 @@ fun SearchScreen(
                                                 ) {
                                                     val trimmed = searchQuery.trim()
                                                     if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                        android.widget.Toast.makeText(context, "Detected album link! Importing...", android.widget.Toast.LENGTH_SHORT).show()
+                                                        keyboardController?.hide()
+                                                        focusManager.clearFocus()
+                                                        android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
                                                         viewModel.importAlbumFromLink(trimmed)
                                                     } else {
                                                         viewModel.submitSearch(searchQuery)
+                                                        keyboardController?.hide()
+                                                        focusManager.clearFocus()
                                                     }
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
                                                     true
                                                 } else {
                                                     false
@@ -664,6 +664,67 @@ fun SearchScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        // Small note helper for playlist/album link import
+                        val isPastedPlaylistLink = remember(searchQuery) {
+                            val trimmed = searchQuery.trim()
+                            trimmed.isNotBlank() && com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)
+                        }
+
+                        if (isPastedPlaylistLink) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF1E3823),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .clickable {
+                                        val trimmed = searchQuery.trim()
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                        viewModel.importAlbumFromLink(trimmed)
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = SpotifyGreenBright,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Playlist link detected • Press Enter ↵ or Tap to show playlist",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = SpotifyGreenBright,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp, start = 4.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "💡 Paste playlist link here to fetch (Spotify, JioSaavn, YouTube)",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFF888888),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                )
                             }
                         }
                     }

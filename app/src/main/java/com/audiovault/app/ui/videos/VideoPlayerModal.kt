@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Share
@@ -82,7 +83,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.audiovault.app.data.local.entity.DownloadedVideoEntity
-import com.audiovault.app.ui.theme.SpotifyBlack
 import com.audiovault.app.ui.theme.SpotifyGreenBright
 import kotlinx.coroutines.delay
 import java.io.File
@@ -111,26 +111,8 @@ fun VideoPlayerModal(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            val file = File(video.filePath)
-            val uri = Uri.fromFile(file)
-            val mediaItem = MediaItem.fromUri(uri)
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = true
-        }
-    }
-
-    var isPlaying by remember { mutableStateOf(true) }
-    var currentPositionMs by remember { mutableLongStateOf(0L) }
-    var durationMs by remember { mutableLongStateOf(video.durationSeconds * 1000L) }
-    var isBuffering by remember { mutableStateOf(false) }
-    var showControls by remember { mutableStateOf(true) }
-    var resizeMode by remember { mutableStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
-    var isSeeking by remember { mutableStateOf(false) }
-    var seekFraction by remember { mutableFloatStateOf(0f) }
-    var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
+    // ImageKit Video Player is enabled by default as requested
+    var useImageKitPlayer by remember { mutableStateOf(true) }
 
     val handleClose = {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -158,6 +140,225 @@ fun VideoPlayerModal(
         }
     }
 
+    if (useImageKitPlayer) {
+        var showTopBar by remember { mutableStateOf(true) }
+
+        LaunchedEffect(showTopBar) {
+            if (showTopBar) {
+                delay(4000)
+                showTopBar = false
+            }
+        }
+
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    showTopBar = !showTopBar
+                }
+        ) {
+            // Main ImageKit Video Player
+            ImageKitVideoPlayerView(
+                video = video,
+                onClose = handleClose,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Top Overlay Action Bar
+            AnimatedVisibility(
+                visible = showTopBar,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)
+                            )
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = handleClose,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = video.title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = video.channelTitle,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB3B3B3)),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = SpotifyGreenBright.copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        text = video.resolution,
+                                        color = SpotifyGreenBright,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFF1E3823)
+                                ) {
+                                    Text(
+                                        text = "ImageKit",
+                                        color = SpotifyGreenBright,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Toggle to native ExoPlayer if user desires
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color.Black.copy(alpha = 0.6f),
+                            modifier = Modifier.clickable { useImageKitPlayer = false }
+                        ) {
+                            Text(
+                                text = "Native",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Rotate Screen Orientation Button
+                        IconButton(
+                            onClick = {
+                                val act = activity ?: return@IconButton
+                                if (isLandscape) {
+                                    act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                } else {
+                                    act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                }
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ScreenRotation,
+                                contentDescription = "Rotate Screen",
+                                tint = Color.White
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
+                            onClick = onShare,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Native ExoPlayer Fallback
+        NativeExoPlayerContainer(
+            video = video,
+            isLandscape = isLandscape,
+            activity = activity,
+            onClose = handleClose,
+            onShare = onShare,
+            onSwitchToImageKit = { useImageKitPlayer = true },
+            modifier = modifier
+        )
+    }
+}
+
+@SuppressLint("DefaultLocale")
+@OptIn(UnstableApi::class)
+@Composable
+private fun NativeExoPlayerContainer(
+    video: DownloadedVideoEntity,
+    isLandscape: Boolean,
+    activity: Activity?,
+    onClose: () -> Unit,
+    onShare: () -> Unit,
+    onSwitchToImageKit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            val file = File(video.filePath)
+            val uri = Uri.fromFile(file)
+            val mediaItem = MediaItem.fromUri(uri)
+            setMediaItem(mediaItem)
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    var isPlaying by remember { mutableStateOf(true) }
+    var currentPositionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(video.durationSeconds * 1000L) }
+    var isBuffering by remember { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(true) }
+    var resizeMode by remember { mutableStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+    var isSeeking by remember { mutableStateOf(false) }
+    var seekFraction by remember { mutableFloatStateOf(0f) }
+    var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
+
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -184,7 +385,6 @@ fun VideoPlayerModal(
         }
     }
 
-    // Ticking progress update
     LaunchedEffect(isPlaying) {
         while (isPlaying) {
             if (!isSeeking) {
@@ -197,7 +397,6 @@ fun VideoPlayerModal(
         }
     }
 
-    // Auto-hide controls after 4 seconds
     LaunchedEffect(showControls, isPlaying) {
         if (showControls && isPlaying) {
             delay(4000)
@@ -216,7 +415,6 @@ fun VideoPlayerModal(
                 showControls = !showControls
             }
     ) {
-        // Video Surface
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -239,7 +437,6 @@ fun VideoPlayerModal(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Buffering Indicator
         if (isBuffering) {
             CircularProgressIndicator(
                 color = SpotifyGreenBright,
@@ -249,7 +446,6 @@ fun VideoPlayerModal(
             )
         }
 
-        // Overlay Controls
         AnimatedVisibility(
             visible = showControls,
             enter = fadeIn(),
@@ -257,7 +453,6 @@ fun VideoPlayerModal(
             modifier = Modifier.fillMaxSize()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Top Gradient Scrim
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -270,7 +465,6 @@ fun VideoPlayerModal(
                         )
                 )
 
-                // Bottom Gradient Scrim
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -283,7 +477,6 @@ fun VideoPlayerModal(
                         )
                 )
 
-                // Top Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -292,7 +485,7 @@ fun VideoPlayerModal(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = handleClose,
+                        onClick = onClose,
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
@@ -340,7 +533,22 @@ fun VideoPlayerModal(
                         }
                     }
 
-                    // Playback Speed Button
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF1E3823),
+                        modifier = Modifier.clickable { onSwitchToImageKit() }
+                    ) {
+                        Text(
+                            text = "ImageKit",
+                            color = SpotifyGreenBright,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.Black.copy(alpha = 0.5f),
@@ -367,7 +575,6 @@ fun VideoPlayerModal(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Rotate Screen Orientation Button
                     IconButton(
                         onClick = {
                             val act = activity ?: return@IconButton
@@ -406,13 +613,11 @@ fun VideoPlayerModal(
                     }
                 }
 
-                // Center Play / Pause / Rewind / Fast-Forward
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.spacedBy(36.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Rewind 10s
                     IconButton(
                         onClick = {
                             val target = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
@@ -432,7 +637,6 @@ fun VideoPlayerModal(
                         )
                     }
 
-                    // Play / Pause Button
                     IconButton(
                         onClick = {
                             if (isPlaying) {
@@ -457,7 +661,6 @@ fun VideoPlayerModal(
                         )
                     }
 
-                    // Forward 10s
                     IconButton(
                         onClick = {
                             val maxDur = if (durationMs > 0) durationMs else Long.MAX_VALUE
@@ -479,7 +682,6 @@ fun VideoPlayerModal(
                     }
                 }
 
-                // Bottom Controls Bar
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -487,7 +689,6 @@ fun VideoPlayerModal(
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    // Time, Aspect Ratio and Fullscreen Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -511,7 +712,6 @@ fun VideoPlayerModal(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Aspect Ratio Toggle
                             IconButton(
                                 onClick = {
                                     resizeMode = when (resizeMode) {
@@ -530,7 +730,6 @@ fun VideoPlayerModal(
                                 )
                             }
 
-                            // Fullscreen / Landscape Toggle
                             IconButton(
                                 onClick = {
                                     val act = activity ?: return@IconButton
@@ -552,7 +751,6 @@ fun VideoPlayerModal(
                         }
                     }
 
-                    // Seek Slider
                     val safeDuration = if (durationMs > 0) durationMs.toFloat() else 1f
                     val currentVal = if (isSeeking) seekFraction else (currentPositionMs.toFloat() / safeDuration).coerceIn(0f, 1f)
 
