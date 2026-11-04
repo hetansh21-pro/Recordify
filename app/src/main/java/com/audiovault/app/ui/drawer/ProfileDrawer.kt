@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -135,8 +136,8 @@ fun ProfileDrawerSheet(
             )
 
             DrawerMenuItem(
-                icon = Icons.Default.ElectricBolt,
-                title = "What's new",
+                icon = Icons.Default.SystemUpdate,
+                title = "Check for updates",
                 onClick = onNavigateToUpdates
             )
 

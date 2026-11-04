@@ -165,6 +165,16 @@ fun AudioVaultNavGraph(
     }
 
     val allLocalRecordings by recordingsViewModel.allRecordings.collectAsState()
+    val availableUpdate by com.audiovault.app.core.update.AppUpdateService.updateAvailable.collectAsState()
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2500)
+        com.audiovault.app.core.update.AppUpdateService.checkForUpdates(
+            context = context,
+            isTv = false,
+            manualCheck = false
+        )
+    }
 
     val currentRec = playerState.currentRecording
     val isCurrentRecLiked = currentRec?.let { rec ->
@@ -245,6 +255,20 @@ fun AudioVaultNavGraph(
                 onNavigateToUpdates = {
                     scope.launch {
                         drawerState.close()
+                    }
+                    android.widget.Toast.makeText(context, "Checking for Recordify updates...", android.widget.Toast.LENGTH_SHORT).show()
+                    com.audiovault.app.core.update.AppUpdateService.checkForUpdates(
+                        context = context,
+                        isTv = false,
+                        manualCheck = true
+                    ) { updateInfo ->
+                        if (updateInfo == null || !updateInfo.isUpdateAvailable) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Recordify is up to date (v${com.audiovault.app.core.update.AppUpdateService.CURRENT_APP_VERSION})",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             )
@@ -605,6 +629,14 @@ fun AudioVaultNavGraph(
                             context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
                         }
                     }
+                )
+            }
+
+            // In-App Auto-Update Dialog
+            if (availableUpdate != null && availableUpdate!!.isUpdateAvailable) {
+                com.audiovault.app.ui.update.AppUpdateDialog(
+                    updateInfo = availableUpdate!!,
+                    onDismiss = { com.audiovault.app.core.update.AppUpdateService.dismissUpdatePrompt() }
                 )
             }
         }

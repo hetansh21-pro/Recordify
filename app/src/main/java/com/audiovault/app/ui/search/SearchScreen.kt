@@ -8,6 +8,7 @@ import com.audiovault.app.ui.search.OnlineSongItem
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -164,7 +165,6 @@ fun SearchScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    var isSearchActive by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
     var selectedSearchTab by remember { mutableStateOf("Real Songs") }
@@ -185,16 +185,6 @@ fun SearchScreen(
         }
     }
 
-    // Request focus when entering active search mode
-    LaunchedEffect(isSearchActive) {
-        if (isSearchActive && searchQuery.isEmpty()) {
-            try {
-                focusRequester.requestFocus()
-                keyboardController?.show()
-            } catch (_: Throwable) {}
-        }
-    }
-
     // Step-by-step BackHandler for artist detail, search filters, and active query
     BackHandler(enabled = selectedArtistForDetail != null) {
         selectedArtistForDetail = null
@@ -202,11 +192,8 @@ fun SearchScreen(
     BackHandler(enabled = selectedArtistForDetail == null && activeCategoryFilter != null) {
         activeCategoryFilter = null
     }
-    BackHandler(enabled = selectedArtistForDetail == null && activeCategoryFilter == null && isSearchActive) {
-        isSearchActive = false
-        if (searchQuery.isNotEmpty()) {
-            viewModel.onSearchQueryChange("")
-        }
+    BackHandler(enabled = selectedArtistForDetail == null && activeCategoryFilter == null && searchQuery.isNotEmpty()) {
+        viewModel.onSearchQueryChange("")
         keyboardController?.hide()
         focusManager.clearFocus()
     }
@@ -441,292 +428,242 @@ fun SearchScreen(
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
 
-                if (!isSearchActive) {
-                    // Top Header: Circular Logo in Top-Left, "Search", Camera (Landing Browse state - Image 1)
+                // Top Header: Circular Logo in Top-Left, "Search", Cancel
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onOpenDrawer() }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { onOpenDrawer() }
-                        ) {
-                            com.audiovault.app.ui.components.ProfileAvatarButton(
-                                userName = userName,
-                                onClick = onOpenDrawer,
-                                size = 36.dp
-                            )
+                        com.audiovault.app.ui.components.ProfileAvatarButton(
+                            userName = userName,
+                            onClick = onOpenDrawer,
+                            size = 36.dp
+                        )
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
-                            Text(
-                                text = "Search",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
+                        Text(
+                            text = "Search",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
                             )
-                        }
-
-                        IconButton(onClick = { /* Camera scan */ }) {
-                            Icon(
-                                imageVector = Icons.Default.CameraAlt,
-                                contentDescription = "Scan",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    if (searchQuery.isNotEmpty()) {
+                        Text(
+                            text = "Cancel",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    viewModel.onSearchQueryChange("")
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
 
-                    // Spotify White Search Input Pill Box (Clickable landing pill)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White)
-                            .clickable { isSearchActive = true }
-                            .padding(horizontal = 12.dp),
-                        contentAlignment = Alignment.CenterStart
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Translucent Light-Grey Search Box with Opacity
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(
+                            1.dp,
+                            Color.White.copy(alpha = 0.18f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = Color(0xFF121212),
-                                modifier = Modifier.size(24.dp)
-                            )
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(22.dp)
+                        )
 
-                            Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
 
-                            Text(
-                                text = "What do you want to listen to?",
-                                style = TextStyle(
-                                    color = Color(0xFF555555),
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search songs, artists or paste playlist link...",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.45f),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { newText ->
+                                    viewModel.onSearchQueryChange(newText)
+                                },
+                                textStyle = TextStyle(
+                                    color = Color.White,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Medium
+                                ),
+                                singleLine = true,
+                                cursorBrush = SolidColor(SpotifyGreenBright),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = {
+                                        val trimmed = searchQuery.trim()
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                            android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                            viewModel.importAlbumFromLink(trimmed)
+                                        } else {
+                                            viewModel.submitSearch(searchQuery)
+                                        }
+                                    },
+                                    onDone = {
+                                        val trimmed = searchQuery.trim()
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                            android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                            viewModel.importAlbumFromLink(trimmed)
+                                        } else {
+                                            viewModel.submitSearch(searchQuery)
+                                        }
+                                    },
+                                    onGo = {
+                                        val trimmed = searchQuery.trim()
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                            android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                            viewModel.importAlbumFromLink(trimmed)
+                                        } else {
+                                            viewModel.submitSearch(searchQuery)
+                                        }
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester)
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.type == KeyEventType.KeyDown &&
+                                            (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                        ) {
+                                            val trimmed = searchQuery.trim()
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
+                                                android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                                viewModel.importAlbumFromLink(trimmed)
+                                            } else {
+                                                viewModel.submitSearch(searchQuery)
+                                            }
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+                            )
+                        }
+
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.onSearchQueryChange("")
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear",
+                                    tint = Color.White.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Helper note and link detected banner directly under search box
+                val isPastedPlaylistLink = remember(searchQuery) {
+                    val trimmed = searchQuery.trim()
+                    trimmed.isNotBlank() && com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)
+                }
+
+                if (isPastedPlaylistLink) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF1E3823),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clickable {
+                                val trimmed = searchQuery.trim()
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                                android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.importAlbumFromLink(trimmed)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = SpotifyGreenBright,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Playlist link detected • Press Enter ↵ or Tap to show playlist",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = SpotifyGreenBright,
+                                    fontSize = 12.sp
                                 )
                             )
                         }
                     }
                 } else {
-                    // Active Search Top Bar (Back arrow + search input + clear button - Image 2)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .padding(top = 6.dp, start = 4.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = {
-                                isSearchActive = false
-                                if (searchQuery.isNotEmpty()) {
-                                    viewModel.onSearchQueryChange("")
-                                }
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                        Text(
+                            text = "💡 Paste playlist link here to fetch (Spotify, JioSaavn, YouTube)",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal
                             )
-                        }
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF282828))
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = "Search songs or paste playlist link...",
-                                            style = TextStyle(
-                                                color = Color(0xFFAAAAAA),
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        )
-                                    }
-
-                                    BasicTextField(
-                                        value = searchQuery,
-                                        onValueChange = { newText ->
-                                            viewModel.onSearchQueryChange(newText)
-                                        },
-                                        textStyle = TextStyle(
-                                            color = Color.White,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        singleLine = true,
-                                        cursorBrush = SolidColor(SpotifyGreenBright),
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                        keyboardActions = KeyboardActions(
-                                            onSearch = {
-                                                val trimmed = searchQuery.trim()
-                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
-                                                    viewModel.importAlbumFromLink(trimmed)
-                                                } else {
-                                                    viewModel.submitSearch(searchQuery)
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                }
-                                            },
-                                            onDone = {
-                                                val trimmed = searchQuery.trim()
-                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
-                                                    viewModel.importAlbumFromLink(trimmed)
-                                                } else {
-                                                    viewModel.submitSearch(searchQuery)
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                }
-                                            },
-                                            onGo = {
-                                                val trimmed = searchQuery.trim()
-                                                if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                    android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
-                                                    viewModel.importAlbumFromLink(trimmed)
-                                                } else {
-                                                    viewModel.submitSearch(searchQuery)
-                                                    keyboardController?.hide()
-                                                    focusManager.clearFocus()
-                                                }
-                                            }
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusRequester(focusRequester)
-                                            .onKeyEvent { keyEvent ->
-                                                if (keyEvent.type == KeyEventType.KeyDown &&
-                                                    (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
-                                                ) {
-                                                    val trimmed = searchQuery.trim()
-                                                    if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)) {
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                        android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
-                                                        viewModel.importAlbumFromLink(trimmed)
-                                                    } else {
-                                                        viewModel.submitSearch(searchQuery)
-                                                        keyboardController?.hide()
-                                                        focusManager.clearFocus()
-                                                    }
-                                                    true
-                                                } else {
-                                                    false
-                                                }
-                                            }
-                                    )
-                                }
-
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.onSearchQueryChange("")
-                                        },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Clear",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Small note helper for playlist/album link import
-                        val isPastedPlaylistLink = remember(searchQuery) {
-                            val trimmed = searchQuery.trim()
-                            trimmed.isNotBlank() && com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(trimmed)
-                        }
-
-                        if (isPastedPlaylistLink) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF1E3823),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyGreenBright),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp)
-                                    .clickable {
-                                        val trimmed = searchQuery.trim()
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus()
-                                        android.widget.Toast.makeText(context, "Fetching playlist tracks...", android.widget.Toast.LENGTH_SHORT).show()
-                                        viewModel.importAlbumFromLink(trimmed)
-                                    }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = null,
-                                        tint = SpotifyGreenBright,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Playlist link detected • Press Enter ↵ or Tap to show playlist",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = SpotifyGreenBright,
-                                            fontSize = 12.sp
-                                        )
-                                    )
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 6.dp, start = 4.dp, end = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "💡 Paste playlist link here to fetch (Spotify, JioSaavn, YouTube)",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color(0xFF888888),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                )
-                            }
-                        }
+                        )
                     }
                 }
 
@@ -1171,15 +1108,85 @@ fun SearchScreen(
                             }
                         }
                     }
-                } else if (!isSearchActive) {
-                    // 1. LANDING BROWSE PAGE (Image 1) - Search bar not clicked
-                    // Curated albums (90s, old songs, classics) & Explore categories
+                } else {
+                    // Search query is empty: Show Unified Landing Feed (Recents + Popular Albums & Playlists + Explore Categories)
                     LazyColumn(
                         state = searchListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
                     ) {
-                        // Curated Internet Albums: 90s, Old Songs, Classics
+                        // 1. Recents section (if user has recent searches)
+                        if (recentSearches.isNotEmpty()) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Recents",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 20.sp
+                                        )
+                                    )
+
+                                    Text(
+                                        text = "Clear all",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color(0xFFB3B3B3),
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        modifier = Modifier.clickable { viewModel.clearRecentSearches() }
+                                    )
+                                }
+                            }
+
+                            items(recentSearches.take(8), key = { "recent_${it.id}" }) { item ->
+                                val isPlaying = playerState.isPlaying && (
+                                    (item.isOnline && playerState.currentRecording?.title.equals(item.title, ignoreCase = true)) ||
+                                    (!item.isOnline && playerState.currentRecording?.id == item.localRecordingId)
+                                )
+                                RecentSearchHistoryRow(
+                                    item = item,
+                                    isPlaying = isPlaying,
+                                    onClick = {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        viewModel.playRecentSearchItem(item)
+                                    },
+                                    onRemoveClick = { viewModel.removeRecentSearch(item.id) },
+                                    onAddClick = {
+                                        val id = item.localRecordingId ?: (item.id.hashCode().toLong().let { if (it > 0) -it else it })
+                                        val fallback = if (item.isOnline) {
+                                            RecordingEntity(
+                                                id = id,
+                                                fileName = "${item.id}.m4a",
+                                                filePath = item.streamUrl ?: "",
+                                                title = item.title,
+                                                artist = item.artist,
+                                                albumArtPath = item.albumArtPath,
+                                                createdAt = item.timestamp,
+                                                durationMs = 0L,
+                                                fileSizeBytes = 0L,
+                                                mimeType = "audio/mp4"
+                                            )
+                                        } else null
+                                        viewModel.toggleLikedSong(id, fallback)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                        }
+
+                        // 2. Curated Internet Albums: 90s, Old Songs, Classics
                         item {
                             Column(modifier = Modifier.padding(bottom = 18.dp)) {
                                 Text(
@@ -1216,6 +1223,7 @@ fun SearchScreen(
                             }
                         }
 
+                        // 3. Explore Categories
                         item {
                             Text(
                                 text = "Explore Categories",
@@ -1243,7 +1251,6 @@ fun SearchScreen(
                                                     .background(Brush.linearGradient(category.gradientColors))
                                                     .clickable {
                                                         if (category.queryKeyword != null) {
-                                                            isSearchActive = true
                                                             viewModel.onSearchQueryChange(category.queryKeyword)
                                                             viewModel.submitSearch(category.queryKeyword)
                                                         } else if (category.filterPredicate != null) {
@@ -1292,111 +1299,6 @@ fun SearchScreen(
                                             Spacer(modifier = Modifier.weight(1f))
                                         }
                                     }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // 2. ACTIVE SEARCH RECENTS (Search bar clicked, query is empty - Image 2)
-                    LazyColumn(
-                        state = searchListState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
-                    ) {
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Recents",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        fontSize = 20.sp
-                                    )
-                                )
-
-                                if (recentSearches.isNotEmpty()) {
-                                    Text(
-                                        text = "Clear all",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFB3B3B3),
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        modifier = Modifier.clickable { viewModel.clearRecentSearches() }
-                                    )
-                                }
-                            }
-                        }
-
-                        if (recentSearches.isEmpty() && recordings.isEmpty()) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 48.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "Play songs or search to build your recents.",
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF888888)),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        } else {
-                            // 1. Online / recent search items
-                            items(recentSearches.take(30), key = { "recent_${it.id}" }) { item ->
-                                val isPlaying = playerState.isPlaying && (
-                                    (item.isOnline && playerState.currentRecording?.title.equals(item.title, ignoreCase = true)) ||
-                                    (!item.isOnline && playerState.currentRecording?.id == item.localRecordingId)
-                                )
-                                RecentSearchHistoryRow(
-                                    item = item,
-                                    isPlaying = isPlaying,
-                                    onClick = {
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus()
-                                        viewModel.playRecentSearchItem(item)
-                                    },
-                                    onRemoveClick = { viewModel.removeRecentSearch(item.id) },
-                                    onAddClick = {
-                                        val id = item.localRecordingId ?: (item.id.hashCode().toLong().let { if (it > 0) -it else it })
-                                        val fallback = if (item.isOnline) {
-                                            RecordingEntity(
-                                                id = id,
-                                                fileName = "${item.id}.m4a",
-                                                filePath = item.streamUrl ?: "",
-                                                title = item.title,
-                                                artist = item.artist,
-                                                albumArtPath = item.albumArtPath,
-                                                createdAt = item.timestamp,
-                                                durationMs = 0L,
-                                                fileSizeBytes = 0L,
-                                                mimeType = "audio/mp4"
-                                            )
-                                        } else null
-                                        viewModel.toggleLikedSong(id, fallback)
-                                    }
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                            }
-
-                            // 2. If recentSearches is small, also show recently captured recordings
-                            if (recentSearches.size < 6 && recordings.isNotEmpty()) {
-                                items(recordings.take(8), key = { "rec_${it.id}" }) { recording ->
-                                    val isPlaying = playerState.isPlaying && playerState.currentRecording?.id == recording.id
-                                    RecentSearchItem(
-                                        recording = recording,
-                                        isPlaying = isPlaying,
-                                        onClick = { viewModel.playPauseRecording(recording) },
-                                        onDeleteClick = { recordingToDelete = recording }
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
                                 }
                             }
                         }

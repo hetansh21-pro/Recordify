@@ -1,5 +1,6 @@
 package com.audiovault.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,6 +28,8 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        handleUpdateIntent(intent)
+
         enableEdgeToEdge()
 
         setContent {
@@ -45,6 +48,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("SHOW_UPDATE_DIALOG", false) == true) {
+            com.audiovault.app.core.update.AppUpdateService.checkForUpdates(
+                context = this,
+                isTv = false,
+                manualCheck = true
+            )
         }
     }
 

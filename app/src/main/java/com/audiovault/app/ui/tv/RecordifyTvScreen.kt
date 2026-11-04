@@ -79,6 +79,7 @@ fun RecordifyTvScreen(
     val matchingAlbums by viewModel.matchingAlbums.collectAsState()
     val isOnlineSearching by viewModel.isOnlineSearching.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
+    val availableUpdate by com.audiovault.app.core.update.AppUpdateService.updateAvailable.collectAsState()
 
     val currentRecording = playerState.currentRecording
     val hasActiveTrack = currentRecording != null
@@ -94,6 +95,12 @@ fun RecordifyTvScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadHomeContent(forceRefresh = false)
+        kotlinx.coroutines.delay(2500)
+        com.audiovault.app.core.update.AppUpdateService.checkForUpdates(
+            context = context,
+            isTv = true,
+            manualCheck = false
+        )
     }
 
     // -------------------------------------------------------------
@@ -430,6 +437,13 @@ fun RecordifyTvScreen(
                     modifier = Modifier.align(Alignment.CenterEnd)
                 )
             }
+        }
+
+        if (availableUpdate != null && availableUpdate!!.isUpdateAvailable) {
+            com.audiovault.app.ui.update.AppUpdateDialog(
+                updateInfo = availableUpdate!!,
+                onDismiss = { com.audiovault.app.core.update.AppUpdateService.dismissUpdatePrompt() }
+            )
         }
     }
 }

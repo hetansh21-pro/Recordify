@@ -3,4 +3,7 @@
     <external-files-path name="audio_vault_media" path="Music/" />
     <external-files-path name="audio_vault_external" path="." />
     <files-path name="audio_vault_internal" path="recordings/" />
+    <external-path name="external_downloads" path="Download/" />
+    <external-cache-path name="external_cache" path="." />
+    <cache-path name="cache" path="." />
 </paths>
