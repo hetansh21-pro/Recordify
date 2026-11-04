@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -122,7 +124,8 @@ data class SearchCategory(
     val icon: ImageVector,
     val gradientColors: List<Color>,
     val queryKeyword: String? = null,
-    val filterPredicate: ((RecordingEntity) -> Boolean)? = null
+    val filterPredicate: ((RecordingEntity) -> Boolean)? = null,
+    val sampleArtUrl: String? = null
 )
 
 @Composable
@@ -255,16 +258,36 @@ fun SearchScreen(
                 title = "Bollywood",
                 subtitle = "Hindi movie soundtracks & hits",
                 icon = Icons.Default.MusicNote,
-                gradientColors = listOf(Color(0xFFE50914), Color(0xFFB20710)),
-                queryKeyword = "Bollywood hits"
+                gradientColors = listOf(Color(0xFFE50914), Color(0xFF880E4F)),
+                queryKeyword = "Bollywood hits",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002b66a5b28d613ac3e54b6099b"
+            ),
+            SearchCategory(
+                id = "cat_punjabi",
+                title = "Punjabi",
+                subtitle = "High energy & bhangra beats",
+                icon = Icons.Default.Album,
+                gradientColors = listOf(Color(0xFFF57F17), Color(0xFFE65100)),
+                queryKeyword = "Punjabi hits",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002492f4477ee5ea150c95a0890"
             ),
             SearchCategory(
                 id = "cat_gujarati",
                 title = "Gujarati",
                 subtitle = "Folk, romantic & urban hits",
                 icon = Icons.Default.LibraryMusic,
-                gradientColors = listOf(Color(0xFFFF6F00), Color(0xFFE65100)),
-                queryKeyword = "Gujarati romantic songs"
+                gradientColors = listOf(Color(0xFFFF6F00), Color(0xFFBF360C)),
+                queryKeyword = "Gujarati romantic songs",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002c9167e4e13589b2518e38814"
+            ),
+            SearchCategory(
+                id = "cat_pop",
+                title = "Pop Hits",
+                subtitle = "Chart-toppers worldwide",
+                icon = Icons.Default.Headphones,
+                gradientColors = listOf(Color(0xFF1DB954), Color(0xFF0D5C2C)),
+                queryKeyword = "Pop viral hits",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f000000025f190623ca41cfb56c802e86"
             ),
             SearchCategory(
                 id = "cat_romantic",
@@ -272,23 +295,8 @@ fun SearchScreen(
                 subtitle = "Heartfelt love songs",
                 icon = Icons.Default.MusicNote,
                 gradientColors = listOf(Color(0xFFE91E63), Color(0xFF880E4F)),
-                queryKeyword = "Romantic songs"
-            ),
-            SearchCategory(
-                id = "cat_pop",
-                title = "Pop Hits",
-                subtitle = "Chart-toppers worldwide",
-                icon = Icons.Default.Headphones,
-                gradientColors = listOf(Color(0xFF1DB954), Color(0xFF191414)),
-                queryKeyword = "Pop viral hits"
-            ),
-            SearchCategory(
-                id = "cat_punjabi",
-                title = "Punjabi",
-                subtitle = "High energy & bhangra beats",
-                icon = Icons.Default.Album,
-                gradientColors = listOf(Color(0xFFFBC02D), Color(0xFFF57F17)),
-                queryKeyword = "Punjabi hits"
+                queryKeyword = "Romantic songs",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002b3634dd09a896f6345688d01"
             ),
             SearchCategory(
                 id = "cat_retro",
@@ -296,23 +304,26 @@ fun SearchScreen(
                 subtitle = "Golden era classics",
                 icon = Icons.Default.Timer,
                 gradientColors = listOf(Color(0xFF8E24AA), Color(0xFF4A148C)),
-                queryKeyword = "90s Bollywood hits"
+                queryKeyword = "90s Bollywood hits",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002d94e24eb2e5f5f4b0051e846"
             ),
             SearchCategory(
                 id = "cat_hiphop",
                 title = "Hip-Hop & Rap",
                 subtitle = "Beats, bars & flow",
                 icon = Icons.Default.Mic,
-                gradientColors = listOf(Color(0xFFFF9800), Color(0xFFF57C00)),
-                queryKeyword = "Hip hop rap"
+                gradientColors = listOf(Color(0xFFFF9800), Color(0xFFE65100)),
+                queryKeyword = "Hip hop rap",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f000000029bb6a2069b939fa5a9757fc2"
             ),
             SearchCategory(
                 id = "cat_chill",
                 title = "Chill & Lo-Fi",
                 subtitle = "Acoustic, calm & study vibes",
                 icon = Icons.Default.Headphones,
-                gradientColors = listOf(Color(0xFF00ACC1), Color(0xFF006064)),
-                queryKeyword = "Chill lofi acoustic"
+                gradientColors = listOf(Color(0xFF00ACC1), Color(0xFF004D40)),
+                queryKeyword = "Chill lofi acoustic",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002d9dd560cb60641b656b6c429"
             ),
             SearchCategory(
                 id = "cat_sad",
@@ -320,31 +331,35 @@ fun SearchScreen(
                 subtitle = "Deep & soulful melodies",
                 icon = Icons.Default.MusicNote,
                 gradientColors = listOf(Color(0xFF1E88E5), Color(0xFF0D47A1)),
-                queryKeyword = "Sad emotional songs"
+                queryKeyword = "Sad emotional songs",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f0000000271bfd78907b22ffc060867a5"
             ),
             SearchCategory(
                 id = "cat_devotional",
                 title = "Devotional",
                 subtitle = "Bhajans, aarti & spiritual",
                 icon = Icons.Default.LibraryMusic,
-                gradientColors = listOf(Color(0xFFFB8C00), Color(0xFFE65100)),
-                queryKeyword = "Devotional bhajan"
+                gradientColors = listOf(Color(0xFFFB8C00), Color(0xFFD84315)),
+                queryKeyword = "Devotional bhajan",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f0000000201659ca578cb267e7811ef48"
             ),
             SearchCategory(
                 id = "cat_rock",
                 title = "Rock Classics",
                 subtitle = "Guitars & anthems",
                 icon = Icons.Default.MusicNote,
-                gradientColors = listOf(Color(0xFFD32F2F), Color(0xFF7B1FA2)),
-                queryKeyword = "Rock hits"
+                gradientColors = listOf(Color(0xFFD32F2F), Color(0xFF5D1049)),
+                queryKeyword = "Rock hits",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002a2430076a0d33e547343e061"
             ),
             SearchCategory(
                 id = "cat_dance",
                 title = "EDM / Dance",
                 subtitle = "Club & party anthems",
                 icon = Icons.Default.Album,
-                gradientColors = listOf(Color(0xFF00E676), Color(0xFF00B0FF)),
-                queryKeyword = "EDM dance party"
+                gradientColors = listOf(Color(0xFF00E676), Color(0xFF0091EA)),
+                queryKeyword = "EDM dance party",
+                sampleArtUrl = "https://i.scdn.co/image/ab67706f00000002c89280b271dbe43cc1eb3e85"
             ),
             SearchCategory(
                 id = "music_all",
@@ -352,7 +367,8 @@ fun SearchScreen(
                 subtitle = "${allRecordings.size} tracks captured",
                 icon = Icons.Default.MusicNote,
                 gradientColors = listOf(Color(0xFF3949AB), Color(0xFF1A237E)),
-                filterPredicate = { true }
+                filterPredicate = { true },
+                sampleArtUrl = null
             )
         )
     }
@@ -657,9 +673,9 @@ fun SearchScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "💡 Paste playlist link here to fetch (Spotify, JioSaavn, YouTube)",
+                            text = "Paste playlist or album link to fetch (Spotify, JioSaavn, YouTube)",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = Color.White.copy(alpha = 0.55f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Normal
                             )
@@ -715,10 +731,7 @@ fun SearchScreen(
                     }
 
                     val displayedAlbums = searchContainer?.albums ?: matchingAlbums
-                    val searchSuggestions = remember(searchQuery) {
-                        com.audiovault.app.core.search.SearchSuggestionEngine.getLocalSuggestions(searchQuery)
-                    }
-
+                    val topResult = searchContainer?.topResult
                     val onlineArtists = searchContainer?.artists ?: emptyList()
                     val matchedArtistName = remember(searchQuery, onlineArtists, matchingArtists) {
                         val q = searchQuery.trim().lowercase()
@@ -766,60 +779,61 @@ fun SearchScreen(
                         }
 
                         if (selectedSearchTab == "Real Songs") {
-                            // 1. TOP SPOTIFY AUTOCOMPLETE SUGGESTIONS (Search icon on left, Up-right arrow on right)
-                            if (searchSuggestions.isNotEmpty()) {
-                                items(searchSuggestions.take(5)) { suggestionText ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.onSearchQueryChange(suggestionText)
-                                                viewModel.submitSearch(suggestionText)
+                            // 1. SIGNATURE SPOTIFY "TOP RESULT" CARD
+                            if (topResult != null) {
+                                val isTopSongPlaying = topResult.song != null && playerState.isPlaying && (
+                                    playerState.currentRecording?.filePath == topResult.song.streamUrl ||
+                                    playerState.currentRecording?.title.equals(topResult.song.title, ignoreCase = true)
+                                )
+
+                                item(key = "spotify_top_result_${topResult.uri}") {
+                                    SpotifyTopResultCard(
+                                        topResult = topResult,
+                                        isPlaying = isTopSongPlaying,
+                                        onPlayClick = {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            if (topResult.song != null) {
+                                                if (isTopSongPlaying) {
+                                                    viewModel.pausePlayback()
+                                                } else {
+                                                    viewModel.playOnlineSong(topResult.song, upcomingSongs = displayedOnlineSongs)
+                                                }
+                                            } else if (topResult.album != null) {
+                                                viewModel.openAlbumDetails(topResult.album)
+                                            } else if (topResult.type.equals("Artist", ignoreCase = true)) {
+                                                selectedArtistForDetail = topResult.title
                                             }
-                                            .padding(horizontal = 4.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = null,
-                                            tint = Color(0xFFB3B3B3),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Text(
-                                            text = suggestionText,
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                fontWeight = FontWeight.Medium,
-                                                color = Color.White,
-                                                fontSize = 15.sp
-                                            ),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.onSearchQueryChange(suggestionText)
-                                                viewModel.submitSearch(suggestionText)
-                                            },
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Text(
-                                                text = "↗",
-                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                    color = Color(0xFFB3B3B3),
-                                                    fontSize = 18.sp,
-                                                    fontWeight = FontWeight.Light
-                                                )
-                                            )
+                                        },
+                                        onItemClick = {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            if (topResult.type.equals("Artist", ignoreCase = true)) {
+                                                selectedArtistForDetail = topResult.title
+                                            } else if (topResult.album != null) {
+                                                viewModel.openAlbumDetails(topResult.album)
+                                            } else if (topResult.song != null) {
+                                                viewModel.playOnlineSong(topResult.song, upcomingSongs = displayedOnlineSongs)
+                                            }
                                         }
-                                    }
+                                    )
                                 }
                             }
 
-                            // 2. MATCHED ARTIST (Circular Profile Avatar, Name, "Artist" subtitle)
-                            if (!matchedArtistName.isNullOrBlank()) {
-                                item(key = "matched_artist_$matchedArtistName") {
+                            // 2. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle)
+                            val artistsToShow = onlineArtists.ifEmpty {
+                                matchingArtists.take(3).map {
+                                    com.audiovault.app.core.online.ArtistItemModel(
+                                        id = "local_${it.first}",
+                                        name = it.first,
+                                        imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(it.first),
+                                        role = "Artist"
+                                    )
+                                }
+                            }.filter { !it.name.equals(topResult?.title, ignoreCase = true) }
+
+                            if (artistsToShow.isNotEmpty()) {
+                                items(artistsToShow.take(2), key = { "art_match_${it.id}" }) { artistItem ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -827,19 +841,22 @@ fun SearchScreen(
                                             .clickable {
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
-                                                selectedArtistForDetail = matchedArtistName
+                                                selectedArtistForDetail = artistItem.name
                                             }
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        ArtistAvatar(
-                                            artistName = matchedArtistName,
-                                            size = 52.dp
+                                        TrackCoverArt(
+                                            albumArtPath = artistItem.imageUrl,
+                                            title = artistItem.name,
+                                            artist = "Artist",
+                                            size = 52.dp,
+                                            shape = CircleShape
                                         )
                                         Spacer(modifier = Modifier.width(14.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = matchedArtistName,
+                                                text = artistItem.name,
                                                 style = MaterialTheme.typography.bodyLarge.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color.White,
@@ -864,38 +881,64 @@ fun SearchScreen(
                             }
 
                             // 3. TOP HIT ORIGINAL SONGS (Square Art, Song • Artist, ⋮ and ⊕)
-                            items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
-                                val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
-                                val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
-                                val isDownloading = downloadingSongIds.contains(onlineSong.id)
-                                val progress = downloadProgress[onlineSong.id]
-                                val versionBadge = canonicalSongs.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
+                            if (displayedOnlineSongs.isNotEmpty()) {
+                                item(key = "songs_header_title") {
+                                    Text(
+                                        text = "Songs",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 18.sp
+                                        ),
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+                                    )
+                                }
 
-                                OnlineSongItem(
-                                    song = onlineSong,
-                                    isPlaying = isCurrentPlayingOnline,
-                                    isSavedInLibrary = isSaved,
-                                    isDownloading = isDownloading,
-                                    downloadProgress = progress,
-                                    versionBadge = versionBadge,
-                                    onPlayClick = {
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus()
-                                        val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
-                                        viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
-                                    },
-                                    onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
-                                    onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
-                                    onSwipeToQueue = {
-                                        viewModel.addSongToQueue(onlineSong)
-                                        android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                )
+                                items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
+                                    val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
+                                    val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
+                                    val isDownloading = downloadingSongIds.contains(onlineSong.id)
+                                    val progress = downloadProgress[onlineSong.id]
+                                    val versionBadge = canonicalSongs.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
+
+                                    OnlineSongItem(
+                                        song = onlineSong,
+                                        isPlaying = isCurrentPlayingOnline,
+                                        isSavedInLibrary = isSaved,
+                                        isDownloading = isDownloading,
+                                        downloadProgress = progress,
+                                        versionBadge = versionBadge,
+                                        onPlayClick = {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
+                                            viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
+                                        },
+                                        onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
+                                        onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
+                                        onSwipeToQueue = {
+                                            viewModel.addSongToQueue(onlineSong)
+                                            android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
                             }
 
-                            // 4. MATCHING PLAYLISTS / ALBUMS (Shown AFTER songs, exactly matching Spotify)
+                            // 4. MATCHING PLAYLISTS / ALBUMS (Square Album Artwork, Title, Type • Artist)
                             if (displayedAlbums.isNotEmpty()) {
-                                items(displayedAlbums.take(2), key = { "album_${it.id}" }) { album ->
+                                item(key = "albums_header_title") {
+                                    Text(
+                                        text = "Albums & Singles",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 18.sp
+                                        ),
+                                        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp, start = 4.dp)
+                                    )
+                                }
+
+                                items(displayedAlbums.take(6), key = { "album_${it.id}" }) { album ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -929,7 +972,7 @@ fun SearchScreen(
                                             )
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
-                                                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist" else "Album • ${album.artist ?: album.primaryArtists ?: "Recordify"}",
+                                                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist" else "${album.type} • ${album.artist ?: album.primaryArtists ?: "Spotify"}",
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     color = Color(0xFFB3B3B3),
                                                     fontSize = 13.sp
@@ -1074,11 +1117,11 @@ fun SearchScreen(
                         }
 
                         // Empty State if no results found
-                        val hasAnyResult = displayedOnlineSongs.isNotEmpty() ||
+                        val hasAnyResult = topResult != null ||
+                                displayedOnlineSongs.isNotEmpty() ||
                                 displayedAlbums.isNotEmpty() ||
-                                matchingArtists.isNotEmpty() ||
-                                searchSuggestions.isNotEmpty() ||
-                                !matchedArtistName.isNullOrBlank()
+                                onlineArtists.isNotEmpty() ||
+                                matchingArtists.isNotEmpty()
 
                         if (!hasAnyResult && !isOnlineSearching) {
                             item {
@@ -1223,15 +1266,16 @@ fun SearchScreen(
                             }
                         }
 
-                        // 3. Explore Categories
+                        // 3. Browse all (Spotify 2-Column Angled Card Grid)
                         item {
                             Text(
-                                text = "Explore Categories",
-                                style = MaterialTheme.typography.titleMedium.copy(
+                                text = "Browse all",
+                                style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = Color.White,
+                                    fontSize = 20.sp
                                 ),
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
                             )
                         }
 
@@ -1257,40 +1301,53 @@ fun SearchScreen(
                                                             activeCategoryFilter = category
                                                         }
                                                     }
-                                                    .padding(12.dp)
                                             ) {
-                                                Column(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    verticalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = category.title,
-                                                        style = MaterialTheme.typography.titleSmall.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color.White
-                                                        ),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
+                                                // Category Title on Top-Left
+                                                Text(
+                                                    text = category.title,
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        fontSize = 16.sp
+                                                    ),
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier
+                                                        .align(Alignment.TopStart)
+                                                        .padding(start = 12.dp, top = 12.dp, end = 40.dp)
+                                                )
 
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.Bottom
-                                                    ) {
-                                                        Text(
-                                                            text = category.subtitle,
-                                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                                color = Color(0xCCFFFFFF),
-                                                                fontSize = 11.sp
+                                                // Angled / Rotated Artwork in the Bottom-Right Corner (Signature Spotify Style)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomEnd)
+                                                        .offset(x = 12.dp, y = 6.dp)
+                                                        .graphicsLayer(rotationZ = 25f)
+                                                        .size(64.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color.Black.copy(alpha = 0.25f))
+                                                ) {
+                                                    if (!category.sampleArtUrl.isNullOrBlank()) {
+                                                        TrackCoverArt(
+                                                            albumArtPath = category.sampleArtUrl,
+                                                            title = category.title,
+                                                            size = 64.dp,
+                                                            shape = RoundedCornerShape(6.dp)
+                                                        )
+                                                    } else {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .background(Color.White.copy(alpha = 0.16f)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = category.icon,
+                                                                contentDescription = null,
+                                                                tint = Color.White.copy(alpha = 0.85f),
+                                                                modifier = Modifier.size(28.dp)
                                                             )
-                                                        )
-                                                        Icon(
-                                                            imageVector = category.icon,
-                                                            contentDescription = null,
-                                                            tint = Color.White.copy(alpha = 0.8f),
-                                                            modifier = Modifier.size(22.dp)
-                                                        )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1841,6 +1898,145 @@ fun RecentSearchHistoryRow(
                 tint = Color(0xFFB3B3B3),
                 modifier = Modifier.size(18.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun SpotifyTopResultCard(
+    topResult: com.audiovault.app.core.online.SpotifyTopResultItem,
+    isPlaying: Boolean,
+    onPlayClick: () -> Unit,
+    onItemClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+    ) {
+        Text(
+            text = "Top result",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 19.sp
+            ),
+            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+        )
+
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF181818)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onItemClick() }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val isArtist = topResult.type.equals("Artist", ignoreCase = true)
+                    val artShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
+
+                    TrackCoverArt(
+                        albumArtPath = topResult.imageUrl,
+                        title = topResult.title,
+                        artist = topResult.subtitle,
+                        size = 76.dp,
+                        shape = artShape
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 48.dp)
+                    ) {
+                        Text(
+                            text = topResult.title,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 18.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = topResult.type,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            val cleanSubtitle = topResult.subtitle
+                                .removePrefix("${topResult.type} • ")
+                                .removePrefix(topResult.type)
+                                .trim()
+
+                            if (cleanSubtitle.isNotBlank()) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = cleanSubtitle,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFFB3B3B3),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Vibrant Spotify Green circular play button in the bottom-right corner
+                Surface(
+                    shape = CircleShape,
+                    color = SpotifyGreenBright,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(46.dp)
+                        .clickable { onPlayClick() }
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -807,9 +807,9 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                         album.id.startsWith("saavn_pl_") || album.type.equals("Playlist", ignoreCase = true) -> {
                             com.audiovault.app.core.online.OnlineMusicSearchService.fetchPlaylistDetails(album.id)
                         }
-                        album.id.startsWith("sp_") -> {
-                            val cleanId = album.id.removePrefix("sp_")
-                            if (album.type.equals("Playlist", ignoreCase = true) || cleanId.length > 20) {
+                        album.id.startsWith("sp_") || album.source == "spotify" -> {
+                            val cleanId = album.id.removePrefix("sp_album_").removePrefix("sp_playlist_").removePrefix("sp_")
+                            if (album.id.contains("playlist") || album.type.equals("Playlist", ignoreCase = true)) {
                                 com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchPlaylist(cleanId)
                             } else {
                                 com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchAlbum(cleanId)
@@ -879,7 +879,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
                     if (finalAlbum != null) {
                         _selectedAlbum.value = finalAlbum
-                        if (targetAlbum.source == "imported") {
+                        if (targetAlbum.source == "imported" || targetAlbum.source == "spotify") {
                             importedAlbumRepository.saveAlbum(finalAlbum)
                         }
                         if (autoPlayIndex != null && finalAlbum.songs.isNotEmpty()) {
@@ -1321,7 +1321,16 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 val tracks = if (album.songs.isNotEmpty()) {
                     album.songs
                 } else {
-                    val full = com.audiovault.app.core.online.OnlineMusicSearchService.fetchAlbumSoundtrack(album.id)
+                    val full = if (album.id.startsWith("sp_") || album.source == "spotify") {
+                        val cleanId = album.id.removePrefix("sp_album_").removePrefix("sp_playlist_").removePrefix("sp_")
+                        if (album.id.contains("playlist") || album.type.equals("Playlist", ignoreCase = true)) {
+                            com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchPlaylist(cleanId)
+                        } else {
+                            com.audiovault.app.core.online.SpotifyWebMetadataFetcher.fetchAlbum(cleanId)
+                        }
+                    } else {
+                        com.audiovault.app.core.online.OnlineMusicSearchService.fetchAlbumSoundtrack(album.id)
+                    }
                     full?.songs ?: com.audiovault.app.core.online.OnlineMusicSearchService.searchSongs(album.title, limit = 15)
                 }
 

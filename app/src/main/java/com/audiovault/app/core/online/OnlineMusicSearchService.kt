@@ -132,6 +132,16 @@ object OnlineMusicSearchService {
         val expansions = getIndianIntentExpansionQueries(rawQuery)
 
         coroutineScope {
+            // Stage 0: Spotify Web Background Search (Pathfinder GraphQL)
+            val spotifyDeferred = async {
+                try {
+                    SpotifyWebSearchService.searchSpotify(queryToSearch, limit = 20)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Spotify Web Search exception: ${e.message}")
+                    null
+                }
+            }
+
             // Stage 1: Albums / Soundtracks if relevant or general query
             val albumsDeferred = async {
                 try {
@@ -154,7 +164,7 @@ object OnlineMusicSearchService {
                 word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
             }
 
-            // Stage 2: Direct CDN fast songs (JioSaavn + iTunes + Spotify catalog + Language/Regional trending)
+            // Stage 2: Direct CDN fast songs (JioSaavn + iTunes + Language/Regional trending)
             val fastSongsDeferred = async {
                 try {
                     val s1 = searchJioSaavnFast(queryToSearch, limit)
@@ -176,19 +186,23 @@ object OnlineMusicSearchService {
                     } else {
                         searchITunes(queryToSearch, limit = 15)
                     }
-                    val sp = if (!isIndianIntent) searchSpotifyWeb(queryToSearch, limit) else emptyList()
-                    (artistSongs + expSongs + s1 + s2 + s3 + sp)
+                    (artistSongs + expSongs + s1 + s2 + s3)
                 } catch (e: Exception) {
                     emptyList<OnlineSongModel>()
                 }
             }
 
+            val spotifyRes = spotifyDeferred.await()
             val rawFastSongs = fastSongsDeferred.await()
             val rawAlbums = albumsDeferred.await()
 
+            // Merge Spotify songs first so Spotify tracks take priority!
+            val spotifyTracks = spotifyRes?.tracks ?: emptyList()
+            val combinedRawSongs = spotifyTracks + rawFastSongs
+
             // Filter and rank fast stage
             val canonicalFast = TrackQualityFilter.filterAndDeduplicate(
-                songs = rawFastSongs,
+                songs = combinedRawSongs,
                 isOriginalOnly = if (intent.requestedVersion != null) false else isOriginalOnly,
                 requestedVersion = intent.requestedVersion,
                 decadeRange = intent.decadeRange
@@ -200,41 +214,68 @@ object OnlineMusicSearchService {
                 primaryLanguage = primaryLanguage,
                 preferredLanguages = preferredLanguages
             )
+
+            // Merge Spotify albums with other albums
+            val spotifyAlbums = spotifyRes?.albums ?: emptyList()
+            val combinedAlbumsRaw = (spotifyAlbums + rawAlbums).distinctBy { it.id }
             val rankedAlbums = SearchRelevanceRanker.rankAlbums(
-                albums = rawAlbums,
+                albums = combinedAlbumsRaw,
                 intent = intent,
                 userCountryCode = userCountryCode,
                 primaryLanguage = primaryLanguage
             )
 
-            // Extract artists from top albums / songs with clean CDN portraits
+            // Combine Spotify Artists with extracted artists
+            val spotifyArtists = spotifyRes?.artists ?: emptyList()
             val primaryArtistItem = cleanArtistName?.let { name ->
+                val spotifyMatch = spotifyArtists.firstOrNull { it.name.equals(name, ignoreCase = true) }
                 ArtistItemModel(
-                    id = "artist_${name.hashCode()}",
+                    id = spotifyMatch?.id ?: "artist_${name.hashCode()}",
                     name = name,
-                    imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
+                    imageUrl = spotifyMatch?.imageUrl?.ifBlank { null } ?: com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
                     role = "Artist"
                 )
             }
             val extractedArtists = buildList {
                 if (primaryArtistItem != null) add(primaryArtistItem)
+                spotifyArtists.forEach { spArtist ->
+                    if (none { it.name.equals(spArtist.name, ignoreCase = true) }) {
+                        add(spArtist)
+                    }
+                }
                 rankedFastSongs.map { it.normalizedPrimaryArtist }
                     .distinct()
                     .filter { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) && !it.equals(cleanArtistName, ignoreCase = true) }
                     .take(5)
                     .forEach { name ->
-                        val art = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name).ifBlank {
-                            rankedFastSongs.firstOrNull { it.normalizedPrimaryArtist == name }?.highResArtUrl ?: ""
-                        }
-                        add(
-                            ArtistItemModel(
-                                id = "artist_${name.hashCode()}",
-                                name = name,
-                                imageUrl = art,
-                                role = "Artist"
+                        if (none { it.name.equals(name, ignoreCase = true) }) {
+                            val art = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name).ifBlank {
+                                rankedFastSongs.firstOrNull { it.normalizedPrimaryArtist == name }?.highResArtUrl ?: ""
+                            }
+                            add(
+                                ArtistItemModel(
+                                    id = "artist_${name.hashCode()}",
+                                    name = name,
+                                    imageUrl = art,
+                                    role = "Artist"
+                                )
                             )
-                        )
+                        }
                     }
+            }
+
+            val topResult = spotifyRes?.topResult ?: run {
+                if (rankedFastSongs.isNotEmpty()) {
+                    val first = rankedFastSongs.first().toOnlineSongModel()
+                    SpotifyTopResultItem(
+                        title = first.title,
+                        subtitle = "Song • ${first.artist}",
+                        imageUrl = first.highResArtUrl ?: "",
+                        type = "Song",
+                        uri = first.id,
+                        song = first
+                    )
+                } else null
             }
 
             val partialContainer = SearchResultContainer(
@@ -243,7 +284,8 @@ object OnlineMusicSearchService {
                 songs = rankedFastSongs,
                 albums = rankedAlbums,
                 artists = extractedArtists,
-                youtubeSongs = emptyList()
+                youtubeSongs = emptyList(),
+                topResult = topResult
             )
             onPartialResults?.invoke(partialContainer)
 
@@ -264,7 +306,8 @@ object OnlineMusicSearchService {
                 songs = rankedFastSongs,
                 albums = rankedAlbums,
                 artists = extractedArtists,
-                youtubeSongs = ytSongs
+                youtubeSongs = ytSongs,
+                topResult = topResult
             )
             onPartialResults?.invoke(finalContainer)
             finalContainer
@@ -1859,7 +1902,7 @@ object OnlineMusicSearchService {
     ): String = withContext(Dispatchers.IO) {
         var currentStream = song.streamUrl
 
-        if (currentStream.contains("_320.mp4")) {
+        if (isDataSaver && currentStream.contains("_320.mp4")) {
             currentStream = currentStream.replace("_320.mp4", "_96.mp4")
         }
 
@@ -1873,7 +1916,7 @@ object OnlineMusicSearchService {
             try {
                 val exactDetails = fetchSongDetailsById(song.id)
                 if (exactDetails != null && exactDetails.streamUrl.isNotBlank() && !isShortPreview(exactDetails.streamUrl)) {
-                    val stream = exactDetails.streamUrl.replace("_320.mp4", "_96.mp4")
+                    val stream = if (isDataSaver) exactDetails.streamUrl.replace("_320.mp4", "_96.mp4") else exactDetails.streamUrl
                     return@withContext stream
                 }
             } catch (e: Exception) {
@@ -1905,7 +1948,7 @@ object OnlineMusicSearchService {
             } ?: saavnResults.firstOrNull { it.streamUrl.isNotBlank() && !isShortPreview(it.streamUrl) }
 
             if (matchedSaavn != null && matchedSaavn.streamUrl.isNotBlank()) {
-                val stream = matchedSaavn.streamUrl.replace("_320.mp4", "_96.mp4")
+                val stream = if (isDataSaver) matchedSaavn.streamUrl.replace("_320.mp4", "_96.mp4") else matchedSaavn.streamUrl
                 return@withContext stream
             }
         } catch (_: Exception) {}
