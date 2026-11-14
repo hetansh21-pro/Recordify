@@ -114,6 +114,12 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
     private val _isOnlineSearching = MutableStateFlow(false)
     val isOnlineSearching: StateFlow<Boolean> = _isOnlineSearching.asStateFlow()
 
+    private val _isLoadingMoreSearch = MutableStateFlow(false)
+    val isLoadingMoreSearch: StateFlow<Boolean> = _isLoadingMoreSearch.asStateFlow()
+
+    private var currentSearchPage = 1
+    private var canLoadMoreSearch = true
+
     private val _isImportingAlbum = MutableStateFlow(false)
     val isImportingAlbum: StateFlow<Boolean> = _isImportingAlbum.asStateFlow()
 
@@ -616,6 +622,9 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val settings = userSettings.value
+        currentSearchPage = 1
+        canLoadMoreSearch = true
+        _isLoadingMoreSearch.value = false
         // Highly responsive as-you-type search: scans music on every keystroke
         // Immediate mode (keyboard Search/Enter button) bypasses debounce entirely (0ms)
         val debounceMs = when {
@@ -657,6 +666,56 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                 }
             } finally {
                 _isOnlineSearching.value = false
+            }
+        }
+    }
+
+    fun loadMoreSearchResults() {
+        val currentQuery = _searchQuery.value.trim()
+        if (currentQuery.isBlank() || _isLoadingMoreSearch.value || !canLoadMoreSearch || _isOnlineSearching.value) return
+
+        viewModelScope.launch {
+            _isLoadingMoreSearch.value = true
+            try {
+                currentSearchPage++
+                val settings = userSettings.value
+                val moreCanonical = com.audiovault.app.core.online.OnlineMusicSearchService.searchMoreSongs(
+                    rawQuery = currentQuery,
+                    page = currentSearchPage,
+                    limit = 20,
+                    isOriginalOnly = _isSearchOriginalOnly.value,
+                    userCountryCode = settings.userCountryCode,
+                    primaryLanguage = settings.primaryLanguage,
+                    preferredLanguages = settings.preferredLanguages
+                )
+
+                if (moreCanonical.isEmpty()) {
+                    canLoadMoreSearch = false
+                } else {
+                    val currentSongs = _searchResultContainer.value?.songs ?: emptyList()
+                    val existingIds = currentSongs.map { it.providerTrackId }.toSet()
+                    val existingKeys = currentSongs.map { "${it.normalizedTitle.lowercase().trim()}_${it.normalizedPrimaryArtist.lowercase().trim()}" }.toSet()
+
+                    val distinctNew = moreCanonical.filter {
+                        !existingIds.contains(it.providerTrackId) &&
+                        !existingKeys.contains("${it.normalizedTitle.lowercase().trim()}_${it.normalizedPrimaryArtist.lowercase().trim()}")
+                    }
+
+                    if (distinctNew.isEmpty()) {
+                        canLoadMoreSearch = false
+                    } else {
+                        val updatedCanonical = currentSongs + distinctNew
+                        val currentContainer = _searchResultContainer.value
+                        if (currentContainer != null) {
+                            _searchResultContainer.value = currentContainer.copy(songs = updatedCanonical)
+                        }
+                        _onlineSearchResults.value = updatedCanonical.map { it.toOnlineSongModel() }
+                    }
+                }
+            } catch (e: Exception) {
+                canLoadMoreSearch = false
+            } finally {
+                _isLoadingMoreSearch.value = false
             }
         }
     }

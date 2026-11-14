@@ -305,6 +305,45 @@ object OnlineMusicSearchService {
         }
     }
 
+    suspend fun searchMoreSongs(
+        rawQuery: String,
+        page: Int,
+        limit: Int = 20,
+        isOriginalOnly: Boolean = true,
+        userCountryCode: String = "IN",
+        primaryLanguage: String = "Hindi",
+        preferredLanguages: Set<String> = emptySet()
+    ): List<CanonicalTrackIdentity> = withContext(Dispatchers.IO) {
+        if (rawQuery.isBlank()) return@withContext emptyList()
+        val intent = SearchIntentParser.parse(rawQuery)
+        val queryToSearch = intent.cleanQuery.ifBlank { rawQuery }
+
+        try {
+            val saavnResults = queryJioSaavnEndpoint(queryToSearch, limit = limit, page = page)
+            if (saavnResults.isEmpty()) return@withContext emptyList()
+
+            val filtered = TrackQualityFilter.filterAndDeduplicate(
+                songs = saavnResults,
+                isOriginalOnly = if (intent.requestedVersion != null) false else isOriginalOnly,
+                requestedVersion = intent.requestedVersion,
+                decadeRange = intent.decadeRange
+            )
+
+            val ranked = SearchRelevanceRanker.rankTracks(
+                tracks = filtered,
+                intent = intent,
+                userCountryCode = userCountryCode,
+                primaryLanguage = primaryLanguage,
+                preferredLanguages = preferredLanguages
+            )
+
+            ranked
+        } catch (e: Exception) {
+            Log.e(TAG, "searchMoreSongs error on page $page", e)
+            emptyList()
+        }
+    }
+
     suspend fun searchSongsProgressive(
         query: String,
         limit: Int = 30,
@@ -1397,10 +1436,10 @@ object OnlineMusicSearchService {
         return list.distinctBy { normalizeKey(it.title, it.artist) }
     }
 
-    private fun queryJioSaavnEndpoint(query: String, limit: Int): List<OnlineSongModel> {
+    fun queryJioSaavnEndpoint(query: String, limit: Int, page: Int = 1): List<OnlineSongModel> {
         return try {
             val encodedQuery = URLEncoder.encode(query, "UTF-8")
-            val endpoint = "https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=$limit&p=1&q=$encodedQuery"
+            val endpoint = "https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=$limit&p=$page&q=$encodedQuery"
 
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"

@@ -75,6 +75,23 @@ object SearchRelevanceRanker {
                         score += 40f
                     }
 
+                    // Movie / Soundtrack Album match boost: if track belongs to the searched movie/album (e.g. "Animal", "Pushpa", "Kabir Singh")
+                    val albumLower = (track.albumTitle ?: "").lowercase()
+                    if (albumLower.isNotBlank() && queryLower.length >= 2) {
+                        val cleanAlbum = albumLower
+                            .replace(Regex("(?i)\\b(original|motion|picture|soundtrack|ost|movie|film|songs|from|the|vol|part)\\b"), "")
+                            .replace(Regex("[^a-zA-Z0-9]"), "")
+                            .trim()
+                        val cleanQ = queryLower
+                            .replace(Regex("(?i)\\b(movie|film|songs|song|album|soundtrack|ost|all)\\b"), "")
+                            .replace(Regex("[^a-zA-Z0-9]"), "")
+                            .trim()
+                        if (cleanAlbum.isNotBlank() && cleanQ.isNotBlank() &&
+                            (cleanAlbum == cleanQ || cleanAlbum.startsWith(cleanQ) || cleanQ.startsWith(cleanAlbum))) {
+                            score += 45f
+                        }
+                    }
+
                     // Single-letter and short prefix match boost
                     if (queryLower.isNotEmpty() && queryLower.length <= 3) {
                         if (titleLower.startsWith(queryLower)) {

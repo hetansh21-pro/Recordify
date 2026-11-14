@@ -90,6 +90,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -178,6 +179,7 @@ fun SearchScreen(
     val playlists by viewModel.playlists.collectAsState()
     val isImportingAlbum by viewModel.isImportingAlbum.collectAsState()
     val importAlbumMessage by viewModel.importAlbumMessage.collectAsState()
+    val isLoadingMoreSearch by viewModel.isLoadingMoreSearch.collectAsState()
     var showRemixVersions by remember(searchQuery) { mutableStateOf(false) }
     val userSettings by viewModel.userSettings.collectAsState()
     val countryProfile = remember(userSettings.userCountryCode) {
@@ -884,28 +886,13 @@ fun SearchScreen(
                         fromOnline ?: fromLocal ?: fromCatalog
                     }
 
-                    val artistsToShow = remember(onlineArtists, matchingArtists, searchQuery) {
-                        onlineArtists.ifEmpty {
-                            matchingArtists.take(3).map {
-                                com.audiovault.app.core.online.ArtistItemModel(
-                                    id = "local_${it.first}",
-                                    name = it.first,
-                                    imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(it.first),
-                                    role = "Artist"
-                                )
-                            }
-                        }.filter {
-                            com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(it.name, searchQuery)
-                        }
-                    }
-
-                    val matchesMovieOrAlbum = remember(searchQuery, displayedAlbums) {
+                    val matchingMovieAlbums = remember(searchQuery, displayedAlbums) {
                         val cleanQ = searchQuery.trim().lowercase()
-                            .replace(Regex("(?i)\\b(movie|film|songs|song|album|all)\\b"), "")
+                            .replace(Regex("(?i)\\b(movie|film|songs|song|album|soundtrack|ost|all)\\b"), "")
                             .replace(Regex("[^a-zA-Z0-9]"), "")
                             .trim()
-                        if (cleanQ.length < 2) false
-                        else displayedAlbums.any { album ->
+                        if (cleanQ.length < 2) emptyList()
+                        else displayedAlbums.filter { album ->
                             val cleanAlbumTitle = album.title.lowercase()
                                 .replace(Regex("(?i)\\b(original|motion|picture|soundtrack|ost|movie|film|songs|from|the|vol|part)\\b"), "")
                                 .replace(Regex("[^a-zA-Z0-9]"), "")
@@ -918,7 +905,30 @@ fun SearchScreen(
                         }
                     }
 
-                    val showAlbums = (isExplicitAlbumQuery || matchesMovieOrAlbum) && displayedAlbums.isNotEmpty()
+                    val topAlbumsToShow = remember(matchingMovieAlbums, isExplicitAlbumQuery, displayedAlbums) {
+                        if (matchingMovieAlbums.isNotEmpty()) {
+                            matchingMovieAlbums.take(2)
+                        } else if (isExplicitAlbumQuery) {
+                            displayedAlbums.take(2)
+                        } else {
+                            emptyList()
+                        }
+                    }
+
+                    // Continuous doom scrolling: auto-fetch more results when user approaches bottom
+                    val shouldLoadMore = remember {
+                        derivedStateOf {
+                            val totalItems = resultsListState.layoutInfo.totalItemsCount
+                            val lastVisible = resultsListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            totalItems > 8 && lastVisible >= totalItems - 5
+                        }
+                    }
+
+                    LaunchedEffect(shouldLoadMore.value) {
+                        if (shouldLoadMore.value) {
+                            viewModel.loadMoreSearchResults()
+                        }
+                    }
 
                     val infiniteTransition = rememberInfiniteTransition(label = "search_shimmer")
                     val shimmerAlpha by infiniteTransition.animateFloat(
@@ -1124,9 +1134,9 @@ fun SearchScreen(
                         }
 
                         if (selectedSearchTab == "Real Songs") {
-                            // 1. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle - Strict Match Only!)
-                            if (artistsToShow.isNotEmpty()) {
-                                items(artistsToShow.take(2), key = { "art_match_${it.id}" }) { artistItem ->
+                            // 1. MATCHING MOVIE / ALBUM SOUNDTRACK (Shows at the TOP when searching a movie or album)
+                            if (topAlbumsToShow.isNotEmpty()) {
+                                items(topAlbumsToShow, key = { "top_album_${it.id}" }) { album ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1134,33 +1144,34 @@ fun SearchScreen(
                                             .clickable {
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
-                                                selectedArtistForDetail = artistItem.name
+                                                viewModel.openAlbumDetails(album)
                                             }
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         TrackCoverArt(
-                                            albumArtPath = artistItem.imageUrl,
-                                            title = artistItem.name,
-                                            artist = "Artist",
-                                            size = 52.dp,
-                                            shape = CircleShape
+                                            albumArtPath = album.coverArtUrl,
+                                            title = album.title,
+                                            artist = album.artist ?: "",
+                                            size = 54.dp,
+                                            shape = RoundedCornerShape(6.dp)
                                         )
                                         Spacer(modifier = Modifier.width(14.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = artistItem.name,
+                                                text = album.title,
                                                 style = MaterialTheme.typography.bodyLarge.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color.White,
-                                                    fontSize = 16.sp
+                                                    fontSize = 15.sp
                                                 ),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
-                                                text = "Artist",
+                                                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist"
+                                                       else "Album • ${album.artist ?: album.primaryArtists ?: "Original Soundtrack"}",
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     color = Color(0xFFB3B3B3),
                                                     fontSize = 13.sp
@@ -1169,24 +1180,27 @@ fun SearchScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
+                                        IconButton(
+                                            onClick = {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                viewModel.openAlbumDetails(album)
+                                            },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AddCircleOutline,
+                                                contentDescription = "View Album",
+                                                tint = Color(0xFFB3B3B3),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
 
-                            // 3. TOP HIT ORIGINAL SONGS (Square Art, Song • Artist, ⋮ and ⊕)
+                            // 2. TOP HIT ORIGINAL SONGS (Square Art, Song • Artist, ⋮ and ⊕)
                             if (primarySongsToDisplay.isNotEmpty()) {
-                                item(key = "songs_header_title") {
-                                    Text(
-                                        text = "Songs",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontSize = 18.sp
-                                        ),
-                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
-                                    )
-                                }
-
                                 items(primarySongsToDisplay, key = { "online_${it.id}" }) { onlineSong ->
                                     val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
                                     val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
@@ -1291,83 +1305,34 @@ fun SearchScreen(
                                 }
                             }
 
-                            // 3. MATCHING PLAYLISTS / ALBUMS (Shown if user explicitly searched for an album OR searched a movie name)
-                            if (showAlbums) {
-                                item(key = "albums_header_title") {
-                                    Text(
-                                        text = "Albums & Soundtracks",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontSize = 18.sp
-                                        ),
-                                        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp, start = 4.dp)
-                                    )
-                                }
-
-                                items(displayedAlbums.take(6), key = { "album_${it.id}" }) { album ->
+                            // 3. DOOM SCROLLING LOADING INDICATOR
+                            if (isLoadingMoreSearch) {
+                                item(key = "doom_scroll_loading_spinner") {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.openAlbumDetails(album)
-                                            }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                            .padding(vertical = 16.dp),
+                                        horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        TrackCoverArt(
-                                            albumArtPath = album.coverArtUrl,
-                                            title = album.title,
-                                            artist = album.artist ?: "",
-                                            size = 52.dp,
-                                            shape = RoundedCornerShape(4.dp)
+                                        CircularProgressIndicator(
+                                            color = SpotifyGreenBright,
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
                                         )
-                                        Spacer(modifier = Modifier.width(14.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = album.title,
-                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = Color.White,
-                                                    fontSize = 15.sp
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "Loading more songs...",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color(0xB3FFFFFF),
+                                                fontSize = 12.sp
                                             )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = if (album.type.equals("Playlist", ignoreCase = true)) "Playlist" else "${album.type} • ${album.artist ?: album.primaryArtists ?: "Spotify"}",
-                                                style = MaterialTheme.typography.bodySmall.copy(
-                                                    color = Color(0xFFB3B3B3),
-                                                    fontSize = 13.sp
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                viewModel.openAlbumDetails(album)
-                                            },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.AddCircleOutline,
-                                                contentDescription = "View Album",
-                                                tint = Color(0xFFB3B3B3),
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
+                                        )
                                     }
                                 }
                             }
 
-                            // 5. BOTTOM SPOTIFY ANCHOR: "View all results for '<query>'"
+                            // 4. BOTTOM SPOTIFY ANCHOR: "View all results for '<query>'"
                             item(key = "view_all_results_bottom") {
                                 Row(
                                     modifier = Modifier
@@ -1486,9 +1451,8 @@ fun SearchScreen(
                         // Empty State if no results found (Only shown after search genuinely completes)
                         val hasSearchCompletedForCurrentQuery = searchContainer?.query?.equals(searchQuery.trim(), ignoreCase = true) == true
 
-                        val hasAnyResult = artistsToShow.isNotEmpty() ||
+                        val hasAnyResult = topAlbumsToShow.isNotEmpty() ||
                                 primarySongsToDisplay.isNotEmpty() ||
-                                (showAlbums && displayedAlbums.isNotEmpty()) ||
                                 isImportingAlbum ||
                                 com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(searchQuery.trim())
 
