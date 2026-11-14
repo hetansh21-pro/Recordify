@@ -6,6 +6,17 @@ import com.audiovault.app.ui.components.ProcessingTimelineBadge
 import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.search.OnlineSongItem
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +66,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import com.audiovault.app.core.identity.RecordingVersionType
 import com.audiovault.app.core.search.SearchTargetEntity
 import androidx.compose.material3.Card
@@ -154,6 +168,9 @@ fun SearchScreen(
     val selectedLanguageFilter by viewModel.selectedLanguageFilter.collectAsState()
     val selectedVersionFilter by viewModel.selectedVersionFilter.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val isImportingAlbum by viewModel.isImportingAlbum.collectAsState()
+    val importAlbumMessage by viewModel.importAlbumMessage.collectAsState()
+    var showRemixVersions by remember(searchQuery) { mutableStateOf(false) }
     val userSettings by viewModel.userSettings.collectAsState()
     val countryProfile = remember(userSettings.userCountryCode) {
         com.audiovault.app.core.catalog.CountryMusicCatalog.getProfile(userSettings.userCountryCode)
@@ -247,7 +264,7 @@ fun SearchScreen(
     val matchingArtists = remember(allArtistGroups, trimmedQuery) {
         if (trimmedQuery.isEmpty()) emptyList()
         else allArtistGroups.filter { (artistName, _) ->
-            artistName.contains(trimmedQuery, ignoreCase = true)
+            com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(artistName, trimmedQuery)
         }
     }
 
@@ -740,13 +757,36 @@ fun SearchScreen(
                         onlineSearchResults
                     }
 
-                    val cleanUpcomingQueue = remember(displayedOnlineSongs) {
+                    val isExplicitVersionQuery = remember(searchQuery) {
+                        val q = searchQuery.lowercase()
+                        listOf("remix", "re-mix", "dj", "slowed", "reverb", "sped up", "speed up", "nightcore", "lofi", "lo-fi", "mashup").any { q.contains(it) }
+                    }
+
+                    val (originalSongs, remixOrAlternativeSongs) = remember(displayedOnlineSongs, isExplicitVersionQuery) {
+                        if (isExplicitVersionQuery) {
+                            displayedOnlineSongs to emptyList()
+                        } else {
+                            displayedOnlineSongs.partition { song ->
+                                val lower = song.title.lowercase()
+                                val isRemix = listOf(
+                                    "remix", "re-mix", "dj ", " dj", "mashup", "club mix", "club edit",
+                                    "slowed", "reverb", "sped up", "speed up", "nightcore",
+                                    "lofi", "lo-fi", "bass boosted", "trap mix", "dance mix"
+                                ).any { lower.contains(it) }
+                                !isRemix
+                            }
+                        }
+                    }
+
+                    val primarySongsToDisplay = if (originalSongs.isNotEmpty()) originalSongs else displayedOnlineSongs
+
+                    val cleanUpcomingQueue = remember(primarySongsToDisplay) {
                         { selected: com.audiovault.app.core.online.OnlineSongModel ->
                             val selectedStem = selected.title.lowercase()
                                 .replace(Regex("(?i)\\b(remix|re-mix|lofi|lo-fi|slowed|reverb|audio|official|video|version|from|soundtrack|song|the|full|hd)\\b"), "")
                                 .replace(Regex("[^a-zA-Z0-9]"), "")
                                 .trim()
-                            val afterList = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(selected) + 1)
+                            val afterList = primarySongsToDisplay.drop(primarySongsToDisplay.indexOf(selected) + 1)
                             val filtered = afterList.filter { other ->
                                 if (other.id == selected.id) return@filter false
                                 val otherStem = other.title.lowercase()
@@ -775,10 +815,21 @@ fun SearchScreen(
                         val fromLocal = matchingArtists.firstOrNull()?.first
                         val fromCatalog = com.audiovault.app.core.catalog.ArtistImageCatalog.allArtistNames.firstOrNull {
                             val a = it.lowercase()
-                            a.contains(q) || q.contains(a.take(4))
+                            com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(a, q)
                         }
                         fromOnline ?: fromLocal ?: fromCatalog
                     }
+
+                    val infiniteTransition = rememberInfiniteTransition(label = "search_shimmer")
+                    val shimmerAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.28f,
+                        targetValue = 0.72f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 750, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "shimmer_alpha"
+                    )
 
                     LazyColumn(
                         state = resultsListState,
@@ -786,28 +837,186 @@ fun SearchScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
-                        // Loading Animation during active search
-                        if (isOnlineSearching) {
-                            item(key = "search_loading_indicator") {
+                        // 0. PLAYLIST IMPORT CARD (Animated Progress & Feedback)
+                        if (isImportingAlbum) {
+                            item(key = "playlist_importing_card") {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = Color(0xFF181818),
+                                    border = BorderStroke(1.dp, SpotifyGreenBright.copy(alpha = 0.6f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = SpotifyGreenBright,
+                                            strokeWidth = 3.dp,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Importing Playlist / Album",
+                                                style = MaterialTheme.typography.titleSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    fontSize = 15.sp
+                                                )
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = importAlbumMessage ?: "Fetching metadata and tracks...",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = Color(0xFFB3B3B3),
+                                                    fontSize = 13.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(searchQuery.trim())) {
+                            item(key = "playlist_detected_card") {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = Color(0xFF1E1E1E),
+                                    border = BorderStroke(1.dp, Color(0xFF333333)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.weight(1f),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(SpotifyGreenBright.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.LibraryMusic,
+                                                    contentDescription = null,
+                                                    tint = SpotifyGreenBright,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Music Link Detected",
+                                                    style = MaterialTheme.typography.titleSmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        fontSize = 14.sp
+                                                    )
+                                                )
+                                                Text(
+                                                    text = "Tap button to import playlist instantly",
+                                                    style = MaterialTheme.typography.bodySmall.copy(
+                                                        color = Color(0xFFB3B3B3),
+                                                        fontSize = 12.sp
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = SpotifyGreenBright,
+                                            modifier = Modifier.clickable {
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                viewModel.importAlbumFromLink(searchQuery.trim())
+                                            }
+                                        ) {
+                                            Text(
+                                                text = "Import",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.Black,
+                                                    fontSize = 13.sp
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Shimmer Skeleton Loaders while search is loading
+                        if (isOnlineSearching && primarySongsToDisplay.isEmpty()) {
+                            items(4, key = { "shimmer_skeleton_$it" }) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFF282828).copy(alpha = shimmerAlpha))
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.55f)
+                                                .height(14.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF383838).copy(alpha = shimmerAlpha))
+                                        )
+                                        Spacer(modifier = Modifier.height(7.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.35f)
+                                                .height(11.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF2E2E2E).copy(alpha = shimmerAlpha))
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (isOnlineSearching && primarySongsToDisplay.isNotEmpty()) {
+                            item(key = "search_updating_indicator") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     CircularProgressIndicator(
                                         color = SpotifyGreenBright,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Searching Recordify Catalog...",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                        text = "Scanning more sources...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xB3FFFFFF),
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Medium
+                                            fontSize = 12.sp
                                         )
                                     )
                                 }
@@ -856,7 +1065,7 @@ fun SearchScreen(
                                 }
                             }
 
-                            // 2. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle)
+                            // 2. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle - Strict Match Only!)
                             val artistsToShow = onlineArtists.ifEmpty {
                                 matchingArtists.take(3).map {
                                     com.audiovault.app.core.online.ArtistItemModel(
@@ -866,7 +1075,10 @@ fun SearchScreen(
                                         role = "Artist"
                                     )
                                 }
-                            }.filter { !it.name.equals(topResult?.title, ignoreCase = true) }
+                            }.filter {
+                                com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(it.name, searchQuery) &&
+                                !it.name.equals(topResult?.title, ignoreCase = true)
+                            }
 
                             if (artistsToShow.isNotEmpty()) {
                                 items(artistsToShow.take(2), key = { "art_match_${it.id}" }) { artistItem ->
@@ -917,7 +1129,7 @@ fun SearchScreen(
                             }
 
                             // 3. TOP HIT ORIGINAL SONGS (Square Art, Song • Artist, ⋮ and ⊕)
-                            if (displayedOnlineSongs.isNotEmpty()) {
+                            if (primarySongsToDisplay.isNotEmpty()) {
                                 item(key = "songs_header_title") {
                                     Text(
                                         text = "Songs",
@@ -930,7 +1142,7 @@ fun SearchScreen(
                                     )
                                 }
 
-                                items(displayedOnlineSongs, key = { "online_${it.id}" }) { onlineSong ->
+                                items(primarySongsToDisplay, key = { "online_${it.id}" }) { onlineSong ->
                                     val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == onlineSong.streamUrl)
                                     val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
                                     val isDownloading = downloadingSongIds.contains(onlineSong.id)
@@ -955,6 +1167,82 @@ fun SearchScreen(
                                             android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     )
+                                }
+
+                                // Expandable Remixes & Alternative Versions Button
+                                if (remixOrAlternativeSongs.isNotEmpty() && !isExplicitVersionQuery) {
+                                    item(key = "expand_remixes_button") {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = SpotifyCardSurface,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 4.dp, vertical = 6.dp)
+                                                .clickable { showRemixVersions = !showRemixVersions }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Tune,
+                                                        contentDescription = null,
+                                                        tint = SpotifyGreenBright,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(10.dp))
+                                                    Text(
+                                                        text = if (showRemixVersions) "Hide other versions & remixes"
+                                                               else "View other versions & remixes (${remixOrAlternativeSongs.size})",
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            fontSize = 13.sp
+                                                        )
+                                                    )
+                                                }
+                                                Icon(
+                                                    imageVector = if (showRemixVersions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                                    contentDescription = null,
+                                                    tint = Color(0xB3FFFFFF),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    if (showRemixVersions) {
+                                        items(remixOrAlternativeSongs, key = { "remix_${it.id}" }) { remixSong ->
+                                            val isCurrentPlayingOnline = playerState.isPlaying && (playerState.currentRecording?.filePath == remixSong.streamUrl)
+                                            val isSaved = viewModel.isOnlineSongSavedInLibrary(remixSong)
+                                            val isDownloading = downloadingSongIds.contains(remixSong.id)
+                                            val progress = downloadProgress[remixSong.id]
+
+                                            OnlineSongItem(
+                                                song = remixSong,
+                                                isPlaying = isCurrentPlayingOnline,
+                                                isSavedInLibrary = isSaved,
+                                                isDownloading = isDownloading,
+                                                downloadProgress = progress,
+                                                versionBadge = null,
+                                                onPlayClick = {
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    viewModel.playOnlineSong(remixSong, upcomingSongs = cleanUpcomingQueue(remixSong))
+                                                },
+                                                onDownloadClick = { viewModel.downloadOnlineSong(remixSong) },
+                                                onCancelDownload = { viewModel.cancelDownload(remixSong.id) },
+                                                onSwipeToQueue = {
+                                                    viewModel.addSongToQueue(remixSong)
+                                                    android.widget.Toast.makeText(context, "Added to queue", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -1155,7 +1443,9 @@ fun SearchScreen(
                                 displayedOnlineSongs.isNotEmpty() ||
                                 displayedAlbums.isNotEmpty() ||
                                 onlineArtists.isNotEmpty() ||
-                                matchingArtists.isNotEmpty()
+                                matchingArtists.isNotEmpty() ||
+                                isImportingAlbum ||
+                                com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(searchQuery.trim())
 
                         if (!hasAnyResult && !isOnlineSearching) {
                             item {

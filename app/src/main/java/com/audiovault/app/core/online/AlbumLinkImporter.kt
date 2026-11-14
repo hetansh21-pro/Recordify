@@ -81,9 +81,8 @@ object AlbumLinkImporter {
                             source = "imported",
                             type = "Album"
                         )
-                        val enrichedAlbum = preResolveInitialTracks(fixedAlbum)
                         return@withContext AlbumImportResult(
-                            album = enrichedAlbum,
+                            album = fixedAlbum,
                             success = true,
                             message = "Successfully imported '${album.title}' with ${album.songs.size} tracks!"
                         )
@@ -101,9 +100,8 @@ object AlbumLinkImporter {
                             source = "imported",
                             type = "Playlist"
                         )
-                        val enrichedAlbum = preResolveInitialTracks(fixedAlbum)
                         return@withContext AlbumImportResult(
-                            album = enrichedAlbum,
+                            album = fixedAlbum,
                             success = true,
                             message = "Successfully imported '${album.title}' with ${album.songs.size} tracks!"
                         )

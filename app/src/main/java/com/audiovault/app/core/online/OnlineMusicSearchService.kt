@@ -225,46 +225,35 @@ object OnlineMusicSearchService {
                 primaryLanguage = primaryLanguage
             )
 
-            // Combine Spotify Artists with extracted artists
+            // Combine Spotify Artists with extracted artists (Strict match ONLY)
             val spotifyArtists = spotifyRes?.artists ?: emptyList()
             val primaryArtistItem = cleanArtistName?.let { name ->
-                val spotifyMatch = spotifyArtists.firstOrNull { it.name.equals(name, ignoreCase = true) }
-                ArtistItemModel(
-                    id = spotifyMatch?.id ?: "artist_${name.hashCode()}",
-                    name = name,
-                    imageUrl = spotifyMatch?.imageUrl?.ifBlank { null } ?: com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
-                    role = "Artist"
-                )
+                if (isArtistProperMatch(name, rawQuery)) {
+                    val spotifyMatch = spotifyArtists.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                    ArtistItemModel(
+                        id = spotifyMatch?.id ?: "artist_${name.hashCode()}",
+                        name = name,
+                        imageUrl = spotifyMatch?.imageUrl?.ifBlank { null } ?: com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name),
+                        role = "Artist"
+                    )
+                } else null
             }
             val extractedArtists = buildList {
                 if (primaryArtistItem != null) add(primaryArtistItem)
                 spotifyArtists.forEach { spArtist ->
-                    if (none { it.name.equals(spArtist.name, ignoreCase = true) }) {
+                    if (isArtistProperMatch(spArtist.name, rawQuery) && none { it.name.equals(spArtist.name, ignoreCase = true) }) {
                         add(spArtist)
                     }
                 }
-                rankedFastSongs.map { it.normalizedPrimaryArtist }
-                    .distinct()
-                    .filter { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) && !it.equals(cleanArtistName, ignoreCase = true) }
-                    .take(5)
-                    .forEach { name ->
-                        if (none { it.name.equals(name, ignoreCase = true) }) {
-                            val art = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(name).ifBlank {
-                                rankedFastSongs.firstOrNull { it.normalizedPrimaryArtist == name }?.highResArtUrl ?: ""
-                            }
-                            add(
-                                ArtistItemModel(
-                                    id = "artist_${name.hashCode()}",
-                                    name = name,
-                                    imageUrl = art,
-                                    role = "Artist"
-                                )
-                            )
-                        }
-                    }
             }
 
-            val topResult = spotifyRes?.topResult ?: run {
+            // Top Result: Prioritize real original song over anything else unless user explicitly searched an artist
+            val isExplicitArtistQuery = intent.targetEntity == com.audiovault.app.core.search.SearchTargetEntity.ARTISTS ||
+                    (spotifyRes?.topResult?.type.equals("Artist", ignoreCase = true) && isArtistProperMatch(spotifyRes?.topResult?.title ?: "", rawQuery))
+
+            val topResult = if (isExplicitArtistQuery && spotifyRes?.topResult != null) {
+                spotifyRes.topResult
+            } else {
                 if (rankedFastSongs.isNotEmpty()) {
                     val first = rankedFastSongs.first().toOnlineSongModel()
                     SpotifyTopResultItem(
@@ -275,7 +264,9 @@ object OnlineMusicSearchService {
                         uri = first.id,
                         song = first
                     )
-                } else null
+                } else {
+                    spotifyRes?.topResult
+                }
             }
 
             val partialContainer = SearchResultContainer(
@@ -1984,6 +1975,20 @@ object OnlineMusicSearchService {
                lower.contains("preview") ||
                lower.contains("30s") ||
                lower.contains("/preview/")
+    }
+
+    fun isArtistProperMatch(artistName: String, query: String): Boolean {
+        val q = query.trim().lowercase()
+        if (q.length < 2) return false
+        val a = artistName.trim().lowercase()
+        if (a.isBlank()) return false
+        if (a == q) return true
+        if (a.startsWith(q) || q.startsWith(a)) return true
+        val aTokens = a.split(" ", "-", "_", ".", ",").filter { it.isNotBlank() }
+        val qTokens = q.split(" ", "-", "_", ".", ",").filter { it.isNotBlank() }
+        if (aTokens.any { token -> token == q || (token.startsWith(q) && q.length >= 3) }) return true
+        if (qTokens.all { qToken -> aTokens.any { aToken -> aToken.startsWith(qToken) || aToken == qToken } }) return true
+        return false
     }
 
     private fun cleanText(raw: String): String {
