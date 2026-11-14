@@ -1013,7 +1013,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         song: OnlineSongModel,
         upcomingSongs: List<OnlineSongModel>? = null,
         isManualAction: Boolean = true,
-        fromAlbumContext: Boolean = false
+        fromAlbumContext: Boolean = false,
+        fromRecentList: Boolean = false
     ) {
         val current = playerState.value.currentRecording
         if (current != null && (current.filePath == song.streamUrl || current.title.equals(song.title, ignoreCase = true))) {
@@ -1046,7 +1047,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                     isOnline = true,
                     streamUrl = song.streamUrl,
                     youtubeVideoId = song.youtubeVideoId
-                )
+                ),
+                moveExistingToTop = !fromRecentList
             )
         }
 
@@ -1232,19 +1234,20 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
 
         if (item.isOnline) {
             playOnlineSong(
-                OnlineSongModel(
+                song = OnlineSongModel(
                     id = item.id,
                     title = item.title,
                     artist = item.artist,
                     streamUrl = item.streamUrl ?: "",
                     highResArtUrl = item.albumArtPath,
                     youtubeVideoId = item.youtubeVideoId
-                )
+                ),
+                fromRecentList = true
             )
         } else {
             val local = allRecordings.value.firstOrNull { it.id == item.localRecordingId || it.title.equals(item.title, ignoreCase = true) }
             if (local != null) {
-                playPauseRecording(local)
+                playPauseRecording(local, fromRecentList = true)
             }
         }
     }
@@ -1384,7 +1387,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun playPauseRecording(recording: RecordingEntity, isManualAction: Boolean = true) {
+    fun playPauseRecording(recording: RecordingEntity, isManualAction: Boolean = true, fromRecentList: Boolean = false) {
         val item = QueueItem.fromRecording(recording)
         if (playerState.value.currentRecording?.id == item.toRecordingEntity().id) {
             playerEngine.togglePlayPause()
@@ -1400,7 +1403,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
                             albumArtPath = recording.albumArtPath,
                             isOnline = item.isOnline,
                             localRecordingId = if (!item.isOnline) recording.id else null
-                        )
+                        ),
+                        moveExistingToTop = !fromRecentList
                     )
                 }
             }

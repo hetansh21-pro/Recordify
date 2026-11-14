@@ -112,7 +112,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun addRecentSearchItem(item: RecentlyPlayedSearchItem) {
+    suspend fun addRecentSearchItem(item: RecentlyPlayedSearchItem, moveExistingToTop: Boolean = true) {
         context.dataStore.edit { prefs ->
             val currentList = try {
                 val jsonStr = prefs[PreferencesKeys.KEY_RECENT_SEARCHES] ?: ""
@@ -141,10 +141,22 @@ class UserPreferencesRepository(private val context: Context) {
                 mutableListOf()
             }
 
+            val existingIndex = currentList.indexOfFirst {
+                it.id == item.id || it.title.equals(item.title, ignoreCase = true)
+            }
+
             val updatedList = mutableListOf<RecentlyPlayedSearchItem>()
-            updatedList.add(item)
-            currentList.filter { !it.title.equals(item.title, ignoreCase = true) }.take(24).forEach {
-                updatedList.add(it)
+            if (existingIndex >= 0 && !moveExistingToTop) {
+                // Keep the song in its exact place in the list — do not reorder to top
+                updatedList.addAll(currentList)
+                updatedList[existingIndex] = item.copy(timestamp = currentList[existingIndex].timestamp)
+            } else {
+                updatedList.add(item)
+                currentList.filter { it.id != item.id && !it.title.equals(item.title, ignoreCase = true) }
+                    .take(49)
+                    .forEach {
+                        updatedList.add(it)
+                    }
             }
 
             val outArray = JSONArray()

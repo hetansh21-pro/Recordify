@@ -722,12 +722,48 @@ fun SearchScreen(
                             focusManager.clearFocus()
                         }
                     }
+                    LaunchedEffect(searchQuery) {
+                        if (searchQuery.isNotBlank()) {
+                            resultsListState.scrollToItem(0)
+                        }
+                    }
+                    LaunchedEffect(searchContainer?.query) {
+                        if (searchQuery.isNotBlank()) {
+                            resultsListState.scrollToItem(0)
+                        }
+                    }
 
                     val canonicalSongs = searchContainer?.songs ?: emptyList()
                     val displayedOnlineSongs = if (canonicalSongs.isNotEmpty()) {
                         canonicalSongs.map { it.toOnlineSongModel() }
                     } else {
                         onlineSearchResults
+                    }
+
+                    val cleanUpcomingQueue = remember(displayedOnlineSongs) {
+                        { selected: com.audiovault.app.core.online.OnlineSongModel ->
+                            val selectedStem = selected.title.lowercase()
+                                .replace(Regex("(?i)\\b(remix|re-mix|lofi|lo-fi|slowed|reverb|audio|official|video|version|from|soundtrack|song|the|full|hd)\\b"), "")
+                                .replace(Regex("[^a-zA-Z0-9]"), "")
+                                .trim()
+                            val afterList = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(selected) + 1)
+                            val filtered = afterList.filter { other ->
+                                if (other.id == selected.id) return@filter false
+                                val otherStem = other.title.lowercase()
+                                    .replace(Regex("(?i)\\b(remix|re-mix|lofi|lo-fi|slowed|reverb|audio|official|video|version|from|soundtrack|song|the|full|hd)\\b"), "")
+                                    .replace(Regex("[^a-zA-Z0-9]"), "")
+                                    .trim()
+                                if (selectedStem.isNotBlank() && otherStem.isNotBlank()) {
+                                    if (otherStem.startsWith(selectedStem) || selectedStem.startsWith(otherStem)) {
+                                        return@filter false
+                                    }
+                                }
+                                true
+                            }.distinctBy {
+                                it.title.lowercase().replace(Regex("[^a-zA-Z0-9]"), "").take(10)
+                            }
+                            if (filtered.size >= 4) filtered.take(15) else null
+                        }
                     }
 
                     val displayedAlbums = searchContainer?.albums ?: matchingAlbums
@@ -797,7 +833,7 @@ fun SearchScreen(
                                                 if (isTopSongPlaying) {
                                                     viewModel.pausePlayback()
                                                 } else {
-                                                    viewModel.playOnlineSong(topResult.song, upcomingSongs = displayedOnlineSongs)
+                                                    viewModel.playOnlineSong(topResult.song, upcomingSongs = cleanUpcomingQueue(topResult.song))
                                                 }
                                             } else if (topResult.album != null) {
                                                 viewModel.openAlbumDetails(topResult.album)
@@ -813,7 +849,7 @@ fun SearchScreen(
                                             } else if (topResult.album != null) {
                                                 viewModel.openAlbumDetails(topResult.album)
                                             } else if (topResult.song != null) {
-                                                viewModel.playOnlineSong(topResult.song, upcomingSongs = displayedOnlineSongs)
+                                                viewModel.playOnlineSong(topResult.song, upcomingSongs = cleanUpcomingQueue(topResult.song))
                                             }
                                         }
                                     )
@@ -899,7 +935,6 @@ fun SearchScreen(
                                     val isSaved = viewModel.isOnlineSongSavedInLibrary(onlineSong)
                                     val isDownloading = downloadingSongIds.contains(onlineSong.id)
                                     val progress = downloadProgress[onlineSong.id]
-                                    val versionBadge = canonicalSongs.firstOrNull { it.providerTrackId == onlineSong.id }?.recordingVersion?.badge
 
                                     OnlineSongItem(
                                         song = onlineSong,
@@ -907,12 +942,11 @@ fun SearchScreen(
                                         isSavedInLibrary = isSaved,
                                         isDownloading = isDownloading,
                                         downloadProgress = progress,
-                                        versionBadge = versionBadge,
+                                        versionBadge = null,
                                         onPlayClick = {
                                             keyboardController?.hide()
                                             focusManager.clearFocus()
-                                            val upcoming = displayedOnlineSongs.drop(displayedOnlineSongs.indexOf(onlineSong) + 1)
-                                            viewModel.playOnlineSong(onlineSong, upcomingSongs = upcoming)
+                                            viewModel.playOnlineSong(onlineSong, upcomingSongs = cleanUpcomingQueue(onlineSong))
                                         },
                                         onDownloadClick = { viewModel.downloadOnlineSong(onlineSong) },
                                         onCancelDownload = { viewModel.cancelDownload(onlineSong.id) },
@@ -1188,7 +1222,7 @@ fun SearchScreen(
                                 }
                             }
 
-                            items(recentSearches.take(8), key = { "recent_${it.id}" }) { item ->
+                            items(recentSearches.take(35), key = { "recent_${it.id}" }) { item ->
                                 val isPlaying = playerState.isPlaying && (
                                     (item.isOnline && playerState.currentRecording?.title.equals(item.title, ignoreCase = true)) ||
                                     (!item.isOnline && playerState.currentRecording?.id == item.localRecordingId)

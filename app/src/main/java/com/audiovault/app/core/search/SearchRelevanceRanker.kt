@@ -112,20 +112,33 @@ object SearchRelevanceRanker {
                     }
                 }
 
-                // 4. Trending & Viral Match (Spotify Top, Instagram Reels, viral chart hits)
+                // 4. Official Top Hits & Chart Matches (Verified catalog)
                 val combinedMeta = "${track.normalizedTitle} ${track.normalizedPrimaryArtist} ${track.albumTitle ?: ""}".lowercase()
-                if (combinedMeta.contains("trending") || combinedMeta.contains("viral") || combinedMeta.contains("reel") ||
-                    combinedMeta.contains("top") || combinedMeta.contains("hit") || combinedMeta.contains("chart")) {
-                    score += 30f
+                if (combinedMeta.contains("top") || combinedMeta.contains("hit") || combinedMeta.contains("chart")) {
+                    score += 15f
                 }
 
-                // 5. Original / Official status bonus
+                // 5. Original / Official status bonus - Strong priority for authentic main recordings
                 if (track.officialStatus) {
-                    score += 25f
+                    score += 35f
                 }
                 if (track.recordingVersion == RecordingVersionType.ORIGINAL_STUDIO ||
                     track.recordingVersion == RecordingVersionType.OFFICIAL_SOUNDTRACK) {
-                    score += 15f
+                    score += 45f
+                }
+
+                // Suppress unofficial edits, remixes, sped up, slowed, or covers unless user specifically asked for them
+                if (intent.requestedVersion == null) {
+                    when (track.recordingVersion) {
+                        RecordingVersionType.REMIX,
+                        RecordingVersionType.SLOWED_REVERB,
+                        RecordingVersionType.SPED_UP_NIGHTCORE,
+                        RecordingVersionType.KARAOKE_INSTRUMENTAL,
+                        RecordingVersionType.COVER -> {
+                            score -= 45f
+                        }
+                        else -> Unit
+                    }
                 }
 
                 // 6. Requested explicit version bonus

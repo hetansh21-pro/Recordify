@@ -126,23 +126,6 @@ fun OnlineSongItem(
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!versionBadge.isNullOrBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0x3300E676),
-                            modifier = Modifier.padding(end = 6.dp)
-                        ) {
-                            Text(
-                                text = versionBadge,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = SpotifyGreenBright,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
                     Text(
                         text = "Song • ${song.artist}",
                         style = MaterialTheme.typography.bodySmall.copy(
