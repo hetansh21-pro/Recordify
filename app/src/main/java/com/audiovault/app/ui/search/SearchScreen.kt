@@ -884,6 +884,42 @@ fun SearchScreen(
                         fromOnline ?: fromLocal ?: fromCatalog
                     }
 
+                    val artistsToShow = remember(onlineArtists, matchingArtists, searchQuery) {
+                        onlineArtists.ifEmpty {
+                            matchingArtists.take(3).map {
+                                com.audiovault.app.core.online.ArtistItemModel(
+                                    id = "local_${it.first}",
+                                    name = it.first,
+                                    imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(it.first),
+                                    role = "Artist"
+                                )
+                            }
+                        }.filter {
+                            com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(it.name, searchQuery)
+                        }
+                    }
+
+                    val matchesMovieOrAlbum = remember(searchQuery, displayedAlbums) {
+                        val cleanQ = searchQuery.trim().lowercase()
+                            .replace(Regex("(?i)\\b(movie|film|songs|song|album|all)\\b"), "")
+                            .replace(Regex("[^a-zA-Z0-9]"), "")
+                            .trim()
+                        if (cleanQ.length < 2) false
+                        else displayedAlbums.any { album ->
+                            val cleanAlbumTitle = album.title.lowercase()
+                                .replace(Regex("(?i)\\b(original|motion|picture|soundtrack|ost|movie|film|songs|from|the|vol|part)\\b"), "")
+                                .replace(Regex("[^a-zA-Z0-9]"), "")
+                                .trim()
+                            cleanAlbumTitle.isNotBlank() && (
+                                cleanAlbumTitle == cleanQ ||
+                                cleanAlbumTitle.startsWith(cleanQ) ||
+                                cleanQ.startsWith(cleanAlbumTitle)
+                            )
+                        }
+                    }
+
+                    val showAlbums = (isExplicitAlbumQuery || matchesMovieOrAlbum) && displayedAlbums.isNotEmpty()
+
                     val infiniteTransition = rememberInfiniteTransition(label = "search_shimmer")
                     val shimmerAlpha by infiniteTransition.animateFloat(
                         initialValue = 0.28f,
@@ -1088,62 +1124,7 @@ fun SearchScreen(
                         }
 
                         if (selectedSearchTab == "Real Songs") {
-                            // 1. SIGNATURE SPOTIFY "TOP RESULT" CARD
-                            if (topResult != null) {
-                                val isTopSongPlaying = topResult.song != null && playerState.isPlaying && (
-                                    playerState.currentRecording?.filePath == topResult.song.streamUrl ||
-                                    playerState.currentRecording?.title.equals(topResult.song.title, ignoreCase = true)
-                                )
-
-                                item(key = "spotify_top_result_${topResult.uri}") {
-                                    SpotifyTopResultCard(
-                                        topResult = topResult,
-                                        isPlaying = isTopSongPlaying,
-                                        onPlayClick = {
-                                            keyboardController?.hide()
-                                            focusManager.clearFocus()
-                                            if (topResult.song != null) {
-                                                if (isTopSongPlaying) {
-                                                    viewModel.pausePlayback()
-                                                } else {
-                                                    viewModel.playOnlineSong(topResult.song, upcomingSongs = cleanUpcomingQueue(topResult.song))
-                                                }
-                                            } else if (topResult.album != null) {
-                                                viewModel.openAlbumDetails(topResult.album)
-                                            } else if (topResult.type.equals("Artist", ignoreCase = true)) {
-                                                selectedArtistForDetail = topResult.title
-                                            }
-                                        },
-                                        onItemClick = {
-                                            keyboardController?.hide()
-                                            focusManager.clearFocus()
-                                            if (topResult.type.equals("Artist", ignoreCase = true)) {
-                                                selectedArtistForDetail = topResult.title
-                                            } else if (topResult.album != null) {
-                                                viewModel.openAlbumDetails(topResult.album)
-                                            } else if (topResult.song != null) {
-                                                viewModel.playOnlineSong(topResult.song, upcomingSongs = cleanUpcomingQueue(topResult.song))
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-
-                            // 2. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle - Strict Match Only!)
-                            val artistsToShow = onlineArtists.ifEmpty {
-                                matchingArtists.take(3).map {
-                                    com.audiovault.app.core.online.ArtistItemModel(
-                                        id = "local_${it.first}",
-                                        name = it.first,
-                                        imageUrl = com.audiovault.app.core.catalog.ArtistImageCatalog.getImageUrl(it.first),
-                                        role = "Artist"
-                                    )
-                                }
-                            }.filter {
-                                com.audiovault.app.core.online.OnlineMusicSearchService.isArtistProperMatch(it.name, searchQuery) &&
-                                !it.name.equals(topResult?.title, ignoreCase = true)
-                            }
-
+                            // 1. MATCHED ARTIST PROFILES (Circular Profile Avatars, Name, "Artist" subtitle - Strict Match Only!)
                             if (artistsToShow.isNotEmpty()) {
                                 items(artistsToShow.take(2), key = { "art_match_${it.id}" }) { artistItem ->
                                     Row(
@@ -1310,8 +1291,8 @@ fun SearchScreen(
                                 }
                             }
 
-                            // 4. MATCHING PLAYLISTS / ALBUMS (Only shown if user explicitly searched for an album or soundtrack)
-                            if (isExplicitAlbumQuery && displayedAlbums.isNotEmpty()) {
+                            // 3. MATCHING PLAYLISTS / ALBUMS (Shown if user explicitly searched for an album OR searched a movie name)
+                            if (showAlbums) {
                                 item(key = "albums_header_title") {
                                     Text(
                                         text = "Albums & Soundtracks",
@@ -1502,16 +1483,16 @@ fun SearchScreen(
                             }
                         }
 
-                        // Empty State if no results found
-                        val hasAnyResult = topResult != null ||
-                                displayedOnlineSongs.isNotEmpty() ||
-                                (isExplicitAlbumQuery && displayedAlbums.isNotEmpty()) ||
-                                onlineArtists.isNotEmpty() ||
-                                matchingArtists.isNotEmpty() ||
+                        // Empty State if no results found (Only shown after search genuinely completes)
+                        val hasSearchCompletedForCurrentQuery = searchContainer?.query?.equals(searchQuery.trim(), ignoreCase = true) == true
+
+                        val hasAnyResult = artistsToShow.isNotEmpty() ||
+                                primarySongsToDisplay.isNotEmpty() ||
+                                (showAlbums && displayedAlbums.isNotEmpty()) ||
                                 isImportingAlbum ||
                                 com.audiovault.app.core.online.AlbumLinkImporter.isSupportedLink(searchQuery.trim())
 
-                        if (!hasAnyResult && !isOnlineSearching) {
+                        if (!hasAnyResult && !isOnlineSearching && hasSearchCompletedForCurrentQuery && searchQuery.isNotBlank()) {
                             item {
                                 Box(
                                     modifier = Modifier

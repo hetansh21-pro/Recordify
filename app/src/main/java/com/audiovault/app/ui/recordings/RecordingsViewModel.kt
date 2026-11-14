@@ -508,6 +508,7 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
             _searchResultContainer.value = null
             _isOnlineSearching.value = false
         } else {
+            _isOnlineSearching.value = true
             // Live as-you-type search: continuously scan & show music with fast 180ms debounce
             searchOnlineMusic(query, immediate = false)
         }
@@ -630,8 +631,8 @@ class RecordingsViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         onlineSearchJob = viewModelScope.launch {
-            delay(debounceMs)
             _isOnlineSearching.value = true
+            delay(debounceMs)
             try {
                 com.audiovault.app.core.online.OnlineMusicSearchService.searchSmartMultiSource(
                     rawQuery = trimmed,

@@ -60,8 +60,19 @@ object SearchRelevanceRanker {
                         score += 20f
                     }
 
-                    if (artistLower.contains(queryLower)) {
-                        score += 15f
+                    // Direct artist match in query: if the user specifically typed an artist name
+                    // (even a small, indie, or specific creator), give them an immediate direct match boost!
+                    if (artistLower.contains(queryLower) || queryLower.contains(artistLower)) {
+                        score += 50f
+                    }
+
+                    // Priority boost for famous / legendary artists so the authentic superstar version ranks #1 first (Spotify standard)
+                    val isFamous = com.audiovault.app.core.catalog.ArtistImageCatalog.allArtistNames.any { famous ->
+                        artistLower.contains(famous) || famous.contains(artistLower)
+                    } || INDIAN_LEGENDS.any { artistLower.contains(it) }
+
+                    if (isFamous) {
+                        score += 40f
                     }
 
                     // Single-letter and short prefix match boost
