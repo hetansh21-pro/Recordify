@@ -6,6 +6,14 @@ import com.audiovault.app.ui.components.ProcessingTimelineBadge
 import com.audiovault.app.ui.components.SwipeToQueueContainer
 import com.audiovault.app.ui.search.OnlineSongItem
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -186,6 +194,8 @@ fun SearchScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val focusRequester = remember { FocusRequester() }
+    val searchInteractionSource = remember { MutableInteractionSource() }
+    val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
 
     var selectedSearchTab by remember { mutableStateOf("Real Songs") }
     var showImportAlbumDialog by remember { mutableStateOf(false) }
@@ -488,7 +498,11 @@ fun SearchScreen(
                         )
                     }
 
-                    if (searchQuery.isNotEmpty()) {
+                    AnimatedVisibility(
+                        visible = searchQuery.isNotEmpty() || isSearchFocused,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(150))
+                    ) {
                         Text(
                             text = "Cancel",
                             style = MaterialTheme.typography.bodyMedium.copy(
@@ -509,19 +523,40 @@ fun SearchScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Translucent Light-Grey Search Box with Opacity
+                // Spotify-Grade Capsule Search Box with Theme Matching & Smooth Focus Animations
+                val animatedBorderColor by animateColorAsState(
+                    targetValue = if (isSearchFocused) SpotifyGreenBright.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.14f),
+                    animationSpec = tween(durationMillis = 250),
+                    label = "search_border_color"
+                )
+                val animatedBorderWidth by animateDpAsState(
+                    targetValue = if (isSearchFocused) 1.5.dp else 1.dp,
+                    animationSpec = tween(durationMillis = 250),
+                    label = "search_border_width"
+                )
+                val animatedBgColor by animateColorAsState(
+                    targetValue = if (isSearchFocused) Color(0xFF282828) else Color(0xFF202020),
+                    animationSpec = tween(durationMillis = 250),
+                    label = "search_bg_color"
+                )
+                val animatedIconTint by animateColorAsState(
+                    targetValue = if (isSearchFocused) SpotifyGreenBright else Color.White.copy(alpha = 0.7f),
+                    animationSpec = tween(durationMillis = 250),
+                    label = "search_icon_tint"
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.12f))
+                        .height(50.dp)
+                        .clip(CircleShape)
+                        .background(animatedBgColor)
                         .border(
-                            1.dp,
-                            Color.White.copy(alpha = 0.18f),
-                            RoundedCornerShape(8.dp)
+                            animatedBorderWidth,
+                            animatedBorderColor,
+                            CircleShape
                         )
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
@@ -531,7 +566,7 @@ fun SearchScreen(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color.White.copy(alpha = 0.7f),
+                            tint = animatedIconTint,
                             modifier = Modifier.size(22.dp)
                         )
 
@@ -540,10 +575,10 @@ fun SearchScreen(
                         Box(modifier = Modifier.weight(1f)) {
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "Search songs, artists or paste playlist link...",
+                                    text = "What do you want to listen to?",
                                     style = TextStyle(
                                         color = Color.White.copy(alpha = 0.45f),
-                                        fontSize = 14.sp,
+                                        fontSize = 14.5.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 )
@@ -561,6 +596,7 @@ fun SearchScreen(
                                 ),
                                 singleLine = true,
                                 cursorBrush = SolidColor(SpotifyGreenBright),
+                                interactionSource = searchInteractionSource,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(
                                     onSearch = {
@@ -621,17 +657,21 @@ fun SearchScreen(
                             )
                         }
 
-                        if (searchQuery.isNotEmpty()) {
+                        AnimatedVisibility(
+                            visible = searchQuery.isNotEmpty(),
+                            enter = fadeIn(tween(150)) + scaleIn(tween(150)),
+                            exit = fadeOut(tween(150)) + scaleOut(tween(150))
+                        ) {
                             IconButton(
                                 onClick = {
                                     viewModel.onSearchQueryChange("")
                                 },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Clear,
+                                    imageVector = Icons.Default.Close,
                                     contentDescription = "Clear",
-                                    tint = Color.White.copy(alpha = 0.8f),
+                                    tint = Color.White.copy(alpha = 0.85f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -704,7 +744,7 @@ fun SearchScreen(
 
                 // If user typed a search query: show instant search results (Online Worldwide, Artists & Library)
                 if (searchQuery.isNotBlank()) {
-                    // Clean Spotify Division Tabs: Real Songs vs YouTube
+                    // Clean Spotify Division Tabs: Real Songs vs YouTube with Smooth Color Animation
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -715,18 +755,32 @@ fun SearchScreen(
                         val searchDivisions = listOf("Real Songs", "YouTube")
                         searchDivisions.forEach { tab ->
                             val isSelected = selectedSearchTab == tab
+                            val animBg by animateColorAsState(
+                                targetValue = if (isSelected) SpotifyGreenBright else Color(0xFF242424),
+                                animationSpec = tween(durationMillis = 200),
+                                label = "tab_bg_$tab"
+                            )
+                            val animTextColor by animateColorAsState(
+                                targetValue = if (isSelected) Color.Black else Color.White,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "tab_text_$tab"
+                            )
                             Surface(
                                 shape = CircleShape,
-                                color = if (isSelected) SpotifyGreenBright else SpotifyCardSurface,
-                                modifier = Modifier.clickable { selectedSearchTab = tab }
+                                color = animBg,
+                                border = if (isSelected) null else BorderStroke(1.dp, Color(0x24FFFFFF)),
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .clickable { selectedSearchTab = tab }
                             ) {
                                 Text(
                                     text = tab,
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.Black else Color.White
+                                        color = animTextColor,
+                                        fontSize = 13.sp
                                     ),
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
                                 )
                             }
                         }
@@ -760,6 +814,16 @@ fun SearchScreen(
                     val isExplicitVersionQuery = remember(searchQuery) {
                         val q = searchQuery.lowercase()
                         listOf("remix", "re-mix", "dj", "slowed", "reverb", "sped up", "speed up", "nightcore", "lofi", "lo-fi", "mashup").any { q.contains(it) }
+                    }
+
+                    val isExplicitAlbumQuery = remember(searchQuery) {
+                        val q = searchQuery.lowercase()
+                        q.contains("album") || q.contains("soundtrack") || q.contains("discography") ||
+                        searchContainer?.intent?.queryType in setOf(
+                            com.audiovault.app.core.search.SearchQueryType.ALBUM_SEARCH,
+                            com.audiovault.app.core.search.SearchQueryType.SOUNDTRACK_SEARCH
+                        ) ||
+                        searchContainer?.intent?.targetEntity == com.audiovault.app.core.search.SearchTargetEntity.ALBUMS
                     }
 
                     val (originalSongs, remixOrAlternativeSongs) = remember(displayedOnlineSongs, isExplicitVersionQuery) {
@@ -1246,11 +1310,11 @@ fun SearchScreen(
                                 }
                             }
 
-                            // 4. MATCHING PLAYLISTS / ALBUMS (Square Album Artwork, Title, Type • Artist)
-                            if (displayedAlbums.isNotEmpty()) {
+                            // 4. MATCHING PLAYLISTS / ALBUMS (Only shown if user explicitly searched for an album or soundtrack)
+                            if (isExplicitAlbumQuery && displayedAlbums.isNotEmpty()) {
                                 item(key = "albums_header_title") {
                                     Text(
-                                        text = "Albums & Singles",
+                                        text = "Albums & Soundtracks",
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White,
@@ -1441,7 +1505,7 @@ fun SearchScreen(
                         // Empty State if no results found
                         val hasAnyResult = topResult != null ||
                                 displayedOnlineSongs.isNotEmpty() ||
-                                displayedAlbums.isNotEmpty() ||
+                                (isExplicitAlbumQuery && displayedAlbums.isNotEmpty()) ||
                                 onlineArtists.isNotEmpty() ||
                                 matchingArtists.isNotEmpty() ||
                                 isImportingAlbum ||
